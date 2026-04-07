@@ -8,6 +8,7 @@ const navItems = [
     section: 'Tổng quan',
     items: [
       { href: '/', label: 'Dashboard', icon: '📊' },
+      { href: '/overview', label: 'Overview (PPT)', icon: '📽️' },
     ],
   },
   {
