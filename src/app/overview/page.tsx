@@ -5,8 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { SCOPE_1_CATEGORIES, GRID_EMISSION_FACTORS, MONTHS_VI } from '@/lib/types';
 import type { Factory } from '@/lib/types';
 
-/* ── common EF for comparison ── */
-const COMMON_EF = 0.8041; // kg CO₂e / kWh — Indirect emissions from imported electricity
+const COMMON_EF = 0.8041;
 
 interface RawRow {
   factory_id: string;
@@ -18,342 +17,348 @@ interface RawRow {
   emissions_tco2e: number;
 }
 
+type ViewMode = 'ALL' | 'SINGLE' | 'COMPARE';
+
 export default function OverviewPage() {
   const [factories, setFactories] = useState<Factory[]>([]);
   const [emissions, setEmissions] = useState<RawRow[]>([]);
-  const [selectedFactory, setSelectedFactory] = useState<string>('ALL');
+  const [baseEmissions, setBaseEmissions] = useState<RawRow[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('ALL');
+  const [factoryA, setFactoryA] = useState('');
+  const [factoryB, setFactoryB] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [useCommonEF, setUseCommonEF] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  /* fetch */
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [fRes, eRes] = await Promise.all([
+      const [fRes, eRes, bRes] = await Promise.all([
         supabase.from('factories').select('*'),
         supabase.from('emissions_data')
           .select('factory_id,year,month,scope,category,activity_data,emissions_tco2e')
           .eq('year', selectedYear),
+        supabase.from('emissions_data')
+          .select('factory_id,year,month,scope,category,activity_data,emissions_tco2e')
+          .eq('year', 2021),
       ]);
-      setFactories((fRes.data || []) as Factory[]);
+      const facs = (fRes.data || []) as Factory[];
+      setFactories(facs);
       setEmissions((eRes.data || []) as RawRow[]);
+      setBaseEmissions((bRes.data || []) as RawRow[]);
+      if (facs.length >= 2 && !factoryA) {
+        setFactoryA(facs[0].id);
+        setFactoryB(facs[1].id);
+      }
       setLoading(false);
     }
     load();
   }, [selectedYear]);
 
-  /* ── computed data ── */
-  const data = useMemo(() => {
-    const filtered = selectedFactory === 'ALL'
-      ? emissions
-      : emissions.filter(e => e.factory_id === selectedFactory);
+  /* ── helper: calc S2 with EF toggle ── */
+  const calcS2 = (rows: RawRow[], fac?: Factory) => {
+    return rows.filter(e => e.scope === 'scope_2').reduce((s, e) => {
+      if (useCommonEF) return s + (Number(e.activity_data) * COMMON_EF / 1000);
+      const f = fac || factories.find(ff => ff.id === e.factory_id);
+      const gef = GRID_EMISSION_FACTORS.find(ef => ef.country === f?.country && ef.year === selectedYear);
+      return s + (Number(e.activity_data) * (gef?.factor || COMMON_EF) / 1000);
+    }, 0);
+  };
 
-    const relevantFactories = selectedFactory === 'ALL'
-      ? factories
-      : factories.filter(f => f.id === selectedFactory);
+  const calcS1 = (rows: RawRow[]) => rows.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
 
-    /* Scope 1 */
-    const s1Total = filtered
-      .filter(e => e.scope === 'scope_1')
-      .reduce((s, e) => s + Number(e.emissions_tco2e), 0);
+  /* ── build per-factory data block ── */
+  const buildFactoryBlock = (fac: Factory, allRows: RawRow[]) => {
+    const rows = allRows.filter(e => e.factory_id === fac.id);
+    const s1 = calcS1(rows);
+    const s2 = calcS2(rows, fac);
+    const total = s1 + s2;
+    const kWh = rows.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
 
-    const s1ByCat: Record<string, number> = {};
-    filtered.filter(e => e.scope === 'scope_1').forEach(e => {
-      s1ByCat[e.category] = (s1ByCat[e.category] || 0) + Number(e.emissions_tco2e);
+    // S1 by category
+    const s1ByCat: { key: string; label: string; icon: string; value: number }[] = [];
+    const catMap: Record<string, number> = {};
+    rows.filter(e => e.scope === 'scope_1').forEach(e => {
+      catMap[e.category] = (catMap[e.category] || 0) + Number(e.emissions_tco2e);
+    });
+    Object.entries(catMap).sort(([, a], [, b]) => b - a).forEach(([key, val]) => {
+      const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+      s1ByCat.push({ key, label: def?.label || key, icon: def?.icon || '📊', value: val });
     });
 
-    /* Scope 2 — recalc with EF if useCommonEF */
-    let s2Total = 0;
-    const s2ByFactoryMonth: Record<string, number[]> = {};
-
-    if (useCommonEF) {
-      /* Use common EF for all: activity_data (kWh) * 0.8041 / 1000 = tCO₂e */
-      filtered.filter(e => e.scope === 'scope_2').forEach(e => {
-        const tco2e = (Number(e.activity_data) * COMMON_EF) / 1000;
-        s2Total += tco2e;
-        const key = e.factory_id;
-        if (!s2ByFactoryMonth[key]) s2ByFactoryMonth[key] = Array(12).fill(0);
-        s2ByFactoryMonth[key][e.month - 1] += tco2e;
-      });
-    } else {
-      /* Use individual country EFs */
-      filtered.filter(e => e.scope === 'scope_2').forEach(e => {
-        const factory = factories.find(f => f.id === e.factory_id);
-        const gridEF = GRID_EMISSION_FACTORS.find(
-          ef => ef.country === factory?.country && ef.year === selectedYear
-        );
-        const tco2e = (Number(e.activity_data) * (gridEF?.factor || COMMON_EF)) / 1000;
-        s2Total += tco2e;
-        const key = e.factory_id;
-        if (!s2ByFactoryMonth[key]) s2ByFactoryMonth[key] = Array(12).fill(0);
-        s2ByFactoryMonth[key][e.month - 1] += tco2e;
-      });
-    }
-
-    const grandTotal = s1Total + s2Total;
-
-    /* monthly totals */
+    // Monthly
     const monthly = Array.from({ length: 12 }, (_, i) => {
-      const mFiltered = filtered.filter(e => e.month === i + 1);
-      const mS1 = mFiltered.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
-      let mS2 = 0;
-      if (useCommonEF) {
-        mS2 = mFiltered.filter(e => e.scope === 'scope_2').reduce((s, e) => s + (Number(e.activity_data) * COMMON_EF / 1000), 0);
-      } else {
-        mFiltered.filter(e => e.scope === 'scope_2').forEach(e => {
-          const factory = factories.find(f => f.id === e.factory_id);
-          const gridEF = GRID_EMISSION_FACTORS.find(ef => ef.country === factory?.country && ef.year === selectedYear);
-          mS2 += (Number(e.activity_data) * (gridEF?.factor || COMMON_EF)) / 1000;
-        });
-      }
-      return { month: i + 1, s1: mS1, s2: mS2, total: mS1 + mS2 };
+      const mRows = rows.filter(e => e.month === i + 1);
+      const ms1 = calcS1(mRows);
+      const ms2 = calcS2(mRows, fac);
+      return { month: i + 1, s1: ms1, s2: ms2, total: ms1 + ms2 };
     });
 
-    /* per-factory breakdown */
-    const factoryBreakdown = relevantFactories.map(f => {
-      const fData = filtered.filter(e => e.factory_id === f.id);
-      const fS1 = fData.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
-      let fS2 = 0;
-      if (useCommonEF) {
-        fS2 = fData.filter(e => e.scope === 'scope_2').reduce((s, e) => s + (Number(e.activity_data) * COMMON_EF / 1000), 0);
-      } else {
-        fData.filter(e => e.scope === 'scope_2').forEach(e => {
-          const gridEF = GRID_EMISSION_FACTORS.find(ef => ef.country === f.country && ef.year === selectedYear);
-          fS2 += (Number(e.activity_data) * (gridEF?.factor || COMMON_EF)) / 1000;
-        });
-      }
-      const kWh = fData.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
-      return { factory: f, s1: fS1, s2: fS2, total: fS1 + fS2, kWh };
-    }).sort((a, b) => b.total - a.total);
+    return { factory: fac, s1, s2, total, kWh, s1ByCat, monthly };
+  };
 
-    /* electricity kWh total */
-    const totalKWh = filtered.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
+  /* ── computed ── */
+  const data = useMemo(() => {
+    const allS1 = calcS1(emissions);
+    const allS2 = calcS2(emissions);
+    const allTotal = allS1 + allS2;
+    const lastMonth = Math.max(...emissions.map(e => e.month), 0);
+    const monthsWithData = new Set(emissions.map(e => e.month)).size;
 
-    /* active EF label */
-    const efLabel = useCommonEF
-      ? `Common EF: ${COMMON_EF} kg CO₂e/kWh`
-      : 'Country-specific Grid EF';
+    // SBTi
+    const baseS1S2 = calcS1(baseEmissions) + calcS2(baseEmissions);
+    const targetS1S2 = baseS1S2 * 0.5; // -50% by 2032
+    const currentPct = baseS1S2 > 0 ? ((baseS1S2 - allTotal) / baseS1S2 * 100) : 0;
+    const yearsElapsed = selectedYear - 2021;
+    const expectedPct = (yearsElapsed / 11) * 50; // linear pathway
 
-    /* last month with data */
-    const lastMonth = Math.max(...filtered.map(e => e.month), 0);
+    // Per-factory
+    const factoryBlocks = factories.map(f => buildFactoryBlock(f, emissions)).sort((a, b) => b.total - a.total);
 
-    return { s1Total, s2Total, grandTotal, s1ByCat, monthly, factoryBreakdown, totalKWh, efLabel, lastMonth, relevantFactories };
-  }, [emissions, factories, selectedFactory, selectedYear, useCommonEF]);
+    return { allS1, allS2, allTotal, lastMonth, monthsWithData, baseS1S2, targetS1S2, currentPct, expectedPct, factoryBlocks };
+  }, [emissions, baseEmissions, factories, useCommonEF, selectedYear]);
 
   const fmt = (n: number) => Math.round(n).toLocaleString('vi-VN');
-  const fmtDec = (n: number) => n.toFixed(1);
+  const fmtPct = (n: number) => n.toFixed(1);
 
-  const currentFactory = factories.find(f => f.id === selectedFactory);
-  const title = selectedFactory === 'ALL'
-    ? 'Intersnack Group — All Factories'
-    : `${currentFactory?.name || ''} Factory — ${currentFactory?.location || ''}`;
-  const subtitle = selectedFactory === 'ALL'
-    ? `4 Plants (3 Vietnam 🇻🇳 + 1 India 🇮🇳)`
-    : `${currentFactory?.country === 'India' ? '🇮🇳 India' : '🇻🇳 Vietnam'}`;
+  /* ── which blocks to show ── */
+  const displayBlocks = useMemo(() => {
+    if (viewMode === 'ALL') return data.factoryBlocks;
+    if (viewMode === 'SINGLE') return data.factoryBlocks.filter(b => b.factory.id === factoryA);
+    return data.factoryBlocks.filter(b => b.factory.id === factoryA || b.factory.id === factoryB);
+  }, [viewMode, factoryA, factoryB, data.factoryBlocks]);
+
+  const maxS1Cat = Math.max(...displayBlocks.flatMap(b => b.s1ByCat.map(c => c.value)), 1);
+  const maxMonthly = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.total)), 1);
 
   if (loading) {
     return (
-      <div className="overview-slide">
+      <div className="overview-wrapper">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
-          <div className="loading-spinner" />
-          <span style={{ color: '#999' }}>Loading data…</span>
+          <div className="loading-spinner" /><span style={{ color: '#999' }}>Loading…</span>
         </div>
       </div>
     );
   }
 
-  const s1Pct = data.grandTotal > 0 ? (data.s1Total / data.grandTotal * 100) : 0;
-  const s2Pct = data.grandTotal > 0 ? (data.s2Total / data.grandTotal * 100) : 0;
-  const maxMonthly = Math.max(...data.monthly.map(m => m.total), 1);
-  const monthsWithData = data.monthly.filter(m => m.total > 0).length;
-
   return (
     <div className="overview-wrapper">
-      {/* ── Controls (outside the slide) ── */}
+      {/* Controls */}
       <div className="overview-controls">
-        <select value={selectedFactory} onChange={e => setSelectedFactory(e.target.value)} className="overview-select">
-          <option value="ALL">🏭 Tất cả nhà máy (All Factories)</option>
-          {factories.map(f => (
-            <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name} — {f.location}</option>
+        <div className="ov-mode-tabs">
+          {([['ALL', '🏭 All'], ['SINGLE', '1️⃣ Single'], ['COMPARE', '⚖️ Compare 2']] as [ViewMode, string][]).map(([mode, label]) => (
+            <button key={mode} className={`ov-mode-tab ${viewMode === mode ? 'active' : ''}`} onClick={() => setViewMode(mode)}>{label}</button>
           ))}
-        </select>
+        </div>
+        {(viewMode === 'SINGLE' || viewMode === 'COMPARE') && (
+          <select value={factoryA} onChange={e => setFactoryA(e.target.value)} className="overview-select">
+            {factories.map(f => <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</option>)}
+          </select>
+        )}
+        {viewMode === 'COMPARE' && (
+          <>
+            <span style={{ color: '#F5A623', fontWeight: 700, fontSize: '14px' }}>vs</span>
+            <select value={factoryB} onChange={e => setFactoryB(e.target.value)} className="overview-select">
+              {factories.filter(f => f.id !== factoryA).map(f => <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</option>)}
+            </select>
+          </>
+        )}
         <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} className="overview-select">
           {[2021, 2022, 2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-        <button
-          className={`overview-ef-toggle ${useCommonEF ? 'common' : 'individual'}`}
-          onClick={() => setUseCommonEF(!useCommonEF)}
-        >
-          {useCommonEF ? '🔗 Common EF (0.8041)' : '🏭 Individual Grid EF'}
+        <button className={`overview-ef-toggle ${useCommonEF ? 'common' : 'individual'}`} onClick={() => setUseCommonEF(!useCommonEF)}>
+          {useCommonEF ? `🔗 Common EF (${COMMON_EF})` : '🏭 Individual Grid EF'}
         </button>
-        <span style={{ fontSize: '11px', color: '#999', marginLeft: '8px' }}>
-          {useCommonEF ? '⬅ Click to switch to country-specific EF for official reports' : '⬅ Click to switch to common EF for comparison'}
-        </span>
       </div>
 
-      {/* ── Slide 16:9 ── */}
+      {/* Slide */}
       <div className="overview-slide">
         {/* Top bar */}
         <div className="ov-topbar">
           <div className="ov-logo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E32314" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             <span>INTERSNACK GROUP</span>
           </div>
-          <div className="ov-topbar-title">GHG Emissions Overview — {selectedYear} YTD ({monthsWithData} months)</div>
-          <div className="ov-ef-badge">
-            {useCommonEF ? `⚡ EF = ${COMMON_EF}` : '⚡ Country Grid EF'} kg CO₂e/kWh
+          <div className="ov-topbar-title">
+            GHG Emissions Report — {selectedYear} YTD ({data.monthsWithData} months, Jan–{MONTHS_VI[data.lastMonth - 1] || 'N/A'})
           </div>
+          <div className="ov-ef-badge">{useCommonEF ? `EF = ${COMMON_EF}` : 'Country Grid EF'} kg CO₂e/kWh</div>
         </div>
 
-        {/* Main content row */}
         <div className="ov-body">
-          {/* Left: KPI + Scope breakdown */}
+          {/* ── LEFT: KPIs + SBTi ── */}
           <div className="ov-left">
-            <div className="ov-title-block">
-              <div className="ov-plant-title">{title}</div>
-              <div className="ov-plant-sub">{subtitle}</div>
-            </div>
-
-            {/* Grand total KPI */}
+            {/* Grand total */}
             <div className="ov-grand-kpi">
-              <div className="ov-grand-value">{fmt(data.grandTotal)}</div>
+              <div className="ov-grand-label">TOTAL SCOPE 1 + 2 · {selectedYear} YTD</div>
+              <div className="ov-grand-value">{fmt(viewMode === 'ALL' ? data.allTotal : displayBlocks.reduce((s, b) => s + b.total, 0))}</div>
               <div className="ov-grand-unit">tCO₂e</div>
-              <div className="ov-grand-label">Total Scope 1 + 2 ({selectedYear})</div>
             </div>
 
-            {/* Scope 1 + 2 cards */}
+            {/* Scope 1 vs 2 summary */}
             <div className="ov-scope-row">
               <div className="ov-scope-card s1">
-                <div className="ov-scope-header">
-                  <span className="ov-scope-icon">🔥</span>
-                  <span>SCOPE 1 — Direct</span>
-                </div>
-                <div className="ov-scope-value">{fmt(data.s1Total)}</div>
-                <div className="ov-scope-sub">tCO₂e · {fmtDec(s1Pct)}%</div>
-                <div className="ov-scope-bar"><div style={{ width: `${s1Pct}%`, background: '#E32314' }} /></div>
+                <div className="ov-scope-header"><span className="ov-scope-icon">🔥</span> SCOPE 1</div>
+                <div className="ov-scope-value">{fmt(viewMode === 'ALL' ? data.allS1 : displayBlocks.reduce((s, b) => s + b.s1, 0))}</div>
+                <div className="ov-scope-sub">tCO₂e · Direct emissions</div>
               </div>
               <div className="ov-scope-card s2">
-                <div className="ov-scope-header">
-                  <span className="ov-scope-icon">⚡</span>
-                  <span>SCOPE 2 — Electricity</span>
-                </div>
-                <div className="ov-scope-value">{fmt(data.s2Total)}</div>
-                <div className="ov-scope-sub">tCO₂e · {fmtDec(s2Pct)}%</div>
-                <div className="ov-scope-bar"><div style={{ width: `${s2Pct}%`, background: '#F5A623' }} /></div>
+                <div className="ov-scope-header"><span className="ov-scope-icon">⚡</span> SCOPE 2</div>
+                <div className="ov-scope-value">{fmt(viewMode === 'ALL' ? data.allS2 : displayBlocks.reduce((s, b) => s + b.s2, 0))}</div>
+                <div className="ov-scope-sub">tCO₂e · Electricity</div>
               </div>
             </div>
 
-            {/* Electricity detail */}
+            {/* SBTi Progress */}
+            <div className="ov-sbti-box">
+              <div className="ov-sbti-title">🎯 SBTi Near-term Target (Scope 1+2)</div>
+              <div className="ov-sbti-row">
+                <div className="ov-sbti-item">
+                  <div className="ov-sbti-label">Base 2021</div>
+                  <div className="ov-sbti-val">{fmt(data.baseS1S2)}</div>
+                </div>
+                <div className="ov-sbti-arrow">→</div>
+                <div className="ov-sbti-item current">
+                  <div className="ov-sbti-label">{selectedYear} YTD</div>
+                  <div className="ov-sbti-val">{fmt(data.allTotal)}</div>
+                </div>
+                <div className="ov-sbti-arrow">→</div>
+                <div className="ov-sbti-item target">
+                  <div className="ov-sbti-label">Target 2032</div>
+                  <div className="ov-sbti-val">{fmt(data.targetS1S2)}</div>
+                </div>
+              </div>
+              <div className="ov-sbti-bar-wrap">
+                <div className="ov-sbti-bar-bg">
+                  <div className="ov-sbti-bar-fill" style={{ width: `${Math.min(Math.max(data.currentPct, 0), 100)}%` }} />
+                  <div className="ov-sbti-bar-expected" style={{ left: `${Math.min(data.expectedPct, 100)}%` }} />
+                </div>
+                <div className="ov-sbti-bar-labels">
+                  <span>Reduced: <strong style={{ color: data.currentPct >= data.expectedPct ? '#2ECC71' : '#E32314' }}>{fmtPct(data.currentPct)}%</strong></span>
+                  <span>Expected: {fmtPct(data.expectedPct)}%</span>
+                  <span>Target: 50%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Electricity info */}
             <div className="ov-elec-detail">
               <div className="ov-elec-item">
-                <span className="ov-elec-label">Total Consumption</span>
-                <span className="ov-elec-val">{(data.totalKWh / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} MWh</span>
+                <span className="ov-elec-label">Total kWh</span>
+                <span className="ov-elec-val">{(displayBlocks.reduce((s, b) => s + b.kWh, 0) / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} MWh</span>
               </div>
               <div className="ov-elec-item">
-                <span className="ov-elec-label">Emission Factor</span>
-                <span className="ov-elec-val">{useCommonEF ? COMMON_EF : 'Country-specific'} kg CO₂e/kWh</span>
+                <span className="ov-elec-label">EF Applied</span>
+                <span className="ov-elec-val">{useCommonEF ? `${COMMON_EF} (common)` : 'Country-specific'}</span>
               </div>
             </div>
           </div>
 
-          {/* Right: Chart + Factory table */}
+          {/* ── RIGHT: Charts + Factory detail ── */}
           <div className="ov-right">
-            {/* Monthly stacked bar chart */}
-            <div className="ov-chart-title">Monthly Emissions (tCO₂e)</div>
+            {/* Monthly chart */}
+            <div className="ov-chart-title">Monthly Emissions by Factory (tCO₂e)</div>
             <div className="ov-chart">
-              <svg viewBox={`0 0 540 160`} width="100%" height="160">
-                {data.monthly.map((m, i) => {
-                  const barW = 32;
-                  const gap = (540 - 12 * barW) / 13;
-                  const x = gap + i * (barW + gap);
-                  const s1H = maxMonthly > 0 ? (m.s1 / maxMonthly) * 120 : 0;
-                  const s2H = maxMonthly > 0 ? (m.s2 / maxMonthly) * 120 : 0;
-                  const totalH = s1H + s2H;
+              <svg viewBox="0 0 560 145" width="100%" height="145">
+                {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+                  <g key={`g-${i}`}>
+                    <line x1={30} y1={125 - pct * 110} x2={560} y2={125 - pct * 110} stroke="#f0f0f0" strokeWidth={0.5} />
+                    <text x={28} y={128 - pct * 110} textAnchor="end" fontSize="7" fill="#bbb">{Math.round(maxMonthly * pct)}</text>
+                  </g>
+                ))}
+                {data.factoryBlocks[0]?.monthly.map((_, mi) => {
+                  const barGroupW = 38;
+                  const gap = (530 - 12 * barGroupW) / 13;
+                  const x0 = 32 + gap + mi * (barGroupW + gap);
+                  const barW = displayBlocks.length > 1 ? barGroupW / displayBlocks.length - 1 : barGroupW - 4;
                   return (
-                    <g key={i}>
-                      <rect x={x} y={130 - totalH} width={barW} height={s2H} rx={2} fill="#F5A623" opacity={0.85} />
-                      <rect x={x} y={130 - s1H} width={barW} height={s1H} rx={s2H === 0 ? 2 : 0} fill="#E32314" opacity={0.85} />
-                      {m.total > 0 && (
-                        <text x={x + barW / 2} y={125 - totalH} textAnchor="middle" fontSize="7.5" fill="#333" fontWeight="600">
-                          {Math.round(m.total)}
-                        </text>
-                      )}
-                      <text x={x + barW / 2} y={148} textAnchor="middle" fontSize="8" fill="#999">{MONTHS_VI[i]}</text>
+                    <g key={mi}>
+                      {displayBlocks.map((fb, fi) => {
+                        const m = fb.monthly[mi];
+                        const h = maxMonthly > 0 ? (m.total / maxMonthly) * 110 : 0;
+                        const s1h = maxMonthly > 0 ? (m.s1 / maxMonthly) * 110 : 0;
+                        const s2h = h - s1h;
+                        const bx = x0 + fi * (barW + 1);
+                        const colors = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
+                        const s2colors = ['#FF8A80', '#FFD180', '#B388FF', '#CCFF90'];
+                        return (
+                          <g key={fi}>
+                            <rect x={bx} y={125 - h} width={barW} height={s2h} rx={1} fill={s2colors[fi]} opacity={0.7} />
+                            <rect x={bx} y={125 - s1h} width={barW} height={s1h} rx={1} fill={colors[fi]} opacity={0.85} />
+                          </g>
+                        );
+                      })}
+                      <text x={x0 + barGroupW / 2} y={138} textAnchor="middle" fontSize="7" fill="#999">{MONTHS_VI[mi]}</text>
                     </g>
                   );
                 })}
-                {/* Y-axis guides */}
-                {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
-                  <g key={`g-${i}`}>
-                    <line x1={0} y1={130 - pct * 120} x2={540} y2={130 - pct * 120} stroke="#eee" strokeWidth={0.5} />
-                    <text x={-2} y={133 - pct * 120} textAnchor="end" fontSize="7" fill="#bbb">{Math.round(maxMonthly * pct)}</text>
-                  </g>
-                ))}
               </svg>
               <div className="ov-chart-legend">
-                <span><span className="ov-legend-dot" style={{ background: '#E32314' }} /> Scope 1</span>
-                <span><span className="ov-legend-dot" style={{ background: '#F5A623' }} /> Scope 2</span>
+                {displayBlocks.map((fb, i) => {
+                  const colors = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
+                  return <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: colors[i] }} /> {fb.factory.name} ({fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'})</span>;
+                })}
+                <span style={{ marginLeft: 'auto', opacity: 0.6 }}>■ Dark = S1 · ■ Light = S2</span>
               </div>
             </div>
 
-            {/* Factory comparison table */}
-            {data.factoryBreakdown.length > 1 && (
-              <div className="ov-factory-table">
-                <div className="ov-table-title">Factory Comparison</div>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Plant</th>
-                      <th style={{ textAlign: 'right' }}>Scope 1</th>
-                      <th style={{ textAlign: 'right' }}>Scope 2</th>
-                      <th style={{ textAlign: 'right' }}>Total</th>
-                      <th style={{ textAlign: 'right' }}>MWh</th>
-                      <th style={{ width: '100px' }}>Share</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.factoryBreakdown.map(fb => (
-                      <tr key={fb.factory.id}>
-                        <td>
-                          <span className="ov-flag">{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'}</span>
-                          {fb.factory.name}
-                        </td>
-                        <td style={{ textAlign: 'right', color: '#E32314', fontWeight: 600 }}>{fmt(fb.s1)}</td>
-                        <td style={{ textAlign: 'right', color: '#F5A623', fontWeight: 600 }}>{fmt(fb.s2)}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(fb.total)}</td>
-                        <td style={{ textAlign: 'right', color: '#888' }}>{(fb.kWh / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
-                        <td>
-                          <div className="ov-share-bar">
-                            <div style={{ width: `${data.grandTotal > 0 ? (fb.total / data.grandTotal * 100) : 0}%` }} />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {/* Scope 1 horizontal breakdown */}
+            <div className="ov-chart-title" style={{ marginTop: '6px' }}>Scope 1 Breakdown by Source</div>
+            <div className="ov-s1-breakdown">
+              {(() => {
+                // Collect all unique categories
+                const allCats = new Set<string>();
+                displayBlocks.forEach(b => b.s1ByCat.forEach(c => allCats.add(c.key)));
+                const cats = Array.from(allCats);
+                const maxVal = Math.max(...displayBlocks.flatMap(b => b.s1ByCat.map(c => c.value)), 1);
 
-            {/* Single factory Scope 1 breakdown */}
-            {data.factoryBreakdown.length === 1 && (
+                return cats.map(catKey => {
+                  const def = SCOPE_1_CATEGORIES.find(c => c.key === catKey);
+                  return (
+                    <div key={catKey} className="ov-s1-row">
+                      <div className="ov-s1-label">{def?.icon} {def?.label || catKey}</div>
+                      <div className="ov-s1-bars">
+                        {displayBlocks.map((fb, fi) => {
+                          const catVal = fb.s1ByCat.find(c => c.key === catKey)?.value || 0;
+                          const pct = maxVal > 0 ? (catVal / maxVal * 100) : 0;
+                          const colors = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
+                          return (
+                            <div key={fi} className="ov-s1-bar-row">
+                              <div className="ov-s1-bar-track">
+                                <div className="ov-s1-bar-fill" style={{ width: `${pct}%`, background: colors[fi] }} />
+                              </div>
+                              <span className="ov-s1-bar-val" style={{ color: colors[fi] }}>{catVal > 0 ? fmt(catVal) : '—'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Factory totals comparison table (when ALL or COMPARE) */}
+            {displayBlocks.length > 1 && (
               <div className="ov-factory-table">
-                <div className="ov-table-title">Scope 1 Breakdown — {data.factoryBreakdown[0].factory.name}</div>
+                <div className="ov-table-title">Factory Comparison — YTD {selectedYear}</div>
                 <table>
                   <thead>
-                    <tr><th>Source</th><th style={{ textAlign: 'right' }}>tCO₂e</th><th style={{ width: '120px' }}>Share</th></tr>
+                    <tr><th>Plant</th><th style={{ textAlign: 'right' }}>S1</th><th style={{ textAlign: 'right' }}>S2</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'right' }}>MWh</th><th style={{ width: '90px' }}>Share</th></tr>
                   </thead>
                   <tbody>
-                    {Object.entries(data.s1ByCat).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a).map(([cat, val]) => {
-                      const def = SCOPE_1_CATEGORIES.find(c => c.key === cat);
+                    {displayBlocks.map((fb, i) => {
+                      const colors = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
+                      const dispTotal = displayBlocks.reduce((s, b) => s + b.total, 0);
                       return (
-                        <tr key={cat}>
-                          <td>{def?.icon} {def?.label || cat}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(val)}</td>
+                        <tr key={fb.factory.id}>
+                          <td><span style={{ color: colors[i], fontWeight: 700, marginRight: '4px' }}>●</span>{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(fb.s1)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(fb.s2)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(fb.total)}</td>
+                          <td style={{ textAlign: 'right', color: '#888' }}>{(fb.kWh / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
                           <td>
-                            <div className="ov-share-bar s1">
-                              <div style={{ width: `${data.s1Total > 0 ? (val / data.s1Total * 100) : 0}%` }} />
-                            </div>
+                            <div className="ov-share-bar"><div style={{ width: `${dispTotal > 0 ? (fb.total / dispTotal * 100) : 0}%`, background: colors[i] }} /></div>
                           </td>
                         </tr>
                       );
@@ -368,8 +373,8 @@ export default function OverviewPage() {
         {/* Footer */}
         <div className="ov-footer">
           <span>© {selectedYear} Intersnack Group — GHG Tracker</span>
-          <span>SBTi Near-term Targets Approved</span>
-          <span>EF: {data.efLabel}</span>
+          <span>SBTi Near-term Approved · Base Year 2021 · Target -50% by 2032</span>
+          <span>EF: {useCommonEF ? `Common ${COMMON_EF}` : 'Country-specific'} kg CO₂e/kWh</span>
         </div>
       </div>
     </div>
