@@ -981,46 +981,110 @@ button {
 .overview-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px;
-  background: rgba(255,255,255,0.06);
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.ov-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
   border-radius: 8px;
-  backdrop-filter: blur(8px);
+  background: linear-gradient(135deg, #E32314, #8E1E19);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(227,35,20,0.4);
+}
+.ov-home-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(227,35,20,0.5);
+  background: linear-gradient(135deg, #f02a1a, #a02218);
+}
+.ov-home-btn svg { flex-shrink: 0; }
+
+.ov-controls-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255,255,255,0.12);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.ov-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ov-select-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-left: 2px;
+}
+
+.ov-vs-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #F5A623;
+  background: rgba(245,166,35,0.15);
+  border: 1px solid rgba(245,166,35,0.3);
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 1px;
 }
 
 .overview-select {
-  padding: 6px 12px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 6px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 7px;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  transition: all 0.15s;
+}
+.overview-select:hover {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.28);
 }
 .overview-select option { background: #1a1a2e; color: #fff; }
 
 .overview-ef-toggle {
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid;
   font-family: inherit;
+  letter-spacing: 0.2px;
 }
 .overview-ef-toggle.common {
-  background: rgba(245, 166, 35, 0.15);
-  border-color: rgba(245, 166, 35, 0.4);
+  background: rgba(245, 166, 35, 0.13);
+  border-color: rgba(245, 166, 35, 0.35);
   color: #F5A623;
 }
 .overview-ef-toggle.individual {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.13);
+  border-color: rgba(99, 102, 241, 0.35);
   color: #818CF8;
 }
-.overview-ef-toggle:hover { transform: scale(1.03); }
+.overview-ef-toggle:hover { transform: translateY(-1px); opacity: 0.9; }
 
 /* ── The Slide ── */
 .overview-slide {
@@ -1307,28 +1371,32 @@ button {
 .ov-mode-tabs {
   display: flex;
   gap: 2px;
-  padding: 2px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 6px;
+  padding: 3px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.07);
 }
 .ov-mode-tab {
-  padding: 5px 12px;
-  border-radius: 5px;
+  padding: 5px 14px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.45);
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 .ov-mode-tab.active {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.14);
   color: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 .ov-mode-tab:hover:not(.active) {
-  color: rgba(255,255,255,0.8);
+  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.05);
 }
 
 /* SBTi box */

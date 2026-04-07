@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { SCOPE_1_CATEGORIES, GRID_EMISSION_FACTORS, MONTHS_VI } from '@/lib/types';
 import type { Factory } from '@/lib/types';
@@ -118,29 +119,48 @@ export default function OverviewPage() {
     return { factory: fac, s1, s2, total: s1 + s2, kWh, s1ByCat, monthly };
   };
 
-  /* ── Multi-year SBTi roadmap data ── */
+  /* ── Multi-year SBTi roadmap data ── (filters by selected factories) */
   const roadmapData = useMemo(() => {
     const years = [2021, 2022, 2023, 2024, 2025, 2026];
-    const baseRows = allEmissions.filter(e => e.year === 2021);
-    const baseTotal = calcS1(baseRows) + calcS2(baseRows, 2021);
-    
+    // Base year = 2021, ALL factories (for consistent baseline)
+    const baseRows2021 = allEmissions.filter(e => e.year === 2021);
+
+    // Selected factory IDs based on current viewMode
+    const selIds = viewMode === 'ALL'
+      ? factories.map(f => f.id)
+      : viewMode === 'SINGLE'
+        ? [factoryA]
+        : [factoryA, factoryB];
+
+    // Compute base for selected factories only
+    const baseRowsSel = baseRows2021.filter(e => selIds.includes(e.factory_id));
+    const baseTotalSel = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021);
+
     return years.map(yr => {
-      const yrRows = allEmissions.filter(e => e.year === yr);
+      const yrRows = allEmissions.filter(e => e.year === yr && selIds.includes(e.factory_id));
       const actual = calcS1(yrRows) + calcS2(yrRows, yr);
-      const target = baseTotal * (1 - (50 / 11) * (yr - 2021) / 100);
+      // Linear target: from baseTotalSel → 50% of baseTotalSel over 11 years (2021→2032)
+      const target = baseTotalSel * (1 - 0.5 * ((yr - 2021) / 11));
       const monthsActive = new Set(yrRows.map(e => e.month)).size;
 
-      // Per-factory breakdown
-      const perFactory = factories.map(f => {
-        const fData = yrRows.filter(e => e.factory_id === f.id);
-        const s1 = calcS1(fData);
-        const s2 = calcS2(fData, yr, f);
-        return { factory: f, s1, s2, total: s1 + s2 };
-      });
+      // Per-factory breakdown (only selected)
+      const perFactory = factories
+        .filter(f => selIds.includes(f.id))
+        .map(f => {
+          const fData = yrRows.filter(e => e.factory_id === f.id);
+          const s1 = calcS1(fData);
+          const s2 = calcS2(fData, yr, f);
+          return { factory: f, s1, s2, total: s1 + s2 };
+        });
 
-      return { year: yr, actual, target, baseTotal, monthsActive, perFactory, onTrack: actual <= target };
+      // RCN for this year (selected factories)
+      const yrRCN = prodData
+        .filter(p => p.year === yr && selIds.includes(p.factory_id) && p.category === 'rcn_input')
+        .reduce((s, p) => s + Number(p.quantity), 0);
+
+      return { year: yr, actual, target, baseTotal: baseTotalSel, monthsActive, perFactory, onTrack: actual <= target, rcn: yrRCN };
     });
-  }, [allEmissions, factories, useCommonEF]);
+  }, [allEmissions, factories, viewMode, factoryA, factoryB, useCommonEF, prodData]);
 
   const data = useMemo(() => {
     const allS1 = calcS1(emissions);
@@ -180,36 +200,60 @@ export default function OverviewPage() {
   );
 
   /* Roadmap SVG dimensions for the SBTi chart */
-  const rmMaxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.12;
-  const rmW = 540, rmH = 155, rmPadL = 38, rmPadR = 30, rmPadT = 18, rmPadB = 28;
+  const rmMaxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
+  const rmW = 560, rmH = 175, rmPadL = 42, rmPadR = 52, rmPadT = 22, rmPadB = 36;
   const rmPlotW = rmW - rmPadL - rmPadR;
   const rmPlotH = rmH - rmPadT - rmPadB;
+  // RCN secondary axis
+  const rmMaxRCN = Math.max(...roadmapData.map(d => d.rcn), 1) * 1.2;
 
   return (
     <div className="overview-wrapper">
       {/* Controls */}
       <div className="overview-controls">
+        {/* Home button — prominent */}
+        <Link href="/" className="ov-home-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Dashboard
+        </Link>
+
+        <div className="ov-controls-divider" />
+
         <div className="ov-mode-tabs">
-          {([['ALL', '🏭 All'], ['SINGLE', '1️⃣ Single'], ['COMPARE', '⚖️ Compare']] as [ViewMode, string][]).map(([mode, lb]) => (
+          {([['ALL', '🏭 All Factories'], ['SINGLE', '🔍 Single'], ['COMPARE', '⚖️ Compare']] as [ViewMode, string][]).map(([mode, lb]) => (
             <button key={mode} className={`ov-mode-tab ${viewMode === mode ? 'active' : ''}`} onClick={() => setViewMode(mode)}>{lb}</button>
           ))}
         </div>
+
         {(viewMode === 'SINGLE' || viewMode === 'COMPARE') && (
-          <select value={factoryA} onChange={e => setFactoryA(e.target.value)} className="overview-select">
-            {factories.map(f => <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</option>)}
-          </select>
+          <div className="ov-select-group">
+            <span className="ov-select-label">{viewMode === 'COMPARE' ? 'Factory A' : 'Factory'}</span>
+            <select value={factoryA} onChange={e => setFactoryA(e.target.value)} className="overview-select">
+              {factories.map(f => <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</option>)}
+            </select>
+          </div>
         )}
         {viewMode === 'COMPARE' && <>
-          <span style={{ color: '#F5A623', fontWeight: 700, fontSize: 14 }}>vs</span>
-          <select value={factoryB} onChange={e => setFactoryB(e.target.value)} className="overview-select">
-            {factories.filter(f => f.id !== factoryA).map(f => <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</option>)}
-          </select>
+          <span className="ov-vs-badge">VS</span>
+          <div className="ov-select-group">
+            <span className="ov-select-label">Factory B</span>
+            <select value={factoryB} onChange={e => setFactoryB(e.target.value)} className="overview-select">
+              {factories.filter(f => f.id !== factoryA).map(f => <option key={f.id} value={f.id}>{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</option>)}
+            </select>
+          </div>
         </>}
-        <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} className="overview-select">
-          {[2021, 2022, 2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
+
+        <div className="ov-controls-divider" />
+
+        <div className="ov-select-group">
+          <span className="ov-select-label">Year</span>
+          <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} className="overview-select">
+            {[2021, 2022, 2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+
         <button className={`overview-ef-toggle ${useCommonEF ? 'common' : 'individual'}`} onClick={() => setUseCommonEF(!useCommonEF)}>
-          {useCommonEF ? `🔗 Common EF (${COMMON_EF})` : '🏭 Individual Grid EF'}
+          {useCommonEF ? `EF ${COMMON_EF}` : 'Country EF'}
         </button>
       </div>
 
@@ -220,7 +264,19 @@ export default function OverviewPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             <span>INTERSNACK GROUP</span>
           </div>
-          <div className="ov-topbar-title">GHG Emissions Report — {selectedYear} YTD ({data.monthsWithData} months, Jan–{MONTHS_VI[data.lastMonth - 1] || 'N/A'})</div>
+          <div className="ov-topbar-title">
+            GHG Emissions Report — {selectedYear} YTD ({data.monthsWithData} months)
+            {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
+              <span style={{ marginLeft: 8, padding: '1px 8px', background: 'rgba(255,255,255,0.18)', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
+              </span>
+            )}
+            {viewMode === 'COMPARE' && (
+              <span style={{ marginLeft: 8, padding: '1px 8px', background: 'rgba(255,255,255,0.18)', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                {factories.find(f => f.id === factoryA)?.name} vs {factories.find(f => f.id === factoryB)?.name}
+              </span>
+            )}
+          </div>
           <div className="ov-ef-badge">{useCommonEF ? `EF = ${COMMON_EF}` : 'Country Grid EF'} kg CO₂e/kWh</div>
         </div>
 
@@ -334,36 +390,86 @@ export default function OverviewPage() {
 
             {/* ── SBTi ROADMAP — Full multi-year chart ── */}
             <div className="ov-roadmap-full">
-              <div className="ov-chart-title">🎯 SBTi Roadmap — Scope 1+2 Actual vs Target Pathway (2021 → 2032)</div>
-              <svg viewBox={`0 0 ${rmW} ${rmH}`} width="100%" height={rmH}>
-                {/* Grid */}
+              <div className="ov-chart-title">
+                🎯 SBTi Roadmap — Scope 1+2 · 2021 → 2032
+                {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
+                  <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
+                    {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
+                  </span>
+                )}
+                {viewMode === 'COMPARE' && (
+                  <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
+                    {factories.find(f => f.id === factoryA)?.name} + {factories.find(f => f.id === factoryB)?.name}
+                  </span>
+                )}
+              </div>
+              <svg viewBox={`0 0 ${rmW} ${rmH}`} width="100%" height={rmH} style={{overflow:'visible'}}>
+                {/* Left axis grid */}
                 {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
                   <g key={`rg${i}`}>
-                    <line x1={rmPadL} y1={rmPadT + rmPlotH*(1-p)} x2={rmW-rmPadR} y2={rmPadT + rmPlotH*(1-p)} stroke="#f5f5f5" strokeWidth={0.5}/>
-                    <text x={rmPadL-3} y={rmPadT + rmPlotH*(1-p)+3} textAnchor="end" fontSize="6.5" fill="#ccc">{fmt(rmMaxVal*p)}</text>
+                    <line x1={rmPadL} y1={rmPadT + rmPlotH*(1-p)} x2={rmW-rmPadR} y2={rmPadT + rmPlotH*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
+                    <text x={rmPadL-4} y={rmPadT + rmPlotH*(1-p)+3} textAnchor="end" fontSize="7" fill="#bbb">{fmt(rmMaxVal*p)}</text>
                   </g>
                 ))}
-                
-                {/* Target pathway line (dashed green) */}
+
+                {/* Target pathway line (dashed green) — extends to 2032 */}
                 {(() => {
                   const pts = roadmapData.map((d, i) => {
-                    const x = rmPadL + (i / (roadmapData.length - 1)) * rmPlotW;
+                    const totalCols = roadmapData.length; // 6 bars (2021-2026)
+                    const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
                     const y = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
                     return `${x},${y}`;
                   });
-                  // Extend to 2032
-                  const x2032 = rmPadL + rmPlotW + 0;
-                  const y2032 = rmPadT + rmPlotH * (1 - (roadmapData[0]?.baseTotal * 0.5 || 0) / rmMaxVal);
-                  return <polyline points={[...pts, `${x2032},${y2032}`].join(' ')} fill="none" stroke="#8CB92D" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.7}/>;
+                  // Extend dashed line to 2032 endpoint at right edge
+                  const x2032 = rmW - rmPadR + 48;
+                  const t2032 = roadmapData[0]?.baseTotal * 0.5 || 0;
+                  const y2032 = rmPadT + rmPlotH * (1 - t2032 / rmMaxVal);
+                  return <polyline points={[...pts, `${x2032},${y2032}`].join(' ')} fill="none" stroke="#8CB92D" strokeWidth={1.5} strokeDasharray="5,3" opacity={0.75}/>;
                 })()}
 
-                {/* Stacked bars per year — 4 factories */}
+                {/* RCN dotted line (secondary axis — right side) */}
+                {rmMaxRCN > 1 && (() => {
+                  const rcnPts = roadmapData
+                    .filter(d => d.rcn > 0)
+                    .map(d => {
+                      const i = roadmapData.indexOf(d);
+                      const totalCols = roadmapData.length;
+                      const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
+                      const y = rmPadT + rmPlotH * (1 - d.rcn / rmMaxRCN);
+                      return `${x},${y}`;
+                    });
+                  if (rcnPts.length < 2) return null;
+                  return (
+                    <g>
+                      <polyline points={rcnPts.join(' ')} fill="none" stroke="#6366F1" strokeWidth={1.2} strokeDasharray="2,3" opacity={0.55}/>
+                      {roadmapData.filter(d => d.rcn > 0).map(d => {
+                        const i = roadmapData.indexOf(d);
+                        const totalCols = roadmapData.length;
+                        const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
+                        const y = rmPadT + rmPlotH * (1 - d.rcn / rmMaxRCN);
+                        const rcnK = d.rcn >= 1000 ? `${(d.rcn/1000).toFixed(1)}k` : Math.round(d.rcn).toString();
+                        return (
+                          <g key={`rcn${d.year}`}>
+                            <circle cx={x} cy={y} r={2} fill="#6366F1" opacity={0.6}/>
+                            <text x={x} y={y - 4} textAnchor="middle" fontSize="6" fill="#6366F1" opacity={0.8}>{rcnK}</text>
+                          </g>
+                        );
+                      })}
+                      {/* Right axis label */}
+                      <text x={rmW - rmPadR + 4} y={rmPadT} fontSize="6.5" fill="#6366F1" opacity={0.7}>MT RCN →</text>
+                    </g>
+                  );
+                })()}
+
+                {/* Stacked bars per year */}
                 {roadmapData.map((d, i) => {
-                  const x = rmPadL + (i / (roadmapData.length - 1)) * rmPlotW;
-                  const barW = 22;
+                  const totalCols = roadmapData.length;
+                  const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
+                  const barW = 24;
                   const barX = x - barW / 2;
                   let cumH = 0;
                   const targetY = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
+                  const isCurrent = d.year === selectedYear;
 
                   return (
                     <g key={d.year}>
@@ -372,28 +478,45 @@ export default function OverviewPage() {
                         const y = rmPadT + rmPlotH - cumH - h;
                         cumH += h;
                         const fIdx = factories.findIndex(f => f.id === pf.factory.id);
-                        return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1}
-                          fill={FAC_COLORS[fIdx >= 0 ? fIdx : fi]} opacity={d.year === selectedYear ? 0.9 : 0.55}
-                          stroke={d.year === selectedYear ? '#333' : 'none'} strokeWidth={d.year === selectedYear ? 0.8 : 0}/>;
+                        return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1.5}
+                          fill={FAC_COLORS[fIdx >= 0 ? fIdx : fi]} opacity={isCurrent ? 0.92 : 0.55}
+                          stroke={isCurrent ? '#333' : 'none'} strokeWidth={isCurrent ? 0.8 : 0}/>;
                       })}
-                      {/* Actual value above bar */}
+
+                      {/* Actual value label above bar */}
                       {d.actual > 0 && (
-                        <text x={x} y={rmPadT + rmPlotH - cumH - 4} textAnchor="middle" fontSize="7" fontWeight="700"
-                          fill={d.year === selectedYear ? '#E32314' : '#555'}>
+                        <text x={x} y={rmPadT + rmPlotH - cumH - 5} textAnchor="middle" fontSize="7.5" fontWeight="700"
+                          fill={isCurrent ? '#E32314' : '#666'}>
                           {fmt(d.actual)}
                         </text>
                       )}
-                      {/* Target dot on pathway */}
-                      <circle cx={x} cy={targetY} r={2.5} fill="#8CB92D" opacity={0.6}/>
-                      {/* Year + status label */}
-                      <text x={x} y={rmH - 8} textAnchor="middle" fontSize="8"
-                        fill={d.year === selectedYear ? '#E32314' : '#888'}
-                        fontWeight={d.year === selectedYear ? 700 : 400}>
+
+                      {/* 2026: also show % vs target annotation */}
+                      {isCurrent && d.actual > 0 && (() => {
+                        const pctReduced = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
+                        const sign = pctReduced >= 0 ? '-' : '+';
+                        return (
+                          <text x={x} y={rmPadT + rmPlotH - cumH - 14} textAnchor="middle" fontSize="6.5" fontWeight="600"
+                            fill={d.onTrack ? '#27AE60' : '#E32314'}>
+                            {sign}{Math.abs(pctReduced).toFixed(1)}% vs 2021
+                          </text>
+                        );
+                      })()}
+
+                      {/* Target dot on SBTi pathway */}
+                      <circle cx={x} cy={targetY} r={2.5} fill="#8CB92D" opacity={0.7}/>
+
+                      {/* Year label */}
+                      <text x={x} y={rmH - rmPadB + 12} textAnchor="middle" fontSize="8.5"
+                        fill={isCurrent ? '#E32314' : '#888'}
+                        fontWeight={isCurrent ? 800 : 400}>
                         {d.year}
                       </text>
+
+                      {/* On-track status */}
                       {d.actual > 0 && (
-                        <text x={x} y={rmH - 0} textAnchor="middle" fontSize="6.5"
-                          fill={d.onTrack ? '#2ECC71' : '#E32314'} fontWeight="600">
+                        <text x={x} y={rmH - rmPadB + 22} textAnchor="middle" fontSize="6.5"
+                          fill={d.onTrack ? '#2ECC71' : '#E32314'} fontWeight="700">
                           {d.onTrack ? '✓ On track' : '✗ Over'}
                         </text>
                       )}
@@ -401,25 +524,38 @@ export default function OverviewPage() {
                   );
                 })}
 
-                {/* 2032 target marker */}
+                {/* 2032 target endpoint marker */}
                 {(() => {
-                  const x = rmW - rmPadR + 5;
+                  const x = rmW - rmPadR + 48;
                   const t2032 = roadmapData[0]?.baseTotal * 0.5 || 0;
                   const y = rmPadT + rmPlotH * (1 - t2032 / rmMaxVal);
-                  return <g>
-                    <circle cx={x} cy={y} r={5} fill="none" stroke="#8CB92D" strokeWidth={2}/>
-                    <circle cx={x} cy={y} r={2} fill="#8CB92D"/>
-                    <text x={x} y={y - 8} textAnchor="middle" fontSize="7" fill="#5A7A1C" fontWeight="700">{fmt(t2032)}</text>
-                    <text x={x} y={rmH - 8} textAnchor="middle" fontSize="8" fill="#8CB92D" fontWeight="700">2032</text>
-                    <text x={x} y={rmH - 0} textAnchor="middle" fontSize="6.5" fill="#5A7A1C" fontWeight="600">-50%</text>
-                  </g>;
+                  return (
+                    <g>
+                      <circle cx={x} cy={y} r={6} fill="none" stroke="#8CB92D" strokeWidth={2}/>
+                      <circle cx={x} cy={y} r={2.5} fill="#8CB92D"/>
+                      {/* Value above */}
+                      <text x={x} y={y - 10} textAnchor="middle" fontSize="7.5" fill="#4A6E12" fontWeight="800">{fmt(t2032)}</text>
+                      {/* -50% target badge */}
+                      <rect x={x-14} y={y+8} width={28} height={11} rx={3} fill="#8CB92D" opacity={0.15}/>
+                      <text x={x} y={y+17} textAnchor="middle" fontSize="7" fill="#4A6E12" fontWeight="800">-50% target</text>
+                      {/* Year */}
+                      <text x={x} y={rmH - rmPadB + 12} textAnchor="middle" fontSize="8.5" fill="#8CB92D" fontWeight="800">2032</text>
+                    </g>
+                  );
                 })()}
               </svg>
+
               <div className="ov-roadmap-legend">
-                {factories.map((f, i) => (
-                  <span key={f.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[i] }} />{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</span>
-                ))}
-                <span style={{ marginLeft: 'auto' }}><span style={{ color: '#8CB92D' }}>- -</span> SBTi Target Pathway</span>
+                {viewMode === 'ALL'
+                  ? factories.map((f, i) => (
+                      <span key={f.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[i] }} />{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</span>
+                    ))
+                  : displayBlocks.map((fb, i) => (
+                      <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id)] }} />{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</span>
+                    ))
+                }
+                <span style={{ marginLeft: 'auto' }}><span style={{ borderBottom: '1.5px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Target Pathway</span>
+                <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> RCN Input (MT)</span>
                 <span>✓ On track · ✗ Over target</span>
               </div>
             </div>
