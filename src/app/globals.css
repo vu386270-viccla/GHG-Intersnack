@@ -1450,3 +1450,132 @@ button {
   min-width: 36px;
   text-align: right;
 }
+
+/* Bottom section: donuts + table/roadmap */
+.ov-bottom-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ov-donut-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.ov-donut-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  align-self: flex-start;
+}
+.ov-donut-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0;
+}
+.ov-donut-legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ov-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+}
+.ov-legend-text {
+  flex: 1;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-legend-val {
+  font-weight: 700;
+  color: #444;
+  white-space: nowrap;
+}
+
+/* Bottom right */
+.ov-bottom-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ov-factory-table.compact table { font-size: 10px; }
+.ov-factory-table.compact th { font-size: 8px; padding: 3px 6px; }
+.ov-factory-table.compact td { padding: 4px 6px; }
+
+/* SBTi Roadmap */
+.ov-roadmap {
+  padding: 8px;
+}
+.ov-roadmap-track {
+  position: relative;
+  height: 100px;
+  margin: 10px 20px 0;
+}
+.ov-roadmap-line {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ddd 0%, #8CB92D 100%);
+  border-radius: 2px;
+}
+.ov-roadmap-node {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  top: 0;
+}
+.ov-roadmap-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin: 16px auto 4px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.ov-roadmap-node.current .ov-roadmap-dot {
+  width: 14px;
+  height: 14px;
+  margin-top: 14px;
+  box-shadow: 0 0 0 3px rgba(227, 35, 20, 0.2);
+}
+.ov-roadmap-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #555;
+  margin-top: 2px;
+}
+.ov-roadmap-desc {
+  font-size: 7px;
+  color: #999;
+  white-space: nowrap;
+}
+.ov-roadmap-val {
+  font-family: 'Caveat', cursive;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ov-roadmap-node.current .ov-roadmap-label {
+  color: #E32314;
+  font-size: 10px;
+}
+.ov-roadmap-footer {
+  text-align: center;
+  font-size: 8px;
+  color: #bbb;
+  margin-top: 4px;
+}
