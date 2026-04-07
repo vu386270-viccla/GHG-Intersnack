@@ -1,7 +1,7 @@
 'use client';
 
 import { TrendPoint } from '@/lib/types';
-import { formatNumber } from '@/lib/demo-data';
+import { formatNumber } from '@/lib/data-service';
 
 interface TrendLineProps {
   data: TrendPoint[];

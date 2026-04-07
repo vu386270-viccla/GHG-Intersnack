@@ -1,7 +1,9 @@
 'use client';
 
-import { DEMO_SCOPE_SUMMARIES, DEMO_GRAND_TOTAL, DEMO_MONTHLY_TOTALS, DEMO_FACTORY_SUMMARIES, DEMO_TARGETS, formatTCO2e, formatNumber } from '@/lib/demo-data';
+import { useEffect, useState } from 'react';
+import { getDashboardData, formatTCO2e, formatNumber } from '@/lib/data-service';
 import { SCOPE_COLORS } from '@/lib/types';
+import type { ScopeSummary, FactorySummary, MonthlyData, TargetProgress } from '@/lib/types';
 import BarChart from '@/components/charts/BarChart';
 import DonutChart from '@/components/charts/DonutChart';
 import TrendLine from '@/components/charts/TrendLine';
@@ -9,31 +11,79 @@ import TargetGauge from '@/components/charts/TargetGauge';
 import Link from 'next/link';
 
 export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [grandTotal, setGrandTotal] = useState(0);
+  const [scopeSummaries, setScopeSummaries] = useState<ScopeSummary[]>([]);
+  const [factorySummaries, setFactorySummaries] = useState<FactorySummary[]>([]);
+  const [monthlyTotals, setMonthlyTotals] = useState<MonthlyData[]>([]);
+  const [targets, setTargets] = useState<TargetProgress[]>([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  useEffect(() => {
+    setLoading(true);
+    getDashboardData(selectedYear).then(data => {
+      setGrandTotal(data.grandTotal);
+      setScopeSummaries(data.scopeSummaries);
+      setFactorySummaries(data.factorySummaries);
+      setMonthlyTotals(data.monthlyTotals);
+      setTargets(data.targets);
+      setLoading(false);
+    });
+  }, [selectedYear]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '12px' }}>
+        <div className="loading-spinner" />
+        <span style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-muted)' }}>Đang tải dữ liệu từ Supabase...</span>
+      </div>
+    );
+  }
+
+  // Calculate change vs last year 
+  const prevYearTotal = scopeSummaries.reduce((s, sc) => s + sc.previousYearEmissions, 0);
+  const changeVsPrev = prevYearTotal > 0 ? Math.round(((grandTotal - prevYearTotal) / prevYearTotal) * 1000) / 10 : 0;
+
   return (
     <div>
-      {/* ── Hero KPI Strip ── */}
+      {/* ── Year Selector + Hero KPI Strip ── */}
       <div className="section">
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-lg)', marginBottom: 'var(--space-xl)' }}>
-          <div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-lg)', marginBottom: 'var(--space-xl)', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              Tổng phát thải {new Date().getFullYear()} (YTD)
+              Tổng phát thải {selectedYear} (YTD)
             </div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '64px', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1 }}>
-              {formatTCO2e(DEMO_GRAND_TOTAL)}
+              {formatTCO2e(grandTotal)}
               <span style={{ fontFamily: 'var(--font-body)', fontSize: '18px', color: 'var(--color-text-muted)', marginLeft: '8px', fontWeight: 500 }}>
                 tCO₂e
               </span>
             </div>
           </div>
-          <div className="card-change positive" style={{ marginBottom: '12px' }}>
-            ↓ 5.2% vs năm trước
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <div className={`card-change ${changeVsPrev < 0 ? 'positive' : 'negative'}`}>
+              {changeVsPrev < 0 ? '↓' : '↑'} {Math.abs(changeVsPrev)}% vs năm trước
+            </div>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+              style={{
+                padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--color-border)',
+                fontFamily: 'var(--font-body)', fontSize: '14px', cursor: 'pointer',
+                background: 'var(--color-card-bg)', color: 'var(--color-text)',
+              }}
+            >
+              {[2026, 2025, 2024, 2023, 2022, 2021].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
       {/* ── Scope Cards ── */}
       <div className="grid-3 stagger-children mb-xl">
-        {DEMO_SCOPE_SUMMARIES.map((scope) => (
+        {scopeSummaries.map((scope) => (
           <Link key={scope.scope} href={`/${scope.scope.replace('_', '-')}`}>
             <div className={`card scope-card ${scope.scope.replace('_', '-')} animate-fade-in-up`}>
               <div className="scope-card-icon">
@@ -57,7 +107,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Mini bar breakdown */}
               <div className="factory-card-bar" style={{ marginTop: 'var(--space-md)' }}>
                 {scope.categories.map((cat) => (
                   <div
@@ -76,16 +125,15 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Charts Row: Monthly Trend + Scope Breakdown ── */}
+      {/* ── Charts Row ── */}
       <div className="grid-2-1 mb-xl">
-        {/* Monthly Stacked Bar */}
         <div className="card animate-fade-in-up">
           <div className="card-header">
             <div className="card-title">Phát thải theo tháng</div>
             <div className="header-badge">📊 tCO₂e</div>
           </div>
           <BarChart
-            data={DEMO_MONTHLY_TOTALS.map(m => ({
+            data={monthlyTotals.map(m => ({
               label: m.label,
               values: [
                 { key: 'scope_1', value: m.scope1, color: SCOPE_COLORS.scope_1 },
@@ -93,29 +141,24 @@ export default function DashboardPage() {
                 { key: 'scope_3', value: m.scope3, color: SCOPE_COLORS.scope_3 },
               ],
             }))}
-            legendLabels={{
-              scope_1: 'Scope 1',
-              scope_2: 'Scope 2',
-              scope_3: 'Scope 3',
-            }}
+            legendLabels={{ scope_1: 'Scope 1', scope_2: 'Scope 2', scope_3: 'Scope 3' }}
             height={300}
           />
         </div>
 
-        {/* Donut */}
         <div className="card animate-fade-in-up">
           <div className="card-header">
             <div className="card-title">Phân bổ phát thải</div>
           </div>
           <DonutChart
-            segments={DEMO_SCOPE_SUMMARIES.map(s => ({
+            segments={scopeSummaries.map(s => ({
               label: s.scope === 'scope_1' ? 'Scope 1' : s.scope === 'scope_2' ? 'Scope 2' : 'Scope 3',
               value: s.totalEmissions,
               color: SCOPE_COLORS[s.scope],
             }))}
             size={200}
-            centerValue={`${DEMO_SCOPE_SUMMARIES[2].percentOfTotal}%`}
-            centerLabel="Scope 3"
+            centerValue={grandTotal > 0 ? `${scopeSummaries.find(s => s.scope === 'scope_2')?.percentOfTotal || 0}%` : '0%'}
+            centerLabel="Scope 2"
           />
         </div>
       </div>
@@ -124,15 +167,13 @@ export default function DashboardPage() {
       <div className="section mb-xl">
         <div className="section-header">
           <div className="section-title">So sánh nhà máy</div>
-          <Link href="/factories" className="btn btn-outline" style={{ fontSize: '13px' }}>
-            Xem chi tiết →
-          </Link>
+          <Link href="/factories" className="btn btn-outline" style={{ fontSize: '13px' }}>Xem chi tiết →</Link>
         </div>
         <div className="grid-4 stagger-children">
-          {DEMO_FACTORY_SUMMARIES.map((fs) => (
+          {factorySummaries.map((fs) => (
             <div key={fs.factory.id} className="card factory-card animate-fade-in-up">
               <div className="factory-card-header">
-                <div className="factory-card-icon">🏭</div>
+                <div className="factory-card-icon">{fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'}</div>
                 <div>
                   <div className="factory-card-name">{fs.factory.name}</div>
                   <div className="factory-card-location">{fs.factory.location}</div>
@@ -140,37 +181,37 @@ export default function DashboardPage() {
               </div>
               <div className="factory-card-emissions">
                 {formatTCO2e(fs.totalEmissions)}
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>
-                  tCO₂e
-                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>tCO₂e</span>
               </div>
-              <div className="factory-card-bar">
-                <div className="factory-card-bar-segment" style={{ width: `${(fs.scope1 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_1 }} />
-                <div className="factory-card-bar-segment" style={{ width: `${(fs.scope2 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_2 }} />
-                <div className="factory-card-bar-segment" style={{ width: `${(fs.scope3 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_3 }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-sm)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                <span>S1: {formatNumber(fs.scope1)}</span>
-                <span>S2: {formatNumber(fs.scope2)}</span>
-                <span>S3: {formatNumber(fs.scope3)}</span>
-              </div>
+              {fs.totalEmissions > 0 && (
+                <>
+                  <div className="factory-card-bar">
+                    <div className="factory-card-bar-segment" style={{ width: `${(fs.scope1 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_1 }} />
+                    <div className="factory-card-bar-segment" style={{ width: `${(fs.scope2 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_2 }} />
+                    <div className="factory-card-bar-segment" style={{ width: `${(fs.scope3 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_3 }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-sm)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                    <span>S1: {formatNumber(fs.scope1)}</span>
+                    <span>S2: {formatNumber(fs.scope2)}</span>
+                    <span>S3: {formatNumber(fs.scope3)}</span>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── SBTi Targets Progress ── */}
+      {/* ── SBTi Targets ── */}
       <div className="section">
         <div className="section-header">
           <div className="section-title">
             Tiến độ mục tiêu <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--color-primary)' }}>SBTi</span>
           </div>
-          <Link href="/targets" className="btn btn-outline" style={{ fontSize: '13px' }}>
-            Chi tiết →
-          </Link>
+          <Link href="/targets" className="btn btn-outline" style={{ fontSize: '13px' }}>Chi tiết →</Link>
         </div>
         <div className="grid-2 stagger-children">
-          {DEMO_TARGETS.map((target) => (
+          {targets.map((target) => (
             <div key={target.scope} className="card animate-fade-in-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <TargetGauge target={target} />
               <div style={{ display: 'flex', gap: 'var(--space-xl)', marginTop: 'var(--space-md)', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
@@ -204,19 +245,14 @@ export default function DashboardPage() {
           <div className="card-title">Xu hướng phát thải hàng tháng</div>
         </div>
         <TrendLine
-          data={DEMO_MONTHLY_TOTALS.map(m => ({
+          data={monthlyTotals.map(m => ({
             label: m.label,
             values: [
               { key: 'total', value: m.total, color: '#E32314' },
-              { key: 'scope_3', value: m.scope3, color: '#8CB92D' },
               { key: 'scope_1_2', value: m.scope1 + m.scope2, color: '#F5A623' },
             ],
           }))}
-          legendLabels={{
-            total: 'Tổng phát thải',
-            scope_3: 'Scope 3',
-            scope_1_2: 'Scope 1 + 2',
-          }}
+          legendLabels={{ total: 'Tổng phát thải', scope_1_2: 'Scope 1 + 2' }}
           height={280}
         />
       </div>
