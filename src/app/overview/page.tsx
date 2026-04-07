@@ -163,8 +163,8 @@ export default function OverviewPage() {
   );
 
   /* Roadmap SVG dimensions for the SBTi chart */
-  const rmMaxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1);
-  const rmW = 520, rmH = 130, rmPadL = 35, rmPadR = 10, rmPadT = 10, rmPadB = 25;
+  const rmMaxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.12;
+  const rmW = 540, rmH = 155, rmPadL = 38, rmPadR = 30, rmPadT = 18, rmPadB = 28;
   const rmPlotW = rmW - rmPadL - rmPadR;
   const rmPlotH = rmH - rmPadT - rmPadB;
 
@@ -319,9 +319,10 @@ export default function OverviewPage() {
                 {/* Stacked bars per year — 4 factories */}
                 {roadmapData.map((d, i) => {
                   const x = rmPadL + (i / (roadmapData.length - 1)) * rmPlotW;
-                  const barW = 28;
+                  const barW = 22;
                   const barX = x - barW / 2;
                   let cumH = 0;
+                  const targetY = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
 
                   return (
                     <g key={d.year}>
@@ -330,29 +331,29 @@ export default function OverviewPage() {
                         const y = rmPadT + rmPlotH - cumH - h;
                         cumH += h;
                         const fIdx = factories.findIndex(f => f.id === pf.factory.id);
-                        return <rect key={fi} x={barX} y={y} width={barW} height={h} rx={1}
+                        return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1}
                           fill={FAC_COLORS[fIdx >= 0 ? fIdx : fi]} opacity={d.year === selectedYear ? 0.9 : 0.55}
-                          stroke={d.year === selectedYear ? '#333' : 'none'} strokeWidth={d.year === selectedYear ? 1 : 0}/>;
+                          stroke={d.year === selectedYear ? '#333' : 'none'} strokeWidth={d.year === selectedYear ? 0.8 : 0}/>;
                       })}
-                      {/* Value label */}
-                      <text x={x} y={rmPadT + rmPlotH - cumH - 3} textAnchor="middle" fontSize="7" fontWeight="700"
-                        fill={d.year === selectedYear ? '#E32314' : '#666'}>
-                        {fmt(d.actual)}
-                      </text>
-                      {/* Target value */}
-                      <text x={x} y={rmPadT + rmPlotH * (1 - d.target / rmMaxVal) - 3} textAnchor="middle" fontSize="5.5" fill="#8CB92D" fontWeight="600">
-                        {fmt(d.target)}
-                      </text>
-                      {/* Year label */}
-                      <text x={x} y={rmH - 5} textAnchor="middle" fontSize="8"
+                      {/* Actual value above bar */}
+                      {d.actual > 0 && (
+                        <text x={x} y={rmPadT + rmPlotH - cumH - 4} textAnchor="middle" fontSize="7" fontWeight="700"
+                          fill={d.year === selectedYear ? '#E32314' : '#555'}>
+                          {fmt(d.actual)}
+                        </text>
+                      )}
+                      {/* Target dot on pathway */}
+                      <circle cx={x} cy={targetY} r={2.5} fill="#8CB92D" opacity={0.6}/>
+                      {/* Year + status label */}
+                      <text x={x} y={rmH - 8} textAnchor="middle" fontSize="8"
                         fill={d.year === selectedYear ? '#E32314' : '#888'}
                         fontWeight={d.year === selectedYear ? 700 : 400}>
                         {d.year}
                       </text>
-                      {/* On track indicator */}
                       {d.actual > 0 && (
-                        <text x={x} y={rmH - 14} textAnchor="middle" fontSize="7" fill={d.onTrack ? '#2ECC71' : '#E32314'}>
-                          {d.onTrack ? '✓' : '✗'}
+                        <text x={x} y={rmH - 0} textAnchor="middle" fontSize="6.5"
+                          fill={d.onTrack ? '#2ECC71' : '#E32314'} fontWeight="600">
+                          {d.onTrack ? '✓ On track' : '✗ Over'}
                         </text>
                       )}
                     </g>
@@ -361,14 +362,15 @@ export default function OverviewPage() {
 
                 {/* 2032 target marker */}
                 {(() => {
-                  const x = rmW - rmPadR;
+                  const x = rmW - rmPadR + 5;
                   const t2032 = roadmapData[0]?.baseTotal * 0.5 || 0;
                   const y = rmPadT + rmPlotH * (1 - t2032 / rmMaxVal);
                   return <g>
-                    <circle cx={x} cy={y} r={4} fill="#8CB92D" opacity={0.8}/>
-                    <text x={x} y={y - 6} textAnchor="middle" fontSize="6.5" fill="#5A7A1C" fontWeight="700">{fmt(t2032)}</text>
-                    <text x={x} y={rmH - 5} textAnchor="middle" fontSize="7" fill="#8CB92D" fontWeight="700">2032</text>
-                    <text x={x} y={rmH - 14} textAnchor="middle" fontSize="6" fill="#8CB92D">-50%</text>
+                    <circle cx={x} cy={y} r={5} fill="none" stroke="#8CB92D" strokeWidth={2}/>
+                    <circle cx={x} cy={y} r={2} fill="#8CB92D"/>
+                    <text x={x} y={y - 8} textAnchor="middle" fontSize="7" fill="#5A7A1C" fontWeight="700">{fmt(t2032)}</text>
+                    <text x={x} y={rmH - 8} textAnchor="middle" fontSize="8" fill="#8CB92D" fontWeight="700">2032</text>
+                    <text x={x} y={rmH - 0} textAnchor="middle" fontSize="6.5" fill="#5A7A1C" fontWeight="600">-50%</text>
                   </g>;
                 })()}
               </svg>
