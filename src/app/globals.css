@@ -1579,3 +1579,38 @@ button {
   color: #bbb;
   margin-top: 4px;
 }
+
+/* Donut inline (left panel) */
+.ov-donut-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+.ov-donut-legend-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ov-dls-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: #666;
+  font-weight: 600;
+}
+
+/* Full SBTi Roadmap chart */
+.ov-roadmap-full {
+  flex: 1;
+  min-height: 0;
+}
+.ov-roadmap-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 9px;
+  color: #888;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
