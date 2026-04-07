@@ -62,14 +62,20 @@ export default function OverviewPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [fRes, eRes, pRes] = await Promise.all([
+      // Fetch all emissions (Supabase default limit = 1000, we have 1200+)
+      const [fRes, pRes] = await Promise.all([
         supabase.from('factories').select('*'),
-        supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e'),
-        supabase.from('production_data').select('factory_id,year,month,category,quantity'),
+        supabase.from('production_data').select('factory_id,year,month,category,quantity').range(0, 9999),
       ]);
+      // Fetch emissions in 2 batches to bypass 1000-row limit
+      const [e1, e2] = await Promise.all([
+        supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e').range(0, 999),
+        supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e').range(1000, 1999),
+      ]);
+      const allEm = [...(e1.data || []), ...(e2.data || [])] as RawRow[];
       const facs = (fRes.data || []) as Factory[];
       setFactories(facs);
-      setAllEmissions((eRes.data || []) as RawRow[]);
+      setAllEmissions(allEm);
       setProdData((pRes.data || []) as ProdRow[]);
       if (facs.length >= 2 && !factoryA) { setFactoryA(facs[0].id); setFactoryB(facs[1].id); }
       setLoading(false);
