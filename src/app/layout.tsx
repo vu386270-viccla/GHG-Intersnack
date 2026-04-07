@@ -3,6 +3,8 @@ import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'GHG Tracker — Intersnack Group',
   description: 'Greenhouse Gas Emissions Tracking Dashboard following SBTi Science Based Targets for Intersnack Group factories. Track Scope 1, 2, and 3 emissions.',
