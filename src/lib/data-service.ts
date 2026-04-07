@@ -128,7 +128,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     {
       scope: 'scope_1' as const,
       totalEmissions: Math.round(totalS1),
-      previousYearEmissions: Math.round(prevByScope['scope_1'] || totalS1 * 1.08),
+      previousYearEmissions: Math.round(prevByScope['scope_1'] || 0),
       percentOfTotal: grandTotal > 0 ? Math.round((totalS1 / grandTotal) * 100) : 0,
       changePercent: calcChange('scope_1', totalS1),
       categories: SCOPE_1_CATEGORIES.map(cat => {
@@ -145,7 +145,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     {
       scope: 'scope_2' as const,
       totalEmissions: Math.round(totalS2),
-      previousYearEmissions: Math.round(prevByScope['scope_2'] || totalS2 * 1.05),
+      previousYearEmissions: Math.round(prevByScope['scope_2'] || 0),
       percentOfTotal: grandTotal > 0 ? Math.round((totalS2 / grandTotal) * 100) : 0,
       changePercent: calcChange('scope_2', totalS2),
       categories: [
@@ -155,7 +155,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     {
       scope: 'scope_3' as const,
       totalEmissions: Math.round(totalS3),
-      previousYearEmissions: Math.round(prevByScope['scope_3'] || totalS3 * 1.03),
+      previousYearEmissions: Math.round(prevByScope['scope_3'] || 0),
       percentOfTotal: grandTotal > 0 ? Math.round((totalS3 / grandTotal) * 100) : 0,
       changePercent: calcChange('scope_3', totalS3),
       categories: SCOPE_3_CATEGORIES.map(cat => {
@@ -259,6 +259,23 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     targets,
     year,
   };
+}
+
+// ── Annual totals by scope — used by Targets page chart ──
+export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s12: number; s3: number }>> {
+  const { data } = await supabase
+    .from('emissions_data')
+    .select('year,scope,emissions_tco2e')
+    .gte('year', fromYear)
+    .lte('year', toYear);
+  const result: Record<number, { s12: number; s3: number }> = {};
+  for (const e of data || []) {
+    if (!result[e.year]) result[e.year] = { s12: 0, s3: 0 };
+    const val = Number(e.emissions_tco2e);
+    if (e.scope === 'scope_1' || e.scope === 'scope_2') result[e.year].s12 += val;
+    else if (e.scope === 'scope_3') result[e.year].s3 += val;
+  }
+  return result;
 }
 
 // ── Re-export static constants that pages use ──

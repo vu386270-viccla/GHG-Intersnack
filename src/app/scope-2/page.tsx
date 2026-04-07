@@ -9,16 +9,23 @@ import TrendLine from '@/components/charts/TrendLine';
 
 export default function Scope2Page() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scopeData, setScopeData] = useState<ScopeSummary | null>(null);
   const [factorySummaries, setFactorySummaries] = useState<FactorySummary[]>([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    getDashboardData(selectedYear).then(data => {
-      setScopeData(data.scopeSummaries.find(s => s.scope === 'scope_2') || null);
-      setFactorySummaries(data.factorySummaries);
-      setLoading(false);
-    });
+    setLoading(true);
+    getDashboardData(selectedYear)
+      .then(data => {
+        setScopeData(data.scopeSummaries.find(s => s.scope === 'scope_2') || null);
+        setFactorySummaries(data.factorySummaries);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
   }, [selectedYear]);
 
   const scopeColor = SCOPE_COLORS.scope_2;
@@ -27,6 +34,10 @@ export default function Scope2Page() {
 
   if (loading || !scopeData) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '12px' }}><div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span></div>;
+  }
+
+  if (error) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}><div style={{ color: 'var(--color-primary)', background: 'var(--color-primary-alpha-10)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-md)' }}>⚠️ Lỗi tải dữ liệu: {error}</div></div>;
   }
 
   return (

@@ -10,15 +10,21 @@ import TrendLine from '@/components/charts/TrendLine';
 
 export default function Scope3Page() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scopeData, setScopeData] = useState<ScopeSummary | null>(null);
   const [factorySummaries, setFactorySummaries] = useState<FactorySummary[]>([]);
 
   useEffect(() => {
-    getDashboardData().then(data => {
-      setScopeData(data.scopeSummaries.find(s => s.scope === 'scope_3') || null);
-      setFactorySummaries(data.factorySummaries);
-      setLoading(false);
-    });
+    getDashboardData()
+      .then(data => {
+        setScopeData(data.scopeSummaries.find(s => s.scope === 'scope_3') || null);
+        setFactorySummaries(data.factorySummaries);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
   }, []);
 
   const scopeColor = SCOPE_COLORS.scope_3;
@@ -26,6 +32,10 @@ export default function Scope3Page() {
 
   if (loading || !scopeData) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '12px' }}><div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span></div>;
+  }
+
+  if (error) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}><div style={{ color: 'var(--color-primary)', background: 'var(--color-primary-alpha-10)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-md)' }}>⚠️ Lỗi tải dữ liệu: {error}</div></div>;
   }
 
   return (

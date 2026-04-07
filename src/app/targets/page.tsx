@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getDashboardData, formatTCO2e } from '@/lib/data-service';
+import { getDashboardData, getAnnualTotals, formatTCO2e } from '@/lib/data-service';
 import { SCOPE_COLORS } from '@/lib/types';
 import type { TargetProgress } from '@/lib/types';
 import TargetGauge from '@/components/charts/TargetGauge';
@@ -9,7 +9,9 @@ import BarChart from '@/components/charts/BarChart';
 
 export default function TargetsPage() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [targets, setTargets] = useState<TargetProgress[]>([]);
+  const [annualTotals, setAnnualTotals] = useState<Record<number, { s12: number; s3: number }>>({});
 
   const baseYear = 2021;
   const targetYear = 2032;
@@ -19,14 +21,24 @@ export default function TargetsPage() {
   const timeProgress = (yearsElapsed / totalYears) * 100;
 
   useEffect(() => {
-    getDashboardData().then(data => {
-      setTargets(data.targets);
-      setLoading(false);
-    });
+    Promise.all([getDashboardData(), getAnnualTotals(baseYear, currentYear)])
+      .then(([data, annual]) => {
+        setTargets(data.targets);
+        setAnnualTotals(annual);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '12px' }}><div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span></div>;
+  }
+
+  if (error) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}><div style={{ color: 'var(--color-primary)', background: 'var(--color-primary-alpha-10)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-md)' }}>⚠️ Lỗi tải dữ liệu: {error}</div></div>;
   }
 
   return (
@@ -114,12 +126,13 @@ export default function TargetsPage() {
             const s3Base = targets[1]?.baseYearEmissions || 0;
             const s12Target = Math.round(s12Base * (1 - 0.5 * progress));
             const s3Target = Math.round(s3Base * (1 - 0.3 * progress));
-            const isActual = year <= currentYear;
+            const actual = annualTotals[year];
+            const hasActual = !!actual && (actual.s12 > 0 || actual.s3 > 0);
             return {
               label: String(year),
-              values: isActual ? [
-                { key: 'scope_1_2', value: year === currentYear ? (targets[0]?.currentEmissions || 0) : Math.round(s12Base * (1 - 0.5 * progress * 0.9)), color: SCOPE_COLORS.scope_1 },
-                { key: 'scope_3', value: year === currentYear ? (targets[1]?.currentEmissions || 0) : Math.round(s3Base * (1 - 0.3 * progress * 0.8)), color: SCOPE_COLORS.scope_3 },
+              values: hasActual ? [
+                { key: 'scope_1_2', value: Math.round(actual.s12), color: SCOPE_COLORS.scope_1 },
+                { key: 'scope_3', value: Math.round(actual.s3), color: SCOPE_COLORS.scope_3 },
               ] : [
                 { key: 'scope_1_2', value: s12Target, color: '#E3231444' },
                 { key: 'scope_3', value: s3Target, color: '#8CB92D44' },

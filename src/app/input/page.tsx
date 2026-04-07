@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getDashboardData, formatTCO2e } from '@/lib/data-service';
+import { useState, useEffect, useRef } from 'react';
+import { getDashboardData } from '@/lib/data-service';
 import { supabase } from '@/lib/supabase';
 import {
   SCOPE_1_CATEGORIES, SCOPE_2_CATEGORIES, SCOPE_3_CATEGORIES,
@@ -20,22 +20,55 @@ interface InputRow {
   emissions: number;
 }
 
+type ScopeKey = 'scope_1' | 'scope_2' | 'scope_3';
+
+function buildScope1Rows(): InputRow[] {
+  return SCOPE_1_CATEGORIES.map(cat => ({
+    category: cat.key, label: cat.label, icon: cat.icon, unit: cat.unit,
+    ef: cat.ef, efUnit: cat.efUnit, value: '', emissions: 0,
+  }));
+}
+
+function buildScope2Rows(country: string, ef: number): InputRow[] {
+  return [{
+    category: 'electricity', label: `Điện lưới (${country})`, icon: '⚡', unit: 'kWh',
+    ef, efUnit: 'kg CO₂e/kWh', value: '', emissions: 0,
+  }];
+}
+
+function buildScope3Rows(): InputRow[] {
+  return SCOPE_3_CATEGORIES.map(cat => ({
+    category: cat.key, label: `${cat.ghgCategory} — ${cat.label}`, icon: cat.icon, unit: cat.unit,
+    ef: 0, efUnit: 'tCO₂e (nhập trực tiếp)', value: '', emissions: 0,
+  }));
+}
+
 export default function InputPage() {
   const [factories, setFactories] = useState<Factory[]>([]);
   const [selectedFactory, setSelectedFactory] = useState('');
   const [selectedYear, setSelectedYear] = useState(2026);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [activeScope, setActiveScope] = useState<'scope_1' | 'scope_2' | 'scope_3'>('scope_1');
+  const [activeScope, setActiveScope] = useState<ScopeKey>('scope_1');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Bug 6: preserve entered data across scope switches
+  const savedRowsRef = useRef<Partial<Record<ScopeKey, InputRow[]>>>({});
+  const [rows, setRows] = useState<InputRow[]>(buildScope1Rows());
 
   useEffect(() => {
-    getDashboardData().then(data => {
-      setFactories(data.factories);
-      if (data.factories.length > 0) setSelectedFactory(data.factories[0].id);
-      setLoading(false);
-    });
+    getDashboardData()
+      .then(data => {
+        setFactories(data.factories);
+        if (data.factories.length > 0) setSelectedFactory(data.factories[0].id);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
   }, []);
 
   const factory = factories.find(f => f.id === selectedFactory);
@@ -43,44 +76,32 @@ export default function InputPage() {
     ef => ef.country === factory?.country && ef.year === selectedYear
   );
 
-  const buildRows = (): InputRow[] => {
-    if (activeScope === 'scope_1') {
-      return SCOPE_1_CATEGORIES.map(cat => ({
-        category: cat.key, label: cat.label, icon: cat.icon, unit: cat.unit,
-        ef: cat.ef, efUnit: cat.efUnit, value: '', emissions: 0,
-      }));
-    }
-    if (activeScope === 'scope_2') {
-      return [{
-        category: 'electricity', label: `Điện lưới (${factory?.country || 'Vietnam'})`, icon: '⚡', unit: 'kWh',
-        ef: gridEF?.factor || 0.6855, efUnit: 'kg CO₂e/kWh', value: '', emissions: 0,
-      }];
-    }
-    return SCOPE_3_CATEGORIES.map(cat => ({
-      category: cat.key, label: `${cat.ghgCategory} — ${cat.label}`, icon: cat.icon, unit: cat.unit,
-      ef: 0, efUnit: 'tCO₂e (trực tiếp)', value: '', emissions: 0,
-    }));
-  };
+  // Bug 2: rebuild Scope 2 row when factory or year changes
+  useEffect(() => {
+    if (activeScope !== 'scope_2') return;
+    const country = factory?.country || 'Vietnam';
+    const ef = gridEF?.factor || 0.6855;
+    setRows(prev => prev.map(row =>
+      row.category === 'electricity'
+        ? { ...row, label: `Điện lưới (${country})`, ef, emissions: parseFloat(row.value) > 0 ? (parseFloat(row.value) * ef) / 1000 : 0 }
+        : row
+    ));
+  }, [selectedFactory, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [rows, setRows] = useState<InputRow[]>(buildRows());
-
-  const handleScopeChange = (scope: 'scope_1' | 'scope_2' | 'scope_3') => {
+  const handleScopeChange = (scope: ScopeKey) => {
+    // Bug 6: save current rows before switching
+    savedRowsRef.current[activeScope] = rows;
     setActiveScope(scope);
-    if (scope === 'scope_1') {
-      setRows(SCOPE_1_CATEGORIES.map(cat => ({
-        category: cat.key, label: cat.label, icon: cat.icon, unit: cat.unit,
-        ef: cat.ef, efUnit: cat.efUnit, value: '', emissions: 0,
-      })));
+    // Restore saved rows or build fresh
+    const saved = savedRowsRef.current[scope];
+    if (saved) {
+      setRows(saved);
+    } else if (scope === 'scope_1') {
+      setRows(buildScope1Rows());
     } else if (scope === 'scope_2') {
-      setRows([{
-        category: 'electricity', label: `Điện lưới (${factory?.country || 'Vietnam'})`, icon: '⚡', unit: 'kWh',
-        ef: gridEF?.factor || 0.6855, efUnit: 'kg CO₂e/kWh', value: '', emissions: 0,
-      }]);
+      setRows(buildScope2Rows(factory?.country || 'Vietnam', gridEF?.factor || 0.6855));
     } else {
-      setRows(SCOPE_3_CATEGORIES.map(cat => ({
-        category: cat.key, label: `${cat.ghgCategory} — ${cat.label}`, icon: cat.icon, unit: cat.unit,
-        ef: 0, efUnit: 'tCO₂e (nhập trực tiếp)', value: '', emissions: 0,
-      })));
+      setRows(buildScope3Rows());
     }
   };
 
@@ -91,6 +112,12 @@ export default function InputPage() {
       const emissions = activeScope === 'scope_3' ? num : (num * row.ef) / 1000;
       return { ...row, value: val, emissions };
     }));
+  };
+
+  // Bug 1: clear all entered values for current scope
+  const handleClear = () => {
+    setRows(prev => prev.map(row => ({ ...row, value: '', emissions: 0 })));
+    savedRowsRef.current[activeScope] = undefined;
   };
 
   const totalEmissions = rows.reduce((sum, r) => sum + r.emissions, 0);
@@ -134,6 +161,10 @@ export default function InputPage() {
 
   if (loading) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '12px' }}><div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span></div>;
+  }
+
+  if (error) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}><div style={{ color: 'var(--color-primary)', background: 'var(--color-primary-alpha-10)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-md)' }}>⚠️ Lỗi tải dữ liệu: {error}</div></div>;
   }
 
   return (
@@ -216,7 +247,7 @@ export default function InputPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
-        <button className="btn btn-secondary">Xóa dữ liệu</button>
+        <button className="btn btn-secondary" onClick={handleClear}>Xóa dữ liệu</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ padding: 'var(--space-sm) var(--space-2xl)', fontSize: '15px' }}>
           {saving ? '⏳ Đang lưu...' : saved ? '✅ Đã lưu!' : '💾 Lưu vào Supabase'}
         </button>
