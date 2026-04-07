@@ -273,6 +273,22 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     monthlyIntensity,
   };
 
+  // ── Per-factory RCN breakdown ──
+  const rcnByFactory: Record<string, { totalRCN: number; totalCK: number; monthlyRCN: number[] }> = {};
+  for (const factory of factories) {
+    const fProd = prodRows.filter(p => p.factory_id === factory.id);
+    const fRCN = fProd.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+    const fCK  = fProd.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
+    rcnByFactory[factory.id] = {
+      totalRCN: Math.round(fRCN),
+      totalCK: Math.round(fCK),
+      monthlyRCN: Array.from({ length: 12 }, (_, i) =>
+        fProd.filter(p => p.category === 'rcn_input' && p.month === i + 1)
+             .reduce((s, p) => s + Number(p.quantity), 0)
+      ),
+    };
+  }
+
   return {
     factories,
     factorySummaries,
@@ -282,6 +298,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     scope1Monthly,
     targets,
     rcnData,
+    rcnByFactory,
     year,
   };
 }
