@@ -385,7 +385,7 @@ export default function OverviewPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 8, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>🔥 Scope 1</div>
                 <div className="ov-donut-inline" style={{ gap: 4 }}>
-                  <MiniDonut size={82} thickness={15} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
+                  <MiniDonut size={100} thickness={18} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
                     segments={(() => {
                       const cats: Record<string, number> = {};
                       displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
@@ -421,7 +421,7 @@ export default function OverviewPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 8, fontWeight: 800, color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>⚡ Scope 2</div>
                 <div className="ov-donut-inline" style={{ gap: 4 }}>
-                  <MiniDonut size={82} thickness={15} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
+                  <MiniDonut size={100} thickness={18} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
                     segments={[{ label: 'Electricity', value: 1, color: '#F5A623' }]} />
                   <div className="ov-donut-legend-sm">
                     <div className="ov-dls-item">
