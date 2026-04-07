@@ -11,6 +11,16 @@ const S1_COLORS = ['#E32314', '#FF6B35', '#F5A623', '#FFD93D', '#6BCB77', '#4D96
 const FAC_COLORS = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
 const FAC_COLORS_LIGHT = ['#FF8A80', '#FFD180', '#B388FF', '#CCFF90'];
 
+// Factory-specific SBTi 2032 Scope 1+2 annual targets (tCO₂e)
+const getFactoryTarget = (factory: Factory): number | null => {
+  if (factory.country === 'India') return 334;
+  const n = factory.name;
+  if (n.includes('Ninh') || n.includes('TN')) return 304;
+  if (n.includes('Long')) return 265;
+  if (n.includes('Phan') || n.includes('Thiết')) return 223;
+  return null;
+};
+
 interface RawRow {
   factory_id: string; year: number; month: number; scope: string;
   category: string; activity_data: number; emissions_tco2e: number;
@@ -369,35 +379,64 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            {/* Scope 1 Donut + Activity */}
-            <div className="ov-donut-inline">
-              <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS1)} centerSub="S1"
-                segments={(() => {
-                  const cats: Record<string, number> = {};
-                  displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
-                  return Object.entries(cats).sort(([,a],[,b]) => b - a).map(([key, val], i) => {
-                    const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-                    return { label: def?.label || key, value: val, color: S1_COLORS[i] };
-                  });
-                })()} />
-              <div className="ov-donut-legend-sm">
-                {(() => {
-                  const cats: Record<string, { em: number; act: number }> = {};
-                  displayBlocks.forEach(b => b.s1ByCat.forEach(c => {
-                    if (!cats[c.key]) cats[c.key] = { em: 0, act: 0 };
-                    cats[c.key].em += c.value;
-                    cats[c.key].act += c.activity;
-                  }));
-                  return Object.entries(cats).sort(([,a],[,b]) => b.em - a.em).slice(0, 5).map(([key, v], i) => {
-                    const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-                    const actFmt = v.act >= 1000 ? `${(v.act/1000).toFixed(1)}k` : v.act.toFixed(0);
-                    return <div key={key} className="ov-dls-item">
-                      <span className="ov-legend-dot" style={{ background: S1_COLORS[i] }}/>
-                      <span>{def?.icon} {actFmt} {def?.unit}</span>
-                      <span style={{ color: '#999', marginLeft: 'auto' }}>{fmt(v.em)} t</span>
-                    </div>;
-                  });
-                })()}
+            {/* Scope 1 + Scope 2 Donuts */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              {/* Scope 1 */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>🔥 Scope 1</div>
+                <div className="ov-donut-inline" style={{ gap: 4 }}>
+                  <MiniDonut size={82} thickness={15} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
+                    segments={(() => {
+                      const cats: Record<string, number> = {};
+                      displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
+                      return Object.entries(cats).sort(([,a],[,b]) => b - a).map(([key, val], i) => {
+                        const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+                        return { label: def?.label || key, value: val, color: S1_COLORS[i] };
+                      });
+                    })()} />
+                  <div className="ov-donut-legend-sm">
+                    {(() => {
+                      const cats: Record<string, { em: number; act: number }> = {};
+                      displayBlocks.forEach(b => b.s1ByCat.forEach(c => {
+                        if (!cats[c.key]) cats[c.key] = { em: 0, act: 0 };
+                        cats[c.key].em += c.value;
+                        cats[c.key].act += c.activity;
+                      }));
+                      const totalS1 = Object.values(cats).reduce((s, v) => s + v.em, 0);
+                      return Object.entries(cats).sort(([,a],[,b]) => b.em - a.em).slice(0, 5).map(([key, v], i) => {
+                        const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+                        const pct = totalS1 > 0 ? (v.em / totalS1 * 100).toFixed(0) : '0';
+                        return <div key={key} className="ov-dls-item">
+                          <span className="ov-legend-dot" style={{ background: S1_COLORS[i] }}/>
+                          <span style={{ fontWeight: 700, color: S1_COLORS[i], minWidth: 24 }}>{pct}%</span>
+                          <span style={{ color: '#555' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || key}</span>
+                        </div>;
+                      });
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scope 2 — 100% electricity */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>⚡ Scope 2</div>
+                <div className="ov-donut-inline" style={{ gap: 4 }}>
+                  <MiniDonut size={82} thickness={15} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
+                    segments={[{ label: 'Electricity', value: 1, color: '#F5A623' }]} />
+                  <div className="ov-donut-legend-sm">
+                    <div className="ov-dls-item">
+                      <span className="ov-legend-dot" style={{ background: '#F5A623' }}/>
+                      <span style={{ fontWeight: 700, color: '#F5A623', minWidth: 24 }}>100%</span>
+                      <span style={{ color: '#555' }}>⚡ Điện lưới</span>
+                    </div>
+                    <div className="ov-dls-item" style={{ paddingLeft: 10, color: '#aaa', fontSize: 9 }}>
+                      {(displayBlocks.reduce((s,b)=>s+b.kWh,0)/1000).toFixed(0)} MWh
+                    </div>
+                    <div className="ov-dls-item" style={{ paddingLeft: 10, color: '#aaa', fontSize: 9 }}>
+                      EF: {useCommonEF ? COMMON_EF : 'Country'} kg/kWh
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -529,6 +568,26 @@ export default function OverviewPage() {
                   );
                 })()}
 
+                {/* Factory-specific target line (SINGLE mode) */}
+                {viewMode === 'SINGLE' && (() => {
+                  const fac = factories.find(f => f.id === factoryA);
+                  if (!fac) return null;
+                  const tgt = getFactoryTarget(fac);
+                  if (!tgt) return null;
+                  const ty = rmPadT + rmPlotH * (1 - tgt / rmMaxVal);
+                  const x2032 = rmW - rmPadR + 48;
+                  return (
+                    <g>
+                      <line x1={rmPadL} y1={ty} x2={x2032} y2={ty}
+                        stroke="#E32314" strokeWidth={1.2} strokeDasharray="3,3" opacity={0.75}/>
+                      <rect x={rmPadL} y={ty - 8} width={28} height={10} rx={2} fill="#E32314" opacity={0.12}/>
+                      <text x={rmPadL + 14} y={ty - 1} textAnchor="middle" fontSize="6.5" fill="#E32314" fontWeight="800">{tgt} t</text>
+                      <rect x={x2032 - 18} y={ty + 2} width={22} height={10} rx={2} fill="#E32314" opacity={0.12}/>
+                      <text x={x2032 - 7} y={ty + 10} textAnchor="middle" fontSize="6.5" fill="#E32314" fontWeight="800">🎯 {tgt}</text>
+                    </g>
+                  );
+                })()}
+
                 {/* Stacked bars per year */}
                 {roadmapData.map((d, i) => {
                   const totalCols = roadmapData.length;
@@ -622,9 +681,14 @@ export default function OverviewPage() {
                       <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id)] }} />{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</span>
                     ))
                 }
-                <span style={{ marginLeft: 'auto' }}><span style={{ borderBottom: '1.5px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Target Pathway</span>
-                <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> RCN Input (MT)</span>
-                <span>✓ On track · ✗ Over target</span>
+                <span style={{ marginLeft: 'auto' }}><span style={{ borderBottom: '1.5px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Pathway</span>
+                {viewMode === 'SINGLE' && (() => {
+                  const fac = factories.find(f => f.id === factoryA);
+                  const tgt = fac ? getFactoryTarget(fac) : null;
+                  return tgt ? <span><span style={{ borderBottom: '1.5px dashed #E32314', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> Factory Target ({tgt} tCO₂e)</span> : null;
+                })()}
+                <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> RCN (MT)</span>
+                <span>✓ On track · ✗ Over</span>
               </div>
             </div>
 
