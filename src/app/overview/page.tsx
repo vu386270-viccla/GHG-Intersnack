@@ -445,6 +445,159 @@ export default function OverviewPage() {
                 </table>
               </div>
             )}
+
+            {/* ── COMPARE MODE: Scope 1 Breakdown + RCN Intensity ── */}
+            {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
+              const [blkA, blkB] = displayBlocks;
+              const colorA = FAC_COLORS[factories.findIndex(f => f.id === blkA.factory.id)] || FAC_COLORS[0];
+              const colorB = FAC_COLORS[factories.findIndex(f => f.id === blkB.factory.id)] || FAC_COLORS[1];
+
+              // Collect all S1 categories from both
+              const allCatKeys = Array.from(new Set([
+                ...blkA.s1ByCat.map(c => c.key),
+                ...blkB.s1ByCat.map(c => c.key),
+              ]));
+              const getVal = (blk: typeof blkA, key: string) => blk.s1ByCat.find(c => c.key === key)?.value || 0;
+              const getAct = (blk: typeof blkA, key: string) => blk.s1ByCat.find(c => c.key === key)?.activity || 0;
+              const maxS1Cat = Math.max(...allCatKeys.map(k => Math.max(getVal(blkA, k), getVal(blkB, k))), 1);
+
+              // RCN + intensity per factory
+              const rcnA = prodData.filter(p => p.year === selectedYear && p.factory_id === blkA.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+              const rcnB = prodData.filter(p => p.year === selectedYear && p.factory_id === blkB.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+              const intA = rcnA > 0 ? blkA.total / rcnA : 0;
+              const intB = rcnB > 0 ? blkB.total / rcnB : 0;
+              const intS1A = rcnA > 0 ? blkA.s1 / rcnA : 0;
+              const intS1B = rcnB > 0 ? blkB.s1 / rcnB : 0;
+              const maxInt = Math.max(intA, intB, 0.001);
+              const maxIntS1 = Math.max(intS1A, intS1B, 0.001);
+
+              return (
+                <>
+                  {/* Scope 1 Breakdown Side-by-Side */}
+                  <div className="ov-compare-block">
+                    <div className="ov-table-title" style={{color:'#E32314'}}>🔥 Scope 1 Breakdown — So sánh</div>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:'10px'}}>
+                      <thead>
+                        <tr style={{borderBottom:'1px solid #eee'}}>
+                          <th style={{textAlign:'left',padding:'3px 4px',color:'#888',fontWeight:600}}>Nguồn</th>
+                          <th style={{textAlign:'right',padding:'3px 4px',color:colorA,fontWeight:700}}>{blkA.factory.name}</th>
+                          <th style={{textAlign:'right',padding:'3px 4px',color:colorB,fontWeight:700}}>{blkB.factory.name}</th>
+                          <th style={{textAlign:'right',padding:'3px 4px',color:'#aaa',fontWeight:600,fontSize:'9px'}}>Δ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allCatKeys.map((key, ci) => {
+                          const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+                          const vA = getVal(blkA, key), vB = getVal(blkB, key);
+                          const aA = getAct(blkA, key), aB = getAct(blkB, key);
+                          const barA = maxS1Cat > 0 ? (vA / maxS1Cat * 100) : 0;
+                          const barB = maxS1Cat > 0 ? (vB / maxS1Cat * 100) : 0;
+                          const delta = vA - vB;
+                          if (vA === 0 && vB === 0) return null;
+                          return (
+                            <tr key={key} style={{borderBottom:'1px solid #f5f5f5'}}>
+                              <td style={{padding:'3px 4px'}}>
+                                <span style={{marginRight:3}}>{def?.icon || '📊'}</span>
+                                <span style={{color:'#555'}}>{def?.label?.replace(/ \(.*\)/,'') || key}</span>
+                                {/* Activity data hint */}
+                                {(aA > 0 || aB > 0) && (
+                                  <div style={{fontSize:'8px',color:'#bbb',marginTop:'1px'}}>
+                                    {aA > 0 ? `A: ${aA >= 1000 ? (aA/1000).toFixed(1)+'k' : aA.toFixed(0)} ${def?.unit || ''}` : '—'}
+                                    {' vs '}
+                                    {aB > 0 ? `B: ${aB >= 1000 ? (aB/1000).toFixed(1)+'k' : aB.toFixed(0)} ${def?.unit || ''}` : '—'}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{textAlign:'right',padding:'3px 4px'}}>
+                                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
+                                  <span style={{fontWeight:700,color:colorA}}>{vA > 0 ? fmt(vA) : '—'}</span>
+                                  {vA > 0 && <div style={{width:`${barA}%`,minWidth:barA>0?2:0,height:3,background:colorA,opacity:0.6,borderRadius:2,maxWidth:50}} />}
+                                </div>
+                              </td>
+                              <td style={{textAlign:'right',padding:'3px 4px'}}>
+                                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
+                                  <span style={{fontWeight:700,color:colorB}}>{vB > 0 ? fmt(vB) : '—'}</span>
+                                  {vB > 0 && <div style={{width:`${barB}%`,minWidth:barB>0?2:0,height:3,background:colorB,opacity:0.6,borderRadius:2,maxWidth:50}} />}
+                                </div>
+                              </td>
+                              <td style={{textAlign:'right',padding:'3px 4px',fontWeight:600,fontSize:'9px',color:delta > 0 ? '#E32314' : delta < 0 ? '#27AE60' : '#aaa'}}>
+                                {delta !== 0 ? (delta > 0 ? '+' : '') + fmt(delta) : '='}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Total row */}
+                        <tr style={{borderTop:'2px solid #eee',background:'#fafafa'}}>
+                          <td style={{padding:'4px',fontWeight:700,fontSize:'11px'}}>🔥 S1 Total</td>
+                          <td style={{textAlign:'right',padding:'4px',fontWeight:800,color:colorA,fontSize:'11px'}}>{fmt(blkA.s1)}</td>
+                          <td style={{textAlign:'right',padding:'4px',fontWeight:800,color:colorB,fontSize:'11px'}}>{fmt(blkB.s1)}</td>
+                          <td style={{textAlign:'right',padding:'4px',fontWeight:700,fontSize:'9px',color:blkA.s1-blkB.s1>0?'#E32314':'#27AE60'}}>
+                            {blkA.s1 !== blkB.s1 ? (blkA.s1 > blkB.s1 ? '+' : '') + fmt(blkA.s1 - blkB.s1) : '='}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* RCN Intensity Comparison */}
+                  <div className="ov-compare-block" style={{marginTop:6}}>
+                    <div className="ov-table-title" style={{color:'#6366F1'}}>🥜 Intensity — tCO₂e / MT RCN</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:4}}>
+                      {/* Scope 1+2 Total Intensity */}
+                      <div style={{background:'#f9f9f9',borderRadius:6,padding:'6px 8px'}}>
+                        <div style={{fontSize:'9px',color:'#888',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>Tổng S1+S2 / MT RCN</div>
+                        <div style={{display:'flex',gap:6,alignItems:'flex-end'}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:'9px',color:colorA,fontWeight:700,marginBottom:2}}>{blkA.factory.name}</div>
+                            <div style={{height:12,background:'#eee',borderRadius:3,overflow:'hidden'}}>
+                              <div style={{width:`${maxInt>0?(intA/maxInt*100):0}%`,height:'100%',background:colorA,opacity:0.8,transition:'width 0.4s'}} />
+                            </div>
+                            <div style={{fontSize:'11px',fontWeight:800,color:colorA,marginTop:2}}>{rcnA > 0 ? intA.toFixed(3) : 'N/A'}</div>
+                            <div style={{fontSize:'8px',color:'#bbb'}}>RCN: {fmt(rcnA)} MT</div>
+                          </div>
+                          <div style={{fontSize:'13px',color:'#ccc',fontWeight:700,paddingBottom:14}}>vs</div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:'9px',color:colorB,fontWeight:700,marginBottom:2}}>{blkB.factory.name}</div>
+                            <div style={{height:12,background:'#eee',borderRadius:3,overflow:'hidden'}}>
+                              <div style={{width:`${maxInt>0?(intB/maxInt*100):0}%`,height:'100%',background:colorB,opacity:0.8,transition:'width 0.4s'}} />
+                            </div>
+                            <div style={{fontSize:'11px',fontWeight:800,color:colorB,marginTop:2}}>{rcnB > 0 ? intB.toFixed(3) : 'N/A'}</div>
+                            <div style={{fontSize:'8px',color:'#bbb'}}>RCN: {fmt(rcnB)} MT</div>
+                          </div>
+                        </div>
+                        {rcnA > 0 && rcnB > 0 && (
+                          <div style={{marginTop:4,fontSize:'9px',borderTop:'1px dashed #ddd',paddingTop:4,color: intA < intB ? '#27AE60' : '#E32314', fontWeight:700}}>
+                            {blkA.factory.name} {intA < intB ? '✓ hiệu quả hơn' : '✗ phát thải cao hơn'} {Math.abs(((intA - intB) / intB) * 100).toFixed(1)}% vs {blkB.factory.name}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Scope 1 only intensity */}
+                      <div style={{background:'#fff5f5',borderRadius:6,padding:'6px 8px',border:'1px solid #fce0e0'}}>
+                        <div style={{fontSize:'9px',color:'#E32314',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>🔥 Scope 1 Only / MT RCN</div>
+                        <div style={{display:'flex',gap:6,alignItems:'flex-end'}}>
+                          <div style={{flex:1}}>
+                            <div style={{height:8,background:'#eee',borderRadius:3,overflow:'hidden'}}>
+                              <div style={{width:`${maxIntS1>0?(intS1A/maxIntS1*100):0}%`,height:'100%',background:'#E32314',opacity:0.7,transition:'width 0.4s'}} />
+                            </div>
+                            <div style={{fontSize:'11px',fontWeight:800,color:'#E32314',marginTop:2}}>{rcnA > 0 ? intS1A.toFixed(3) : 'N/A'}</div>
+                            <div style={{fontSize:'8px',color:colorA,fontWeight:700}}>{blkA.factory.name}</div>
+                          </div>
+                          <div style={{fontSize:'11px',color:'#ccc',fontWeight:700,paddingBottom:18}}>vs</div>
+                          <div style={{flex:1}}>
+                            <div style={{height:8,background:'#eee',borderRadius:3,overflow:'hidden'}}>
+                              <div style={{width:`${maxIntS1>0?(intS1B/maxIntS1*100):0}%`,height:'100%',background:'#E32314',opacity:0.5,transition:'width 0.4s'}} />
+                            </div>
+                            <div style={{fontSize:'11px',fontWeight:800,color:'#E32314',marginTop:2}}>{rcnB > 0 ? intS1B.toFixed(3) : 'N/A'}</div>
+                            <div style={{fontSize:'8px',color:colorB,fontWeight:700}}>{blkB.factory.name}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 

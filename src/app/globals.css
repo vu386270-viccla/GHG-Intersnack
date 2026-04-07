@@ -1208,7 +1208,7 @@ button {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .ov-chart-title {
@@ -1613,4 +1613,29 @@ button {
   color: #888;
   margin-top: 2px;
   flex-wrap: wrap;
+}
+
+/* ── Compare Mode: Scope 1 Breakdown + RCN Intensity ── */
+.ov-compare-block {
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+.ov-compare-block table thead tr th {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 4px;
+  border-bottom: 1.5px solid #eee;
+}
+.ov-compare-block table tbody tr td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #f8f8f8;
+  font-size: 10px;
+}
+.ov-compare-block table tbody tr:hover td {
+  background: #fafafa;
 }
