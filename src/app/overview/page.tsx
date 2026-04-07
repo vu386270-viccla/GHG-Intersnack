@@ -284,6 +284,10 @@ export default function OverviewPage() {
   const rmPlotH = rmH - rmPadT - rmPadB;
   // RCN secondary axis
   const rmMaxRCN = Math.max(...roadmapData.map(d => d.rcn), 1) * 1.2;
+  // Factory-specific target (SINGLE mode)
+  const singleFacTarget = viewMode === 'SINGLE'
+    ? (() => { const fac = factories.find(f => f.id === factoryA); return fac ? getFactoryTarget(fac) : null; })()
+    : null;
 
   return (
     <div className="overview-wrapper">
@@ -568,26 +572,6 @@ export default function OverviewPage() {
                   );
                 })()}
 
-                {/* Factory-specific target line (SINGLE mode) */}
-                {viewMode === 'SINGLE' && (() => {
-                  const fac = factories.find(f => f.id === factoryA);
-                  if (!fac) return null;
-                  const tgt = getFactoryTarget(fac);
-                  if (!tgt) return null;
-                  const ty = rmPadT + rmPlotH * (1 - tgt / rmMaxVal);
-                  const x2032 = rmW - rmPadR + 48;
-                  return (
-                    <g>
-                      <line x1={rmPadL} y1={ty} x2={x2032} y2={ty}
-                        stroke="#E32314" strokeWidth={1.2} strokeDasharray="3,3" opacity={0.75}/>
-                      <rect x={rmPadL} y={ty - 8} width={28} height={10} rx={2} fill="#E32314" opacity={0.12}/>
-                      <text x={rmPadL + 14} y={ty - 1} textAnchor="middle" fontSize="6.5" fill="#E32314" fontWeight="800">{tgt} t</text>
-                      <rect x={x2032 - 18} y={ty + 2} width={22} height={10} rx={2} fill="#E32314" opacity={0.12}/>
-                      <text x={x2032 - 7} y={ty + 10} textAnchor="middle" fontSize="6.5" fill="#E32314" fontWeight="800">🎯 {tgt}</text>
-                    </g>
-                  );
-                })()}
-
                 {/* Stacked bars per year */}
                 {roadmapData.map((d, i) => {
                   const totalCols = roadmapData.length;
@@ -605,8 +589,12 @@ export default function OverviewPage() {
                         const y = rmPadT + rmPlotH - cumH - h;
                         cumH += h;
                         const fIdx = factories.findIndex(f => f.id === pf.factory.id);
+                        // In SINGLE mode: red if over target, green if under target
+                        const barColor = singleFacTarget !== null && d.actual > 0
+                          ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
+                          : FAC_COLORS[fIdx >= 0 ? fIdx : fi];
                         return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1.5}
-                          fill={FAC_COLORS[fIdx >= 0 ? fIdx : fi]} opacity={isCurrent ? 0.92 : 0.55}
+                          fill={barColor} opacity={isCurrent ? 0.92 : 0.55}
                           stroke={isCurrent ? '#333' : 'none'} strokeWidth={isCurrent ? 0.8 : 0}/>;
                       })}
 
@@ -641,15 +629,38 @@ export default function OverviewPage() {
                       </text>
 
                       {/* On-track status */}
-                      {d.actual > 0 && (
-                        <text x={x} y={rmH - rmPadB + 22} textAnchor="middle" fontSize="6.5"
-                          fill={d.onTrack ? '#2ECC71' : '#E32314'} fontWeight="700">
-                          {d.onTrack ? '✓ On track' : '✗ Over'}
-                        </text>
-                      )}
+                      {d.actual > 0 && (() => {
+                        const onTrack = singleFacTarget !== null
+                          ? d.actual <= singleFacTarget
+                          : d.onTrack;
+                        return (
+                          <text x={x} y={rmH - rmPadB + 22} textAnchor="middle" fontSize="6.5"
+                            fill={onTrack ? '#2ECC71' : '#E32314'} fontWeight="700">
+                            {onTrack ? '✓ On track' : '✗ Over'}
+                          </text>
+                        );
+                      })()}
                     </g>
                   );
                 })}
+
+                {/* Factory-specific target line — drawn on top of bars */}
+                {singleFacTarget !== null && (() => {
+                  const ty = rmPadT + rmPlotH * (1 - singleFacTarget / rmMaxVal);
+                  const x2032 = rmW - rmPadR + 48;
+                  return (
+                    <g>
+                      <line x1={rmPadL} y1={ty} x2={x2032} y2={ty}
+                        stroke="#E32314" strokeWidth={1.8} strokeDasharray="4,3" opacity={0.9}/>
+                      {/* Left label */}
+                      <rect x={rmPadL} y={ty - 10} width={36} height={11} rx={2} fill="#E32314" opacity={0.15}/>
+                      <text x={rmPadL + 18} y={ty - 2} textAnchor="middle" fontSize="7" fill="#E32314" fontWeight="800">🎯 {singleFacTarget}t</text>
+                      {/* Right endpoint */}
+                      <circle cx={x2032} cy={ty} r={4} fill="none" stroke="#E32314" strokeWidth={1.5} opacity={0.8}/>
+                      <circle cx={x2032} cy={ty} r={2} fill="#E32314" opacity={0.8}/>
+                    </g>
+                  );
+                })()}
 
                 {/* 2032 target endpoint marker */}
                 {(() => {
@@ -959,12 +970,56 @@ export default function OverviewPage() {
                             )}
                           </div>
                           {si.rcnCur > 0 && (
-                            <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
-                              <div style={{ fontSize: 9, color: '#888', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>📊 kWh / MT RCN</div>
-                              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#333', lineHeight: 1 }}>{si.intkWhCur.toFixed(0)}</div>
-                              {hasPrev && si.intkWhPrev > 0 && (
-                                <div style={{ fontSize: 10, marginTop: 4, color: intKWhChg > 2 ? '#E32314' : intKWhChg < -2 ? '#27AE60' : '#888', fontWeight: 700 }}>
-                                  {intKWhChg > 0 ? '▲' : '▼'} {Math.abs(intKWhChg).toFixed(1)}% vs {si.prevYear}
+                            <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px', gridColumn: '1 / -1' }}>
+                              <div style={{ fontSize: 9, color: '#888', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>📊 Cường độ điện — kWh / MT RCN</div>
+                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                                {/* Current year */}
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>{selectedYear}</div>
+                                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: '#333', lineHeight: 1 }}>{si.intkWhCur.toFixed(0)}</div>
+                                  <div style={{ fontSize: 9, color: '#aaa', marginTop: 1 }}>kWh/MT</div>
+                                </div>
+                                {hasPrev && si.intkWhPrev > 0 && (
+                                  <>
+                                    {/* Arrow + delta */}
+                                    <div style={{ textAlign: 'center', paddingBottom: 14 }}>
+                                      <div style={{ fontSize: 11, fontWeight: 800, color: intKWhChg > 2 ? '#E32314' : intKWhChg < -2 ? '#27AE60' : '#888' }}>
+                                        {intKWhChg > 0 ? '▲' : intKWhChg < 0 ? '▼' : '='} {Math.abs(intKWhChg).toFixed(1)}%
+                                      </div>
+                                      <div style={{ fontSize: 9, color: '#ccc' }}>vs {si.prevYear}</div>
+                                    </div>
+                                    {/* Prev year */}
+                                    <div style={{ flex: 1, textAlign: 'right' }}>
+                                      <div style={{ fontSize: 9, color: '#aaa', marginBottom: 2 }}>{si.prevYear}</div>
+                                      <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#aaa', lineHeight: 1 }}>{si.intkWhPrev.toFixed(0)}</div>
+                                      <div style={{ fontSize: 9, color: '#ccc', marginTop: 1 }}>kWh/MT</div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {/* tCO2e/MT RCN intensity */}
+                              {si.intTotCur > 0 && (
+                                <div style={{ borderTop: '1px dashed #e0e0e0', marginTop: 6, paddingTop: 6, display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>{selectedYear}</div>
+                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#E32314', lineHeight: 1 }}>{si.intTotCur.toFixed(3)}</div>
+                                    <div style={{ fontSize: 9, color: '#aaa', marginTop: 1 }}>tCO₂e/MT RCN</div>
+                                  </div>
+                                  {hasPrev && si.intTotPrev > 0 && (
+                                    <>
+                                      <div style={{ textAlign: 'center', paddingBottom: 14 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: pct(si.intTotCur, si.intTotPrev) > 2 ? '#E32314' : pct(si.intTotCur, si.intTotPrev) < -2 ? '#27AE60' : '#888' }}>
+                                          {pct(si.intTotCur, si.intTotPrev) > 0 ? '▲' : pct(si.intTotCur, si.intTotPrev) < 0 ? '▼' : '='} {Math.abs(pct(si.intTotCur, si.intTotPrev)).toFixed(1)}%
+                                        </div>
+                                        <div style={{ fontSize: 9, color: '#ccc' }}>vs {si.prevYear}</div>
+                                      </div>
+                                      <div style={{ flex: 1, textAlign: 'right' }}>
+                                        <div style={{ fontSize: 9, color: '#aaa', marginBottom: 2 }}>{si.prevYear}</div>
+                                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#aaa', lineHeight: 1 }}>{si.intTotPrev.toFixed(3)}</div>
+                                        <div style={{ fontSize: 9, color: '#ccc', marginTop: 1 }}>tCO₂e/MT RCN</div>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
