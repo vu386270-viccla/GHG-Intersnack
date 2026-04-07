@@ -650,243 +650,286 @@ export default function OverviewPage() {
               </div>
             )}
 
-            {/* ── SINGLE MODE: Scope 1 Drivers + Scope 2 vs RCN Analysis ── */}
+            {/* ── SINGLE MODE: Monthly Analysis + Scope Breakdown ── */}
             {viewMode === 'SINGLE' && singleInsight && (() => {
               const si = singleInsight;
               const { pct } = si;
               const hasPrev = si.s1TotalPrev > 0 || si.s2EmPrev > 0;
+              const facObj = factories.find(f => f.id === factoryA)!;
+
+              // Build per-month rows
+              const monthRows = Array.from({ length: 12 }, (_, mi) => {
+                const mn = mi + 1;
+                const cur = allEmissions.filter(e => e.year === selectedYear && e.factory_id === factoryA && e.month === mn);
+                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
+                const s1 = calcS1(cur);
+                const s2 = calcS2(cur, selectedYear, facObj);
+                const total = s1 + s2;
+                const totalPrev = calcS1(prv) + calcS2(prv, si.prevYear, facObj);
+                const kWh = cur.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
+                const rcn = prodData.filter(p => p.year === selectedYear && p.factory_id === factoryA && p.month === mn && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+                const intkWh = rcn > 0 ? kWh / rcn : 0;
+                return { mn, s1, s2, total, kWh, rcn, intkWh, totalPrev, hasData: total > 0 };
+              });
+
+              const latestMn = Math.max(...monthRows.filter(m => m.hasData).map(m => m.mn), 0);
               const kWhPctChg = pct(si.kWhCur, si.kWhPrev);
               const rcnPctChg = pct(si.rcnCur, si.rcnPrev);
               const s1PctChg  = pct(si.s1TotalCur, si.s1TotalPrev);
               const s2PctChg  = pct(si.s2EmCur, si.s2EmPrev);
-
-              // Electricity vs RCN narrative
-              const kWhUp = kWhPctChg > 0;
-              const rcnUp = rcnPctChg > 0;
               const intKWhChg = pct(si.intkWhCur, si.intkWhPrev);
+
               let narrative = '';
-              if (!hasPrev) {
-                narrative = 'Chưa có dữ liệu năm trước để so sánh.';
-              } else if (kWhUp && rcnUp) {
-                if (intKWhChg <= 1) narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện ổn định (kWh/MT RCN gần như không đổi).`;
-                else narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% trong khi RCN chỉ tăng ${rcnPctChg.toFixed(1)}% → kém hiệu quả hơn, tiêu thụ điện tính theo RCN tăng ${intKWhChg.toFixed(1)}%.`;
-              } else if (kWhUp && !rcnUp) {
+              if (!hasPrev) narrative = 'Chưa có dữ liệu năm trước để so sánh.';
+              else if (kWhPctChg > 0 && rcnPctChg > 0)
+                narrative = intKWhChg <= 1
+                  ? `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN cũng tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện ổn định.`
+                  : `Điện tăng ${kWhPctChg.toFixed(1)}% trong khi RCN chỉ tăng ${rcnPctChg.toFixed(1)}% → kém hiệu quả hơn, kWh/MT RCN tăng ${intKWhChg.toFixed(1)}%.`;
+              else if (kWhPctChg > 0)
                 narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → hiệu suất điện giảm đáng kể.`;
-              } else if (!kWhUp && rcnUp) {
+              else if (rcnPctChg > 0)
                 narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}% trong khi RCN tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện cải thiện tốt.`;
-              } else {
-                narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}%, RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → tỷ lệ kWh/MT RCN ${intKWhChg > 0 ? 'tăng nhẹ' : 'ổn định'}.`;
-              }
+              else
+                narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}%, RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → kWh/MT RCN ${intKWhChg > 0 ? 'tăng nhẹ' : 'ổn định'}.`;
+
+              const dColor = (v: number) => v > 0 ? '#E32314' : v < 0 ? '#27AE60' : '#aaa';
+              const dSign  = (v: number) => v > 0 ? '+' : '';
+              const MN = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
               return (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div style={{ marginTop: 8 }}>
 
-                  {/* ── Scope 1 Drivers ── */}
-                  <div className="ov-compare-block" style={{ flex: 1 }}>
-                    <div className="ov-table-title" style={{ color: '#E32314', marginBottom: 6 }}>
-                      🔥 Scope 1 — Phân tích nguyên nhân
-                      {hasPrev && (
-                        <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600,
-                          color: s1PctChg > 0 ? '#E32314' : '#27AE60' }}>
-                          {s1PctChg > 0 ? '▲' : '▼'} {Math.abs(s1PctChg).toFixed(1)}% vs {si.prevYear}
-                        </span>
-                      )}
+                  {/* 1. Monthly Table */}
+                  <div className="ov-compare-block" style={{ marginBottom: 8 }}>
+                    <div className="ov-table-title" style={{ marginBottom: 6 }}>
+                      📅 Phân tích theo tháng — {selectedYear}
+                      {latestMn > 0 && <span style={{ marginLeft: 8, fontSize: 10, color: '#888', fontWeight: 400 }}>Đến T{latestMn}</span>}
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #eee' }}>
-                          <th style={{ textAlign: 'left', padding: '2px 4px', color: '#888', fontWeight: 600 }}>Nguồn</th>
-                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#888', fontWeight: 600 }}>{si.prevYear}</th>
-                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#E32314', fontWeight: 700 }}>{selectedYear}</th>
-                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#aaa', fontWeight: 600, fontSize: 9 }}>Δ tCO₂e</th>
-                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#aaa', fontWeight: 600, fontSize: 9 }}>Δ%</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {si.s1Drivers.filter(d => d.cur > 0 || d.prev > 0).map((d, di) => {
-                          const def = SCOPE_1_CATEGORIES.find(c => c.key === d.key);
-                          const isTop = di === 0 && Math.abs(d.delta) > 0;
-                          const maxVal = Math.max(d.cur, d.prev, 1);
-                          return (
-                            <tr key={d.key} style={{ borderBottom: '1px solid #f5f5f5',
-                              background: isTop ? '#fff5f5' : undefined }}>
-                              <td style={{ padding: '3px 4px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                                  <span>{def?.icon || '📊'}</span>
-                                  <span style={{ color: '#444' }}>{def?.label?.replace(/ \(.*\)/, '') || d.key}</span>
-                                  {isTop && hasPrev && (
-                                    <span style={{ fontSize: 8, background: '#E32314', color: '#fff',
-                                      padding: '1px 4px', borderRadius: 3, fontWeight: 700, marginLeft: 2 }}>TOP</span>
-                                  )}
-                                </div>
-                                {(d.actCur > 0 || d.actPrev > 0) && (
-                                  <div style={{ fontSize: 8, color: '#bbb', marginTop: 1, paddingLeft: 14 }}>
-                                    {d.actPrev > 0 ? `${d.actPrev >= 1000 ? (d.actPrev/1000).toFixed(1)+'k' : d.actPrev.toFixed(0)} ${def?.unit || ''}` : '—'}
-                                    {' → '}
-                                    {d.actCur > 0 ? `${d.actCur >= 1000 ? (d.actCur/1000).toFixed(1)+'k' : d.actCur.toFixed(0)} ${def?.unit || ''}` : '—'}
-                                  </div>
-                                )}
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '3px 4px', color: '#999', fontWeight: 600 }}>
-                                {d.prev > 0 ? fmt(d.prev) : '—'}
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 700, color: '#333' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                  <span>{d.cur > 0 ? fmt(d.cur) : '—'}</span>
-                                  {d.cur > 0 && <div style={{ width: `${(d.cur / maxVal) * 40}px`, height: 2, background: '#E32314', opacity: 0.5, borderRadius: 1 }} />}
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 700, fontSize: 9,
-                                color: d.delta > 0 ? '#E32314' : d.delta < 0 ? '#27AE60' : '#aaa' }}>
-                                {d.delta !== 0 ? (d.delta > 0 ? '+' : '') + fmt(d.delta) : '='}
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '3px 4px', fontSize: 9,
-                                color: d.delta > 0 ? '#E32314' : d.delta < 0 ? '#27AE60' : '#aaa' }}>
-                                {hasPrev && d.prev > 0 ? (d.delta > 0 ? '+' : '') + pct(d.cur, d.prev).toFixed(1) + '%' : '—'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {/* Total */}
-                        <tr style={{ borderTop: '2px solid #eee', background: '#fafafa' }}>
-                          <td style={{ padding: '4px', fontWeight: 700, fontSize: 11 }}>🔥 S1 Total</td>
-                          <td style={{ textAlign: 'right', padding: '4px', color: '#999', fontWeight: 700 }}>
-                            {si.s1TotalPrev > 0 ? fmt(si.s1TotalPrev) : '—'}
-                          </td>
-                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 800, color: '#E32314', fontSize: 11 }}>
-                            {fmt(si.s1TotalCur)}
-                          </td>
-                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 700, fontSize: 9,
-                            color: si.s1TotalCur > si.s1TotalPrev ? '#E32314' : '#27AE60' }}>
-                            {hasPrev ? (si.s1TotalCur > si.s1TotalPrev ? '+' : '') + fmt(si.s1TotalCur - si.s1TotalPrev) : '—'}
-                          </td>
-                          <td style={{ textAlign: 'right', padding: '4px', fontSize: 9,
-                            color: s1PctChg > 0 ? '#E32314' : '#27AE60' }}>
-                            {hasPrev && si.s1TotalPrev > 0 ? (s1PctChg > 0 ? '+' : '') + s1PctChg.toFixed(1) + '%' : '—'}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 560 }}>
+                        <thead>
+                          <tr style={{ background: '#f8f8f8', borderBottom: '2px solid #e0e0e0' }}>
+                            <th style={{ textAlign: 'left', padding: '5px 8px', color: '#555', fontWeight: 700, width: 40 }}>T</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#E32314', fontWeight: 700 }}>🔥 Scope 1</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#F5A623', fontWeight: 700 }}>⚡ Scope 2</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#333', fontWeight: 800, borderLeft: '2px solid #e0e0e0', whiteSpace: 'nowrap' }}>Tổng tCO₂e</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#6366F1', fontWeight: 700 }}>MWh điện</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#6B9B1E', fontWeight: 700 }}>🥜 RCN (MT)</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#888', fontWeight: 600 }}>kWh/MT</th>
+                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#888', fontWeight: 600, borderLeft: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>Δ vs T-1</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monthRows.map((m, idx) => {
+                            if (!m.hasData) return (
+                              <tr key={m.mn} style={{ borderBottom: '1px solid #f5f5f5', opacity: 0.3 }}>
+                                <td style={{ padding: '4px 8px', fontWeight: 700, color: '#ccc' }}>{MN[idx]}</td>
+                                <td colSpan={7} style={{ textAlign: 'center', color: '#eee', fontSize: 10 }}>—</td>
+                              </tr>
+                            );
+                            const isLatest = m.mn === latestMn;
+                            const prevM = idx > 0 ? monthRows[idx - 1] : null;
+                            const dVsPrev = prevM?.hasData ? m.total - prevM.total : null;
+                            return (
+                              <tr key={m.mn} style={{
+                                borderBottom: '1px solid #f0f0f0',
+                                background: isLatest ? '#fff9f0' : idx % 2 === 0 ? '#fafafa' : '#fff',
+                              }}>
+                                <td style={{ padding: '5px 8px', fontWeight: 800, color: isLatest ? '#E32314' : '#666' }}>
+                                  {MN[idx]}
+                                  {isLatest && <span style={{ fontSize: 8, background: '#E32314', color: '#fff', padding: '1px 3px', borderRadius: 3, marginLeft: 3, verticalAlign: 'middle' }}>NEW</span>}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', fontWeight: 700, color: '#E32314', fontSize: 12 }}>{fmt(m.s1)}</td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', fontWeight: 700, color: '#F5A623', fontSize: 12 }}>{fmt(m.s2)}</td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', borderLeft: '2px solid #e8e8e8' }}>
+                                  <span style={{ fontFamily: 'var(--font-display)', fontSize: isLatest ? 15 : 13, fontWeight: 800, color: '#333' }}>{fmt(m.total)}</span>
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', color: '#6366F1', fontSize: 12 }}>
+                                  {m.kWh > 0 ? (m.kWh / 1000).toFixed(0) : '—'}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', color: '#6B9B1E', fontSize: 12 }}>
+                                  {m.rcn > 0 ? fmt(m.rcn) : '—'}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', color: '#888', fontSize: 12 }}>
+                                  {m.intkWh > 0 ? m.intkWh.toFixed(0) : '—'}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 8px', borderLeft: '1px solid #eee', fontWeight: 700, fontSize: 11, color: dVsPrev !== null ? dColor(dVsPrev) : '#ddd' }}>
+                                  {dVsPrev !== null ? `${dSign(dVsPrev)}${fmt(dVsPrev)}` : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          <tr style={{ background: '#f0f0f0', borderTop: '2px solid #d0d0d0', fontWeight: 800 }}>
+                            <td style={{ padding: '6px 8px', fontSize: 11, color: '#333' }}>YTD</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', fontSize: 13, color: '#E32314', fontWeight: 800 }}>{fmt(si.s1TotalCur)}</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', fontSize: 13, color: '#F5A623', fontWeight: 800 }}>{fmt(si.s2EmCur)}</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', borderLeft: '2px solid #d0d0d0', fontFamily: 'var(--font-display)', fontSize: 17, color: '#222', fontWeight: 800 }}>{fmt(si.totalCur)}</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', color: '#6366F1', fontWeight: 700 }}>{(si.kWhCur / 1000).toFixed(0)}</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', color: '#6B9B1E', fontWeight: 700 }}>{si.rcnCur > 0 ? fmt(si.rcnCur) : '—'}</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', color: '#888', fontWeight: 700 }}>{si.intkWhCur > 0 ? si.intkWhCur.toFixed(0) : '—'}</td>
+                            <td style={{ textAlign: 'right', padding: '6px 8px', borderLeft: '1px solid #d0d0d0', fontSize: 11, fontWeight: 700, color: hasPrev && si.totalPrev > 0 ? dColor(si.totalCur - si.totalPrev) : '#ccc' }}>
+                              {hasPrev && si.totalPrev > 0 ? `${dSign(si.totalCur - si.totalPrev)}${pct(si.totalCur, si.totalPrev).toFixed(1)}% vs ${si.prevYear}` : '—'}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
-                  {/* ── Scope 2 vs RCN ── */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div className="ov-compare-block">
-                      <div className="ov-table-title" style={{ color: '#F5A623', marginBottom: 6 }}>
-                        ⚡ Scope 2 — Điện vs RCN
-                        {hasPrev && (
-                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600,
-                            color: s2PctChg > 0 ? '#E32314' : '#27AE60' }}>
-                            {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs {si.prevYear}
+                  {/* 2. Scope 1 Drivers + Scope 2 Analysis */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+
+                    {/* Scope 1 category cards */}
+                    <div className="ov-compare-block" style={{ flex: '0 0 54%' }}>
+                      <div className="ov-table-title" style={{ color: '#E32314', marginBottom: 6 }}>
+                        🔥 Scope 1 — Nguồn phát thải YTD
+                        {hasPrev && si.s1TotalPrev > 0 && (
+                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s1PctChg) }}>
+                            {s1PctChg > 0 ? '▲' : '▼'} {Math.abs(s1PctChg).toFixed(1)}% vs {si.prevYear}
                           </span>
                         )}
                       </div>
-
-                      {/* kWh & tCO2e row */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
-                        <div style={{ background: '#fffbf0', border: '1px solid #ffe5a0', borderRadius: 6, padding: '6px 8px' }}>
-                          <div style={{ fontSize: 9, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>⚡ Tiêu thụ điện</div>
-                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#333' }}>
-                            {si.kWhCur >= 1000000 ? (si.kWhCur/1000000).toFixed(2)+' GWh' : (si.kWhCur/1000).toFixed(0)+' MWh'}
-                          </div>
-                          {hasPrev && si.kWhPrev > 0 && (
-                            <div style={{ fontSize: 9, marginTop: 2, color: kWhPctChg > 0 ? '#E32314' : '#27AE60', fontWeight: 700 }}>
-                              {kWhPctChg > 0 ? '▲' : '▼'} {Math.abs(kWhPctChg).toFixed(1)}% vs năm trước
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ background: '#fff5f5', border: '1px solid #fce0e0', borderRadius: 6, padding: '6px 8px' }}>
-                          <div style={{ fontSize: 9, color: '#E32314', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>🌡 Phát thải S2</div>
-                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#333' }}>
-                            {fmt(si.s2EmCur)} <span style={{ fontSize: 10, fontWeight: 400, color: '#aaa' }}>tCO₂e</span>
-                          </div>
-                          {hasPrev && si.s2EmPrev > 0 && (
-                            <div style={{ fontSize: 9, marginTop: 2, color: s2PctChg > 0 ? '#E32314' : '#27AE60', fontWeight: 700 }}>
-                              {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs năm trước
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* RCN row */}
-                      <div style={{ background: '#f5fbff', border: '1px solid #c0dff5', borderRadius: 6, padding: '6px 8px', marginBottom: 6 }}>
-                        <div style={{ fontSize: 9, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>🥜 Sản lượng RCN (MT)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div>
-                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#333' }}>
-                              {si.rcnCur > 0 ? fmt(si.rcnCur) : 'N/A'}
-                            </div>
-                            <div style={{ fontSize: 9, color: '#888' }}>{selectedYear}</div>
-                          </div>
-                          {hasPrev && si.rcnPrev > 0 && (
-                            <>
-                              <div style={{ color: '#ccc', fontSize: 12 }}>→</div>
-                              <div>
-                                <div style={{ fontSize: 11, color: '#aaa' }}>{fmt(si.rcnPrev)}</div>
-                                <div style={{ fontSize: 9, color: '#bbb' }}>{si.prevYear}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {si.s1Drivers.filter(d => d.cur > 0 || d.prev > 0).map((d, di) => {
+                          const def = SCOPE_1_CATEGORIES.find(c => c.key === d.key);
+                          const isTop = di === 0 && hasPrev && Math.abs(d.delta) > 0;
+                          const barW = Math.round((d.cur / (si.s1Drivers[0]?.cur || 1)) * 100);
+                          return (
+                            <div key={d.key} style={{
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              background: isTop ? '#fff5f5' : '#fafafa',
+                              border: `1px solid ${isTop ? '#fce0e0' : '#eeeeee'}`,
+                              borderRadius: 6, padding: '8px 10px',
+                            }}>
+                              <div style={{ fontSize: 18 }}>{def?.icon || '📊'}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: '#333' }}>
+                                    {def?.label?.replace(/ \(.*\)/, '') || d.key}
+                                  </span>
+                                  {isTop && <span style={{ fontSize: 8, background: '#E32314', color: '#fff', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>TOP</span>}
+                                </div>
+                                {(d.actCur > 0 || d.actPrev > 0) && (
+                                  <div style={{ fontSize: 9, color: '#bbb', marginBottom: 3 }}>
+                                    {hasPrev && d.actPrev > 0 ? `${d.actPrev >= 1000 ? (d.actPrev/1000).toFixed(1)+'k' : d.actPrev.toFixed(0)} → ` : ''}
+                                    {d.actCur > 0 ? `${d.actCur >= 1000 ? (d.actCur/1000).toFixed(1)+'k' : d.actCur.toFixed(0)} ${def?.unit || ''}` : ''}
+                                  </div>
+                                )}
+                                <div style={{ height: 3, background: '#e8e8e8', borderRadius: 2, overflow: 'hidden' }}>
+                                  <div style={{ width: `${barW}%`, height: '100%', background: '#E32314', opacity: 0.6, borderRadius: 2 }} />
+                                </div>
                               </div>
-                              <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700,
-                                color: rcnPctChg > 0 ? '#27AE60' : '#E32314' }}>
-                                {rcnPctChg > 0 ? '▲' : '▼'} {Math.abs(rcnPctChg).toFixed(1)}%
+                              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#333', lineHeight: 1 }}>{fmt(d.cur)}</div>
+                                <div style={{ fontSize: 9, color: '#bbb', marginTop: 2 }}>tCO₂e</div>
                               </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Intensity metrics */}
-                      {si.rcnCur > 0 && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
-                          <div style={{ background: '#fafafa', borderRadius: 6, padding: '6px 8px', border: '1px solid #eee' }}>
-                            <div style={{ fontSize: 9, color: '#888', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>⚡ kWh / MT RCN</div>
-                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: '#333' }}>
-                              {si.intkWhCur.toFixed(0)}
+                              {hasPrev && d.prev > 0 && (
+                                <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 48 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: dColor(d.delta) }}>{dSign(d.delta)}{fmt(d.delta)}</div>
+                                  <div style={{ fontSize: 10, color: dColor(d.delta), fontWeight: 600 }}>{dSign(pct(d.cur, d.prev))}{pct(d.cur, d.prev).toFixed(1)}%</div>
+                                </div>
+                              )}
                             </div>
-                            {hasPrev && si.intkWhPrev > 0 && (
-                              <div style={{ fontSize: 9, marginTop: 1, color: intKWhChg > 2 ? '#E32314' : intKWhChg < -2 ? '#27AE60' : '#888', fontWeight: 700 }}>
-                                {intKWhChg > 0 ? '▲' : '▼'} {Math.abs(intKWhChg).toFixed(1)}% vs năm trước
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ background: '#fafafa', borderRadius: 6, padding: '6px 8px', border: '1px solid #eee' }}>
-                            <div style={{ fontSize: 9, color: '#888', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>🌡 tCO₂e / MT RCN</div>
-                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: '#333' }}>
-                              {si.intTotCur.toFixed(3)}
-                            </div>
-                            {hasPrev && si.intTotPrev > 0 && (
-                              <div style={{ fontSize: 9, marginTop: 1,
-                                color: pct(si.intTotCur, si.intTotPrev) > 2 ? '#E32314' : pct(si.intTotCur, si.intTotPrev) < -2 ? '#27AE60' : '#888',
-                                fontWeight: 700 }}>
-                                {pct(si.intTotCur, si.intTotPrev) > 0 ? '▲' : '▼'} {Math.abs(pct(si.intTotCur, si.intTotPrev)).toFixed(1)}% vs năm trước
+                          );
+                        })}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#E3231412', border: '1px solid #E3231430', borderRadius: 6, padding: '9px 10px', marginTop: 2 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#E32314' }}>🔥 Tổng Scope 1</span>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: '#E32314' }}>{fmt(si.s1TotalCur)}</span>
+                            <span style={{ fontSize: 10, color: '#aaa', marginLeft: 4 }}>tCO₂e</span>
+                            {hasPrev && si.s1TotalPrev > 0 && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: dColor(s1PctChg) }}>
+                                {dSign(s1PctChg)}{s1PctChg.toFixed(1)}% vs {si.prevYear} ({dSign(si.s1TotalCur - si.s1TotalPrev)}{fmt(si.s1TotalCur - si.s1TotalPrev)} t)
                               </div>
                             )}
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
 
-                    {/* Narrative */}
-                    <div style={{ background: 'linear-gradient(135deg, #F5A62308, #6366F108)',
-                      border: '1px solid #F5A62333', borderRadius: 8, padding: '10px 12px' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#F5A623', marginBottom: 4, textTransform: 'uppercase' }}>
-                        💡 Phân tích cho Ban Giám Đốc
-                      </div>
-                      <div style={{ fontSize: 11, color: '#444', lineHeight: 1.6 }}>{narrative}</div>
-                      {si.rcnCur > 0 && hasPrev && si.s1TotalPrev > 0 && (() => {
-                        const topDriver = si.s1Drivers[0];
-                        const def = topDriver ? SCOPE_1_CATEGORIES.find(c => c.key === topDriver.key) : null;
-                        if (!topDriver || Math.abs(topDriver.delta) < 1) return null;
-                        return (
-                          <div style={{ marginTop: 6, fontSize: 11, color: '#444', lineHeight: 1.6, borderTop: '1px dashed #ddd', paddingTop: 6 }}>
-                            <strong>Scope 1:</strong> Nguồn phát thải tăng nhiều nhất là{' '}
-                            <strong style={{ color: '#E32314' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || topDriver.key}</strong>
-                            {' '}({topDriver.delta > 0 ? '+' : ''}{fmt(topDriver.delta)} tCO₂e, {topDriver.delta > 0 ? '▲' : '▼'}{Math.abs(pct(topDriver.cur, topDriver.prev)).toFixed(1)}%).
-                            {topDriver.actCur > 0 && topDriver.actPrev > 0 && (
-                              <span> Lượng tiêu thụ {topDriver.actPrev.toFixed(0)} → {topDriver.actCur.toFixed(0)} {def?.unit || ''}.</span>
+                    {/* Scope 2 + Narrative */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div className="ov-compare-block">
+                        <div className="ov-table-title" style={{ color: '#F5A623', marginBottom: 8 }}>
+                          ⚡ Scope 2 — Điện & Cường độ
+                          {hasPrev && si.s2EmPrev > 0 && (
+                            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s2PctChg) }}>
+                              {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs {si.prevYear}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                          <div style={{ background: '#fffbf0', border: '1px solid #ffe5a0', borderRadius: 6, padding: '8px 10px' }}>
+                            <div style={{ fontSize: 9, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>⚡ Tiêu thụ điện</div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#333', lineHeight: 1 }}>
+                              {si.kWhCur >= 1000000 ? (si.kWhCur/1000000).toFixed(2) : (si.kWhCur/1000).toFixed(0)}
+                              <span style={{ fontSize: 11, color: '#aaa', marginLeft: 3 }}>{si.kWhCur >= 1000000 ? 'GWh' : 'MWh'}</span>
+                            </div>
+                            {hasPrev && si.kWhPrev > 0 && (
+                              <div style={{ fontSize: 10, marginTop: 4, color: dColor(kWhPctChg), fontWeight: 700 }}>
+                                {kWhPctChg > 0 ? '▲' : '▼'} {Math.abs(kWhPctChg).toFixed(1)}% vs {si.prevYear}
+                              </div>
                             )}
                           </div>
-                        );
-                      })()}
+                          <div style={{ background: '#fff5f5', border: '1px solid #fce0e0', borderRadius: 6, padding: '8px 10px' }}>
+                            <div style={{ fontSize: 9, color: '#E32314', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>🌡 Phát thải S2</div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#333', lineHeight: 1 }}>
+                              {fmt(si.s2EmCur)}<span style={{ fontSize: 11, color: '#aaa', marginLeft: 3 }}>tCO₂e</span>
+                            </div>
+                            {hasPrev && si.s2EmPrev > 0 && (
+                              <div style={{ fontSize: 10, marginTop: 4, color: dColor(s2PctChg), fontWeight: 700 }}>
+                                {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs {si.prevYear}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ background: '#f5fbff', border: '1px solid #c0dff5', borderRadius: 6, padding: '8px 10px' }}>
+                            <div style={{ fontSize: 9, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>🥜 RCN Input</div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#333', lineHeight: 1 }}>
+                              {si.rcnCur > 0 ? fmt(si.rcnCur) : <span style={{ color: '#ccc' }}>N/A</span>}
+                              {si.rcnCur > 0 && <span style={{ fontSize: 11, color: '#aaa', marginLeft: 3 }}>MT</span>}
+                            </div>
+                            {hasPrev && si.rcnPrev > 0 && (
+                              <div style={{ fontSize: 10, marginTop: 4, color: rcnPctChg > 0 ? '#27AE60' : '#E32314', fontWeight: 700 }}>
+                                {rcnPctChg > 0 ? '▲' : '▼'} {Math.abs(rcnPctChg).toFixed(1)}% vs {si.prevYear}
+                              </div>
+                            )}
+                          </div>
+                          {si.rcnCur > 0 && (
+                            <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
+                              <div style={{ fontSize: 9, color: '#888', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>📊 kWh / MT RCN</div>
+                              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#333', lineHeight: 1 }}>{si.intkWhCur.toFixed(0)}</div>
+                              {hasPrev && si.intkWhPrev > 0 && (
+                                <div style={{ fontSize: 10, marginTop: 4, color: intKWhChg > 2 ? '#E32314' : intKWhChg < -2 ? '#27AE60' : '#888', fontWeight: 700 }}>
+                                  {intKWhChg > 0 ? '▲' : '▼'} {Math.abs(intKWhChg).toFixed(1)}% vs {si.prevYear}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Management narrative */}
+                      <div style={{ background: 'linear-gradient(135deg, #F5A62310, #6366F110)', border: '1px solid #F5A62340', borderRadius: 8, padding: '10px 12px', flex: 1 }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: '#F5A623', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          💡 Nhận xét Ban Giám Đốc
+                        </div>
+                        <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>{narrative}</div>
+                        {hasPrev && si.s1TotalPrev > 0 && (() => {
+                          const top = si.s1Drivers[0];
+                          const def = top ? SCOPE_1_CATEGORIES.find(c => c.key === top.key) : null;
+                          if (!top || Math.abs(top.delta) < 1) return null;
+                          return (
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#333', lineHeight: 1.7, borderTop: '1px dashed #ddd', paddingTop: 8 }}>
+                              <strong>Scope 1:</strong> Nguồn biến động lớn nhất là{' '}
+                              <strong style={{ color: '#E32314' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || top.key}</strong>
+                              {' '}({top.delta > 0 ? '+' : ''}{fmt(top.delta)} tCO₂e, {top.delta > 0 ? '▲' : '▼'}{Math.abs(pct(top.cur, top.prev)).toFixed(1)}%).
+                              {top.actCur > 0 && top.actPrev > 0 && (
+                                <span> Lượng tiêu thụ {top.actPrev.toFixed(0)} → {top.actCur.toFixed(0)} {def?.unit || ''}.</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
