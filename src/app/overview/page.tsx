@@ -14,6 +14,9 @@ interface RawRow {
   factory_id: string; year: number; month: number; scope: string;
   category: string; activity_data: number; emissions_tco2e: number;
 }
+interface ProdRow {
+  factory_id: string; year: number; month: number; category: string; quantity: number;
+}
 
 type ViewMode = 'ALL' | 'SINGLE' | 'COMPARE';
 
@@ -48,6 +51,7 @@ function MiniDonut({ segments, size = 120, thickness = 22, centerLabel, centerSu
 export default function OverviewPage() {
   const [factories, setFactories] = useState<Factory[]>([]);
   const [allEmissions, setAllEmissions] = useState<RawRow[]>([]);
+  const [prodData, setProdData] = useState<ProdRow[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('ALL');
   const [factoryA, setFactoryA] = useState('');
   const [factoryB, setFactoryB] = useState('');
@@ -58,13 +62,15 @@ export default function OverviewPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [fRes, eRes] = await Promise.all([
+      const [fRes, eRes, pRes] = await Promise.all([
         supabase.from('factories').select('*'),
         supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e'),
+        supabase.from('production_data').select('factory_id,year,month,category,quantity'),
       ]);
       const facs = (fRes.data || []) as Factory[];
       setFactories(facs);
       setAllEmissions((eRes.data || []) as RawRow[]);
+      setProdData((pRes.data || []) as ProdRow[]);
       if (facs.length >= 2 && !factoryA) { setFactoryA(facs[0].id); setFactoryB(facs[1].id); }
       setLoading(false);
     }
@@ -87,12 +93,17 @@ export default function OverviewPage() {
     const s1 = calcS1(fRows);
     const s2 = calcS2(fRows, selectedYear, fac);
     const kWh = fRows.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
-    const s1ByCat: { key: string; label: string; icon: string; value: number }[] = [];
+    // S1 by category with activity_data
+    const s1ByCat: { key: string; label: string; icon: string; value: number; activity: number; unit: string }[] = [];
     const catMap: Record<string, number> = {};
-    fRows.filter(e => e.scope === 'scope_1').forEach(e => { catMap[e.category] = (catMap[e.category] || 0) + Number(e.emissions_tco2e); });
+    const actMap: Record<string, number> = {};
+    fRows.filter(e => e.scope === 'scope_1').forEach(e => {
+      catMap[e.category] = (catMap[e.category] || 0) + Number(e.emissions_tco2e);
+      actMap[e.category] = (actMap[e.category] || 0) + Number(e.activity_data);
+    });
     Object.entries(catMap).sort(([, a], [, b]) => b - a).forEach(([key, val]) => {
       const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-      s1ByCat.push({ key, label: def?.label || key, icon: def?.icon || '📊', value: val });
+      s1ByCat.push({ key, label: def?.label || key, icon: def?.icon || '📊', value: val, activity: actMap[key] || 0, unit: def?.unit || '' });
     });
     const monthly = Array.from({ length: 12 }, (_, i) => {
       const mRows = fRows.filter(e => e.month === i + 1);
@@ -228,7 +239,7 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            {/* Scope 1 Donut */}
+            {/* Scope 1 Donut + Activity */}
             <div className="ov-donut-inline">
               <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS1)} centerSub="S1"
                 segments={(() => {
@@ -241,19 +252,43 @@ export default function OverviewPage() {
                 })()} />
               <div className="ov-donut-legend-sm">
                 {(() => {
-                  const cats: Record<string, number> = {};
-                  displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
-                  return Object.entries(cats).sort(([,a],[,b]) => b - a).slice(0, 5).map(([key, val], i) => {
+                  const cats: Record<string, { em: number; act: number }> = {};
+                  displayBlocks.forEach(b => b.s1ByCat.forEach(c => {
+                    if (!cats[c.key]) cats[c.key] = { em: 0, act: 0 };
+                    cats[c.key].em += c.value;
+                    cats[c.key].act += c.activity;
+                  }));
+                  return Object.entries(cats).sort(([,a],[,b]) => b.em - a.em).slice(0, 5).map(([key, v], i) => {
                     const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-                    return <div key={key} className="ov-dls-item"><span className="ov-legend-dot" style={{ background: S1_COLORS[i] }}/>{def?.icon} {fmt(val)}</div>;
+                    const actFmt = v.act >= 1000 ? `${(v.act/1000).toFixed(1)}k` : v.act.toFixed(0);
+                    return <div key={key} className="ov-dls-item">
+                      <span className="ov-legend-dot" style={{ background: S1_COLORS[i] }}/>
+                      <span>{def?.icon} {actFmt} {def?.unit}</span>
+                      <span style={{ color: '#999', marginLeft: 'auto' }}>{fmt(v.em)} t</span>
+                    </div>;
                   });
                 })()}
               </div>
             </div>
 
+            {/* RCN Intensity + Electricity */}
             <div className="ov-elec-detail">
-              <div className="ov-elec-item"><span className="ov-elec-label">Electricity</span><span className="ov-elec-val">{(displayBlocks.reduce((s,b)=>s+b.kWh,0)/1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} MWh</span></div>
-              <div className="ov-elec-item"><span className="ov-elec-label">EF</span><span className="ov-elec-val">{useCommonEF ? `${COMMON_EF}` : 'Country'} kg CO₂e/kWh</span></div>
+              {(() => {
+                const selFactoryIds = displayBlocks.map(b => b.factory.id);
+                const yrProd = prodData.filter(p => p.year === selectedYear && selFactoryIds.includes(p.factory_id));
+                const totalRCN = yrProd.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+                const totalCK = yrProd.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
+                const intensity = totalRCN > 0 ? (dispTotal / totalRCN) : 0;
+                return <>
+                  <div className="ov-elec-item"><span className="ov-elec-label">🥜 RCN Input</span><span className="ov-elec-val">{fmt(totalRCN)} MT</span></div>
+                  <div className="ov-elec-item"><span className="ov-elec-label">📦 CK Output</span><span className="ov-elec-val">{totalCK > 1000 ? `${(totalCK/1000).toFixed(0)}k` : fmt(totalCK)} MT</span></div>
+                  <div className="ov-elec-item" style={{ borderTop: '1px solid #eee', paddingTop: '4px', marginTop: '2px' }}>
+                    <span className="ov-elec-label" style={{ fontWeight: 700, color: '#E32314' }}>📊 Intensity</span>
+                    <span className="ov-elec-val" style={{ color: '#E32314', fontWeight: 700 }}>{intensity.toFixed(2)} tCO₂e/MT RCN</span>
+                  </div>
+                  <div className="ov-elec-item"><span className="ov-elec-label">⚡ Electricity</span><span className="ov-elec-val">{(displayBlocks.reduce((s,b)=>s+b.kWh,0)/1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} MWh</span></div>
+                </>;
+              })()}
             </div>
           </div>
 
