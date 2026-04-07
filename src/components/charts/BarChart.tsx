@@ -26,11 +26,17 @@ export default function BarChart({
   const chartH = height - padding.top - padding.bottom;
   const chartW = svgWidth - padding.left - padding.right;
 
-  // Compute max
+  // Compute max with a scale-aware nice ceiling
   const maxVal = Math.max(
     ...data.map(d => d.values.reduce((sum, v) => sum + v.value, 0))
   );
-  const niceMax = Math.ceil(maxVal / 1000) * 1000;
+  const niceMax = (() => {
+    if (maxVal <= 0) return 100;
+    const mag = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    const frac = maxVal / mag;
+    const nice = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+    return nice * mag;
+  })();
 
   // Y-axis ticks
   const yTicks = 5;

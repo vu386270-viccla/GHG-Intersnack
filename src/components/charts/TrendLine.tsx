@@ -28,7 +28,13 @@ export default function TrendLine({
   const keys = data[0].values.map(v => v.key);
   const allValues = data.flatMap(d => d.values.map(v => v.value));
   const maxVal = Math.max(...allValues);
-  const niceMax = Math.ceil(maxVal / 100) * 100;
+  const niceMax = (() => {
+    if (maxVal <= 0) return 100;
+    const mag = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    const frac = maxVal / mag;
+    const nice = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+    return nice * mag;
+  })();
 
   // Y-axis ticks
   const yTicks = 5;

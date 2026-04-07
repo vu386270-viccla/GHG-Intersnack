@@ -68,7 +68,14 @@ async function fetchPrevYear(year: number) {
 // ── Main data function ──
 export async function getDashboardData(year: number = new Date().getFullYear()) {
   const { factories, emissions } = await fetchData(year);
-  const prevYearData = await fetchPrevYear(year);
+  const [prevYearData, prodRes] = await Promise.all([
+    fetchPrevYear(year),
+    supabase
+      .from('production_data')
+      .select('factory_id,year,month,category,quantity')
+      .eq('year', year),
+  ]);
+  const prodRows = (prodRes.data || []) as { factory_id: string; year: number; month: number; category: string; quantity: number }[];
 
   // Group emissions by scope
   const byScope: Record<string, number> = {};
@@ -249,6 +256,23 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     },
   ];
 
+  // ── RCN / CK Production Intensity ──
+  const totalRCN = prodRows.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+  const totalCK  = prodRows.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
+  const monthlyIntensity = Array.from({ length: 12 }, (_, i) => {
+    const mRCN = prodRows
+      .filter(p => p.category === 'rcn_input' && p.month === i + 1)
+      .reduce((s, p) => s + Number(p.quantity), 0);
+    const mTotal = monthlyTotals[i].total;
+    return mRCN > 0 ? Math.round((mTotal / mRCN) * 1000) / 1000 : 0;
+  });
+  const rcnData = {
+    totalRCN: Math.round(totalRCN),
+    totalCK: Math.round(totalCK),
+    intensity: totalRCN > 0 ? Math.round((grandTotal / totalRCN) * 1000) / 1000 : 0,
+    monthlyIntensity,
+  };
+
   return {
     factories,
     factorySummaries,
@@ -257,6 +281,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     monthlyTotals,
     scope1Monthly,
     targets,
+    rcnData,
     year,
   };
 }

@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [factorySummaries, setFactorySummaries] = useState<FactorySummary[]>([]);
   const [monthlyTotals, setMonthlyTotals] = useState<MonthlyData[]>([]);
   const [targets, setTargets] = useState<TargetProgress[]>([]);
+  const [rcnData, setRcnData] = useState<{ totalRCN: number; totalCK: number; intensity: number; monthlyIntensity: number[] } | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function DashboardPage() {
       setFactorySummaries(data.factorySummaries);
       setMonthlyTotals(data.monthlyTotals);
       setTargets(data.targets);
+      setRcnData(data.rcnData);
       setLoading(false);
     });
   }, [selectedYear]);
@@ -133,7 +135,7 @@ export default function DashboardPage() {
             <div className="header-badge">📊 tCO₂e</div>
           </div>
           <BarChart
-            data={monthlyTotals.map(m => ({
+            data={monthlyTotals.filter(m => m.total > 0).map(m => ({
               label: m.label,
               values: [
                 { key: 'scope_1', value: m.scope1, color: SCOPE_COLORS.scope_1 },
@@ -157,8 +159,8 @@ export default function DashboardPage() {
               color: SCOPE_COLORS[s.scope],
             }))}
             size={200}
-            centerValue={grandTotal > 0 ? `${scopeSummaries.find(s => s.scope === 'scope_2')?.percentOfTotal || 0}%` : '0%'}
-            centerLabel="Scope 2"
+            centerValue={grandTotal > 0 ? `${scopeSummaries.find(s => s.scope === 'scope_1')?.percentOfTotal || 0}%` : '0%'}
+            centerLabel="Scope 1"
           />
         </div>
       </div>
@@ -202,6 +204,63 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── RCN Emission Intensity ── */}
+      {rcnData && rcnData.totalRCN > 0 && (
+        <div className="section mb-xl">
+          <div className="section-header">
+            <div className="section-title">Cường độ phát thải theo RCN</div>
+            <div className="header-badge" style={{ background: 'var(--color-primary)', color: '#fff', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>
+              tCO₂e / MT RCN
+            </div>
+          </div>
+          <div className="grid-3 stagger-children mb-lg">
+            <div className="card animate-fade-in-up">
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+                🥜 Nguyên liệu RCN
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '42px', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1 }}>
+                {formatTCO2e(rcnData.totalRCN)}
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '16px', color: 'var(--color-text-muted)', marginLeft: '6px', fontWeight: 500 }}>MT</span>
+              </div>
+            </div>
+            <div className="card animate-fade-in-up">
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+                📦 Sản phẩm CK
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '42px', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1 }}>
+                {formatTCO2e(rcnData.totalCK)}
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '16px', color: 'var(--color-text-muted)', marginLeft: '6px', fontWeight: 500 }}>MT</span>
+              </div>
+            </div>
+            <div className="card animate-fade-in-up" style={{ borderLeft: '4px solid #6366F1' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+                📊 Cường độ phát thải
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '42px', fontWeight: 700, color: '#6366F1', lineHeight: 1 }}>
+                {rcnData.intensity.toFixed(3)}
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-text-muted)', marginLeft: '6px', fontWeight: 500 }}>tCO₂e / MT RCN</span>
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Tổng {formatTCO2e(grandTotal)} tCO₂e ÷ {formatTCO2e(rcnData.totalRCN)} MT RCN
+              </div>
+            </div>
+          </div>
+          <div className="card animate-fade-in-up">
+            <div className="card-header">
+              <div className="card-title">Xu hướng cường độ phát thải theo tháng</div>
+              <div className="header-badge">tCO₂e / MT RCN</div>
+            </div>
+            <TrendLine
+              data={monthlyTotals
+                .map((m, i) => ({ label: m.label, values: [{ key: 'intensity', value: rcnData.monthlyIntensity[i], color: '#6366F1' }] }))
+                .filter(d => d.values[0].value > 0)}
+              legendLabels={{ intensity: 'Cường độ (tCO₂e / MT RCN)' }}
+              height={220}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── SBTi Targets ── */}
       <div className="section">
         <div className="section-header">
@@ -242,17 +301,19 @@ export default function DashboardPage() {
       {/* ── Monthly Trend Line ── */}
       <div className="card mt-xl animate-fade-in-up">
         <div className="card-header">
-          <div className="card-title">Xu hướng phát thải hàng tháng</div>
+          <div className="card-title">Xu hướng phát thải theo phạm vi</div>
+          <div className="header-badge">📈 tCO₂e / tháng</div>
         </div>
         <TrendLine
-          data={monthlyTotals.map(m => ({
+          data={monthlyTotals.filter(m => m.total > 0).map(m => ({
             label: m.label,
             values: [
-              { key: 'total', value: m.total, color: '#E32314' },
-              { key: 'scope_1_2', value: m.scope1 + m.scope2, color: '#F5A623' },
+              { key: 'scope_1', value: m.scope1, color: SCOPE_COLORS.scope_1 },
+              { key: 'scope_2', value: m.scope2, color: SCOPE_COLORS.scope_2 },
+              { key: 'scope_3', value: m.scope3, color: SCOPE_COLORS.scope_3 },
             ],
           }))}
-          legendLabels={{ total: 'Tổng phát thải', scope_1_2: 'Scope 1 + 2' }}
+          legendLabels={{ scope_1: 'Scope 1 — Trực tiếp', scope_2: 'Scope 2 — Điện', scope_3: 'Scope 3 — Chuỗi giá trị' }}
           height={280}
         />
       </div>
