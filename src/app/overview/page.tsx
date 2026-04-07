@@ -162,6 +162,74 @@ export default function OverviewPage() {
     });
   }, [allEmissions, factories, viewMode, factoryA, factoryB, useCommonEF, prodData]);
 
+  /* ── SINGLE mode: YoY insight analysis ── */
+  const singleInsight = useMemo(() => {
+    if (viewMode !== 'SINGLE' || !factoryA) return null;
+    const fac = factories.find(f => f.id === factoryA);
+    if (!fac) return null;
+    const prevYear = selectedYear - 1;
+    const curRows  = allEmissions.filter(e => e.year === selectedYear  && e.factory_id === factoryA);
+    const prevRows = allEmissions.filter(e => e.year === prevYear       && e.factory_id === factoryA);
+
+    // Scope 1 by category
+    const agg = (rows: RawRow[], scope: string) => {
+      const em: Record<string, number> = {};
+      const act: Record<string, number> = {};
+      rows.filter(e => e.scope === scope).forEach(e => {
+        em[e.category]  = (em[e.category]  || 0) + Number(e.emissions_tco2e);
+        act[e.category] = (act[e.category] || 0) + Number(e.activity_data);
+      });
+      return { em, act };
+    };
+    const s1Cur  = agg(curRows,  'scope_1');
+    const s1Prev = agg(prevRows, 'scope_1');
+    const s1TotalCur  = Object.values(s1Cur.em).reduce((s, v) => s + v, 0);
+    const s1TotalPrev = Object.values(s1Prev.em).reduce((s, v) => s + v, 0);
+
+    // Scope 2
+    const kWhCur  = curRows.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
+    const kWhPrev = prevRows.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
+    const efCur  = GRID_EMISSION_FACTORS.find(ef => ef.country === fac.country && ef.year === selectedYear)?.factor  || COMMON_EF;
+    const efPrev = GRID_EMISSION_FACTORS.find(ef => ef.country === fac.country && ef.year === prevYear)?.factor || COMMON_EF;
+    const s2EmCur  = useCommonEF ? kWhCur  * COMMON_EF / 1000 : kWhCur  * efCur  / 1000;
+    const s2EmPrev = useCommonEF ? kWhPrev * COMMON_EF / 1000 : kWhPrev * efPrev / 1000;
+
+    // Production
+    const rcn = (yr: number) => prodData.filter(p => p.year === yr && p.factory_id === factoryA && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+    const rcnCur = rcn(selectedYear); const rcnPrev = rcn(prevYear);
+
+    const totalCur  = s1TotalCur  + s2EmCur;
+    const totalPrev = s1TotalPrev + s2EmPrev;
+
+    // Intensity = tCO2e / MT RCN
+    const intTotCur   = rcnCur  > 0 ? totalCur   / rcnCur  : 0;
+    const intTotPrev  = rcnPrev > 0 ? totalPrev  / rcnPrev : 0;
+    const intS1Cur    = rcnCur  > 0 ? s1TotalCur / rcnCur  : 0;
+    const intS1Prev   = rcnPrev > 0 ? s1TotalPrev/ rcnPrev : 0;
+    const intkWhCur   = rcnCur  > 0 ? kWhCur     / rcnCur  : 0;
+    const intkWhPrev  = rcnPrev > 0 ? kWhPrev    / rcnPrev : 0;
+
+    // All category keys
+    const allCatKeys = Array.from(new Set([...Object.keys(s1Cur.em), ...Object.keys(s1Prev.em)]));
+    const s1Drivers = allCatKeys.map(key => {
+      const cur = s1Cur.em[key] || 0; const prev = s1Prev.em[key] || 0;
+      const actCur = s1Cur.act[key] || 0; const actPrev = s1Prev.act[key] || 0;
+      return { key, cur, prev, delta: cur - prev, actCur, actPrev };
+    }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    const pct = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev * 100) : 0;
+
+    return {
+      prevYear, fac,
+      s1TotalCur, s1TotalPrev, s1Drivers,
+      kWhCur, kWhPrev, s2EmCur, s2EmPrev, efCur,
+      rcnCur, rcnPrev,
+      totalCur, totalPrev,
+      intTotCur, intTotPrev, intS1Cur, intS1Prev, intkWhCur, intkWhPrev,
+      pct,
+    };
+  }, [viewMode, factoryA, allEmissions, prodData, selectedYear, useCommonEF, factories]);
+
   const data = useMemo(() => {
     const allS1 = calcS1(emissions);
     const allS2 = calcS2(emissions, selectedYear);
@@ -581,6 +649,249 @@ export default function OverviewPage() {
                 </table>
               </div>
             )}
+
+            {/* ── SINGLE MODE: Scope 1 Drivers + Scope 2 vs RCN Analysis ── */}
+            {viewMode === 'SINGLE' && singleInsight && (() => {
+              const si = singleInsight;
+              const { pct } = si;
+              const hasPrev = si.s1TotalPrev > 0 || si.s2EmPrev > 0;
+              const kWhPctChg = pct(si.kWhCur, si.kWhPrev);
+              const rcnPctChg = pct(si.rcnCur, si.rcnPrev);
+              const s1PctChg  = pct(si.s1TotalCur, si.s1TotalPrev);
+              const s2PctChg  = pct(si.s2EmCur, si.s2EmPrev);
+
+              // Electricity vs RCN narrative
+              const kWhUp = kWhPctChg > 0;
+              const rcnUp = rcnPctChg > 0;
+              const intKWhChg = pct(si.intkWhCur, si.intkWhPrev);
+              let narrative = '';
+              if (!hasPrev) {
+                narrative = 'Chưa có dữ liệu năm trước để so sánh.';
+              } else if (kWhUp && rcnUp) {
+                if (intKWhChg <= 1) narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện ổn định (kWh/MT RCN gần như không đổi).`;
+                else narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% trong khi RCN chỉ tăng ${rcnPctChg.toFixed(1)}% → kém hiệu quả hơn, tiêu thụ điện tính theo RCN tăng ${intKWhChg.toFixed(1)}%.`;
+              } else if (kWhUp && !rcnUp) {
+                narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → hiệu suất điện giảm đáng kể.`;
+              } else if (!kWhUp && rcnUp) {
+                narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}% trong khi RCN tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện cải thiện tốt.`;
+              } else {
+                narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}%, RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → tỷ lệ kWh/MT RCN ${intKWhChg > 0 ? 'tăng nhẹ' : 'ổn định'}.`;
+              }
+
+              return (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+
+                  {/* ── Scope 1 Drivers ── */}
+                  <div className="ov-compare-block" style={{ flex: 1 }}>
+                    <div className="ov-table-title" style={{ color: '#E32314', marginBottom: 6 }}>
+                      🔥 Scope 1 — Phân tích nguyên nhân
+                      {hasPrev && (
+                        <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600,
+                          color: s1PctChg > 0 ? '#E32314' : '#27AE60' }}>
+                          {s1PctChg > 0 ? '▲' : '▼'} {Math.abs(s1PctChg).toFixed(1)}% vs {si.prevYear}
+                        </span>
+                      )}
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <th style={{ textAlign: 'left', padding: '2px 4px', color: '#888', fontWeight: 600 }}>Nguồn</th>
+                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#888', fontWeight: 600 }}>{si.prevYear}</th>
+                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#E32314', fontWeight: 700 }}>{selectedYear}</th>
+                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#aaa', fontWeight: 600, fontSize: 9 }}>Δ tCO₂e</th>
+                          <th style={{ textAlign: 'right', padding: '2px 4px', color: '#aaa', fontWeight: 600, fontSize: 9 }}>Δ%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {si.s1Drivers.filter(d => d.cur > 0 || d.prev > 0).map((d, di) => {
+                          const def = SCOPE_1_CATEGORIES.find(c => c.key === d.key);
+                          const isTop = di === 0 && Math.abs(d.delta) > 0;
+                          const maxVal = Math.max(d.cur, d.prev, 1);
+                          return (
+                            <tr key={d.key} style={{ borderBottom: '1px solid #f5f5f5',
+                              background: isTop ? '#fff5f5' : undefined }}>
+                              <td style={{ padding: '3px 4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                  <span>{def?.icon || '📊'}</span>
+                                  <span style={{ color: '#444' }}>{def?.label?.replace(/ \(.*\)/, '') || d.key}</span>
+                                  {isTop && hasPrev && (
+                                    <span style={{ fontSize: 8, background: '#E32314', color: '#fff',
+                                      padding: '1px 4px', borderRadius: 3, fontWeight: 700, marginLeft: 2 }}>TOP</span>
+                                  )}
+                                </div>
+                                {(d.actCur > 0 || d.actPrev > 0) && (
+                                  <div style={{ fontSize: 8, color: '#bbb', marginTop: 1, paddingLeft: 14 }}>
+                                    {d.actPrev > 0 ? `${d.actPrev >= 1000 ? (d.actPrev/1000).toFixed(1)+'k' : d.actPrev.toFixed(0)} ${def?.unit || ''}` : '—'}
+                                    {' → '}
+                                    {d.actCur > 0 ? `${d.actCur >= 1000 ? (d.actCur/1000).toFixed(1)+'k' : d.actCur.toFixed(0)} ${def?.unit || ''}` : '—'}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px', color: '#999', fontWeight: 600 }}>
+                                {d.prev > 0 ? fmt(d.prev) : '—'}
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 700, color: '#333' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                  <span>{d.cur > 0 ? fmt(d.cur) : '—'}</span>
+                                  {d.cur > 0 && <div style={{ width: `${(d.cur / maxVal) * 40}px`, height: 2, background: '#E32314', opacity: 0.5, borderRadius: 1 }} />}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 700, fontSize: 9,
+                                color: d.delta > 0 ? '#E32314' : d.delta < 0 ? '#27AE60' : '#aaa' }}>
+                                {d.delta !== 0 ? (d.delta > 0 ? '+' : '') + fmt(d.delta) : '='}
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px', fontSize: 9,
+                                color: d.delta > 0 ? '#E32314' : d.delta < 0 ? '#27AE60' : '#aaa' }}>
+                                {hasPrev && d.prev > 0 ? (d.delta > 0 ? '+' : '') + pct(d.cur, d.prev).toFixed(1) + '%' : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Total */}
+                        <tr style={{ borderTop: '2px solid #eee', background: '#fafafa' }}>
+                          <td style={{ padding: '4px', fontWeight: 700, fontSize: 11 }}>🔥 S1 Total</td>
+                          <td style={{ textAlign: 'right', padding: '4px', color: '#999', fontWeight: 700 }}>
+                            {si.s1TotalPrev > 0 ? fmt(si.s1TotalPrev) : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 800, color: '#E32314', fontSize: 11 }}>
+                            {fmt(si.s1TotalCur)}
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 700, fontSize: 9,
+                            color: si.s1TotalCur > si.s1TotalPrev ? '#E32314' : '#27AE60' }}>
+                            {hasPrev ? (si.s1TotalCur > si.s1TotalPrev ? '+' : '') + fmt(si.s1TotalCur - si.s1TotalPrev) : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '4px', fontSize: 9,
+                            color: s1PctChg > 0 ? '#E32314' : '#27AE60' }}>
+                            {hasPrev && si.s1TotalPrev > 0 ? (s1PctChg > 0 ? '+' : '') + s1PctChg.toFixed(1) + '%' : '—'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* ── Scope 2 vs RCN ── */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div className="ov-compare-block">
+                      <div className="ov-table-title" style={{ color: '#F5A623', marginBottom: 6 }}>
+                        ⚡ Scope 2 — Điện vs RCN
+                        {hasPrev && (
+                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600,
+                            color: s2PctChg > 0 ? '#E32314' : '#27AE60' }}>
+                            {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs {si.prevYear}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* kWh & tCO2e row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+                        <div style={{ background: '#fffbf0', border: '1px solid #ffe5a0', borderRadius: 6, padding: '6px 8px' }}>
+                          <div style={{ fontSize: 9, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>⚡ Tiêu thụ điện</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#333' }}>
+                            {si.kWhCur >= 1000000 ? (si.kWhCur/1000000).toFixed(2)+' GWh' : (si.kWhCur/1000).toFixed(0)+' MWh'}
+                          </div>
+                          {hasPrev && si.kWhPrev > 0 && (
+                            <div style={{ fontSize: 9, marginTop: 2, color: kWhPctChg > 0 ? '#E32314' : '#27AE60', fontWeight: 700 }}>
+                              {kWhPctChg > 0 ? '▲' : '▼'} {Math.abs(kWhPctChg).toFixed(1)}% vs năm trước
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ background: '#fff5f5', border: '1px solid #fce0e0', borderRadius: 6, padding: '6px 8px' }}>
+                          <div style={{ fontSize: 9, color: '#E32314', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>🌡 Phát thải S2</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#333' }}>
+                            {fmt(si.s2EmCur)} <span style={{ fontSize: 10, fontWeight: 400, color: '#aaa' }}>tCO₂e</span>
+                          </div>
+                          {hasPrev && si.s2EmPrev > 0 && (
+                            <div style={{ fontSize: 9, marginTop: 2, color: s2PctChg > 0 ? '#E32314' : '#27AE60', fontWeight: 700 }}>
+                              {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs năm trước
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* RCN row */}
+                      <div style={{ background: '#f5fbff', border: '1px solid #c0dff5', borderRadius: 6, padding: '6px 8px', marginBottom: 6 }}>
+                        <div style={{ fontSize: 9, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>🥜 Sản lượng RCN (MT)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: '#333' }}>
+                              {si.rcnCur > 0 ? fmt(si.rcnCur) : 'N/A'}
+                            </div>
+                            <div style={{ fontSize: 9, color: '#888' }}>{selectedYear}</div>
+                          </div>
+                          {hasPrev && si.rcnPrev > 0 && (
+                            <>
+                              <div style={{ color: '#ccc', fontSize: 12 }}>→</div>
+                              <div>
+                                <div style={{ fontSize: 11, color: '#aaa' }}>{fmt(si.rcnPrev)}</div>
+                                <div style={{ fontSize: 9, color: '#bbb' }}>{si.prevYear}</div>
+                              </div>
+                              <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700,
+                                color: rcnPctChg > 0 ? '#27AE60' : '#E32314' }}>
+                                {rcnPctChg > 0 ? '▲' : '▼'} {Math.abs(rcnPctChg).toFixed(1)}%
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Intensity metrics */}
+                      {si.rcnCur > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+                          <div style={{ background: '#fafafa', borderRadius: 6, padding: '6px 8px', border: '1px solid #eee' }}>
+                            <div style={{ fontSize: 9, color: '#888', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>⚡ kWh / MT RCN</div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: '#333' }}>
+                              {si.intkWhCur.toFixed(0)}
+                            </div>
+                            {hasPrev && si.intkWhPrev > 0 && (
+                              <div style={{ fontSize: 9, marginTop: 1, color: intKWhChg > 2 ? '#E32314' : intKWhChg < -2 ? '#27AE60' : '#888', fontWeight: 700 }}>
+                                {intKWhChg > 0 ? '▲' : '▼'} {Math.abs(intKWhChg).toFixed(1)}% vs năm trước
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ background: '#fafafa', borderRadius: 6, padding: '6px 8px', border: '1px solid #eee' }}>
+                            <div style={{ fontSize: 9, color: '#888', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>🌡 tCO₂e / MT RCN</div>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: '#333' }}>
+                              {si.intTotCur.toFixed(3)}
+                            </div>
+                            {hasPrev && si.intTotPrev > 0 && (
+                              <div style={{ fontSize: 9, marginTop: 1,
+                                color: pct(si.intTotCur, si.intTotPrev) > 2 ? '#E32314' : pct(si.intTotCur, si.intTotPrev) < -2 ? '#27AE60' : '#888',
+                                fontWeight: 700 }}>
+                                {pct(si.intTotCur, si.intTotPrev) > 0 ? '▲' : '▼'} {Math.abs(pct(si.intTotCur, si.intTotPrev)).toFixed(1)}% vs năm trước
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Narrative */}
+                    <div style={{ background: 'linear-gradient(135deg, #F5A62308, #6366F108)',
+                      border: '1px solid #F5A62333', borderRadius: 8, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#F5A623', marginBottom: 4, textTransform: 'uppercase' }}>
+                        💡 Phân tích cho Ban Giám Đốc
+                      </div>
+                      <div style={{ fontSize: 11, color: '#444', lineHeight: 1.6 }}>{narrative}</div>
+                      {si.rcnCur > 0 && hasPrev && si.s1TotalPrev > 0 && (() => {
+                        const topDriver = si.s1Drivers[0];
+                        const def = topDriver ? SCOPE_1_CATEGORIES.find(c => c.key === topDriver.key) : null;
+                        if (!topDriver || Math.abs(topDriver.delta) < 1) return null;
+                        return (
+                          <div style={{ marginTop: 6, fontSize: 11, color: '#444', lineHeight: 1.6, borderTop: '1px dashed #ddd', paddingTop: 6 }}>
+                            <strong>Scope 1:</strong> Nguồn phát thải tăng nhiều nhất là{' '}
+                            <strong style={{ color: '#E32314' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || topDriver.key}</strong>
+                            {' '}({topDriver.delta > 0 ? '+' : ''}{fmt(topDriver.delta)} tCO₂e, {topDriver.delta > 0 ? '▲' : '▼'}{Math.abs(pct(topDriver.cur, topDriver.prev)).toFixed(1)}%).
+                            {topDriver.actCur > 0 && topDriver.actPrev > 0 && (
+                              <span> Lượng tiêu thụ {topDriver.actPrev.toFixed(0)} → {topDriver.actCur.toFixed(0)} {def?.unit || ''}.</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ── COMPARE MODE: Scope 1 Breakdown + RCN Intensity ── */}
             {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
