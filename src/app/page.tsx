@@ -8,6 +8,7 @@ import BarChart from '@/components/charts/BarChart';
 import DonutChart from '@/components/charts/DonutChart';
 import TrendLine from '@/components/charts/TrendLine';
 import TargetGauge from '@/components/charts/TargetGauge';
+import AbsoluteTargetGauge from '@/components/charts/AbsoluteTargetGauge';
 import Link from 'next/link';
 
 type ScopeFilter = 'ALL' | 'scope_1' | 'scope_2' | 'scope_3';
@@ -520,10 +521,10 @@ export default function DashboardPage() {
       )}
 
       {/* ── SBTi Targets ── */}
-      <div className="section">
+      <div className="section mb-xl">
         <div className="section-header">
           <div className="section-title">
-            Tiến độ mục tiêu <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--color-primary)' }}>SBTi</span>
+            Tiến độ mục tiêu giảm phát thải <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--color-primary)' }}>SBTi</span>
           </div>
           <Link href="/targets" className="btn btn-outline" style={{ fontSize: '13px' }}>Chi tiết →</Link>
         </div>
@@ -542,7 +543,7 @@ export default function DashboardPage() {
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', color: 'var(--color-primary)', fontWeight: 700 }}>
                     {formatTCO2e(target.currentEmissions)}
                   </div>
-                  <div>Hiện tại</div>
+                  <div>Hiện tại ({selectedYear})</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', color: '#8CB92D', fontWeight: 700 }}>
@@ -555,6 +556,75 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* ── KPI Targets (Only 2026) ── */}
+      {selectedYear === 2026 && (
+      <div className="section">
+        <div className="section-header">
+          <div className="section-title">
+            Mục tiêu Phát thải Tuyệt đối <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--color-primary)' }}>({selectedYear})</span>
+          </div>
+        </div>
+        
+        {(() => {
+          const kpiData = [
+            { key: 'LA', label: 'Long An', target: 265 },
+            { key: 'TN', label: 'Tây Ninh', target: 304 },
+            { key: 'PT', label: 'Phan Thiết', target: 223 },
+            { key: 'Tuti', label: 'Tuticorin', target: 334 },
+          ];
+
+          // Compute actuals dynamically from factorySummaries by name matching
+          const kpisWithActual = kpiData.map(kpi => {
+            const fs = factorySummaries.find(f => 
+              f.factory.name.includes(kpi.label) || 
+              (kpi.key === 'LA' && f.factory.name.includes('Long An')) ||
+              (kpi.key === 'TN' && f.factory.name.includes('Tây Ninh')) ||
+              (kpi.key === 'PT' && f.factory.name.includes('Phan Thiết')) ||
+              (kpi.key === 'Tuti' && f.factory.name.includes('Tuticorin')) ||
+              f.factory.code === kpi.key
+            );
+            return {
+              ...kpi,
+              actual: fs ? (fs.scope1 + fs.scope2) : 0
+            };
+          });
+
+          const totalActual = kpisWithActual.reduce((acc, curr) => acc + curr.actual, 0);
+
+          return (
+            <>
+              <div className="grid-4 stagger-children">
+                {kpisWithActual.map(kpi => (
+                  <div key={kpi.key} className="card animate-fade-in-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'var(--space-xl) var(--space-md)' }}>
+                    <AbsoluteTargetGauge
+                      label={`Nhà máy ${kpi.label}`}
+                      actual={kpi.actual}
+                      target={kpi.target}
+                      size={150}
+                      unit="tCO₂e"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="card mt-lg animate-fade-in-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'var(--space-2xl)', background: 'var(--color-card-bg)', border: '2px solid #E0DFDB' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                  Tổng KPI theo Nhóm
+                </div>
+                <AbsoluteTargetGauge
+                  label="Tổng 4 Nhà máy"
+                  actual={totalActual}
+                  target={1125}
+                  size={240}
+                  unit="tCO₂e"
+                />
+              </div>
+            </>
+          );
+        })()}
+      </div>
+      )}
 
       {/* ── Monthly Trend Line ── */}
       <div className="card mt-xl animate-fade-in-up">
