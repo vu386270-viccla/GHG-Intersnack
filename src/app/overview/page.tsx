@@ -268,7 +268,7 @@ export default function OverviewPage() {
     const targetS1S2 = baseS1S2 * 0.5;
     const currentPct = baseS1S2 > 0 ? ((baseS1S2 - allTotal) / baseS1S2 * 100) : 0;
     const expectedPct = ((selectedYear - 2021) / 11) * 50;
-    const factoryBlocks = factories.map(f => buildFactoryBlock(f, emissions)).sort((a, b) => b.total - a.total);
+    const factoryBlocks = factories.map(f => buildFactoryBlock(f, emissions));
     return { allS1, allS2, allTotal, lastMonth, monthsWithData, baseS1S2, targetS1S2, currentPct, expectedPct, factoryBlocks };
   }, [emissions, allEmissions, factories, useCommonEF, selectedYear]);
 
@@ -296,7 +296,7 @@ export default function OverviewPage() {
 
   /* Roadmap SVG dimensions for the SBTi chart — 12 years (2021→2032) */
   const rmMaxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
-  const rmW = 660, rmH = 185, rmPadL = 44, rmPadR = 12, rmPadT = 22, rmPadB = 36;
+  const rmW = 660, rmH = 165, rmPadL = 44, rmPadR = 12, rmPadT = 20, rmPadB = 30;
   const rmPlotW = rmW - rmPadL - rmPadR;
   const rmPlotH = rmH - rmPadT - rmPadB;
   // RCN secondary axis
@@ -484,8 +484,10 @@ export default function OverviewPage() {
           {/* RIGHT */}
           <div className="ov-right">
             {/* Monthly chart */}
-            <div className="ov-chart-title">Monthly Emissions {selectedYear} (tCO₂e)</div>
-            <div className="ov-chart">
+            {viewMode !== 'SINGLE' && (
+              <div style={{display:'contents'}}>
+                <div className="ov-chart-title">Monthly Emissions {selectedYear} (tCO₂e)</div>
+                <div className="ov-chart">
               <svg viewBox="0 0 560 120" width="100%" height="120">
                 {[0, 0.5, 1].map((pct, i) => (
                   <g key={`g${i}`}>
@@ -501,9 +503,11 @@ export default function OverviewPage() {
                       const m = fb.monthly[mi], h = maxMonthly>0?(m.total/maxMonthly)*85:0;
                       const s1h = maxMonthly>0?(m.s1/maxMonthly)*85:0, s2h = h-s1h;
                       const bx = x0+fi*(barW+1);
+                      const fIdx = factories.findIndex(f => f.id === fb.factory.id);
+                      const colorIdx = fIdx >= 0 ? fIdx : fi;
                       return <g key={fi}>
-                        <rect x={bx} y={100-h} width={barW} height={s2h} rx={1} fill={FAC_COLORS_LIGHT[fi]} opacity={0.7}/>
-                        <rect x={bx} y={100-s1h} width={barW} height={s1h} rx={s2h===0?1:0} fill={FAC_COLORS[fi]} opacity={0.85}/>
+                        <rect x={bx} y={100-h} width={barW} height={s2h} rx={1} fill={FAC_COLORS_LIGHT[colorIdx % FAC_COLORS_LIGHT.length]} opacity={0.7}/>
+                        <rect x={bx} y={100-s1h} width={barW} height={s1h} rx={s2h===0?1:0} fill={FAC_COLORS[colorIdx % FAC_COLORS.length]} opacity={0.85}/>
                       </g>;
                     })}
                     <text x={x0+bW/2} y={113} textAnchor="middle" fontSize="6.5" fill="#999">{MONTHS_VI[mi]}</text>
@@ -511,9 +515,15 @@ export default function OverviewPage() {
                 })}
               </svg>
               <div className="ov-chart-legend">
-                {displayBlocks.map((fb,i) => <span key={fb.factory.id}><span className="ov-legend-dot" style={{background:FAC_COLORS[i]}}/>{fb.factory.name}</span>)}
+                {displayBlocks.map((fb,i) => {
+                  const fIdx = factories.findIndex(f => f.id === fb.factory.id);
+                  const colorIdx = fIdx >= 0 ? fIdx : i;
+                  return <span key={fb.factory.id}><span className="ov-legend-dot" style={{background:FAC_COLORS[colorIdx % FAC_COLORS.length]}}/>{fb.factory.name}</span>;
+                })}
               </div>
             </div>
+              </div>
+            )}
 
             {/* ── SBTi ROADMAP — Full multi-year chart ── */}
             <div className="ov-roadmap-full">
@@ -590,14 +600,14 @@ export default function OverviewPage() {
                           fill="none" stroke="#8CB92D" strokeWidth={1} strokeDasharray="3,2" opacity={0.5}/>
                       ) : (
                         /* Past/current year: actual stacked bars */
-                        d.perFactory.sort((a,b) => b.total - a.total).map((pf, fi) => {
+                        d.perFactory.map((pf, fi) => {
                           const h = rmMaxVal > 0 ? (pf.total / rmMaxVal) * rmPlotH : 0;
                           const y = rmPadT + rmPlotH - cumH - h;
                           cumH += h;
                           const fIdx = factories.findIndex(f => f.id === pf.factory.id);
                           const barColor = singleFacTarget !== null && d.actual > 0
                             ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
-                            : FAC_COLORS[fIdx >= 0 ? fIdx : fi];
+                            : FAC_COLORS[(fIdx >= 0 ? fIdx : fi) % FAC_COLORS.length];
                           return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1.5}
                             fill={barColor} opacity={isCurrent ? 0.92 : 0.6}
                             stroke={isCurrent ? '#333' : 'none'} strokeWidth={isCurrent ? 0.8 : 0}/>;
@@ -659,11 +669,12 @@ export default function OverviewPage() {
               <div className="ov-roadmap-legend">
                 {viewMode === 'ALL'
                   ? factories.map((f, i) => (
-                      <span key={f.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[i] }} />{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</span>
+                      <span key={f.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[i % FAC_COLORS.length] }} />{f.country === 'India' ? '🇮🇳' : '🇻🇳'} {f.name}</span>
                     ))
-                  : displayBlocks.map((fb, i) => (
-                      <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id)] }} />{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</span>
-                    ))
+                  : displayBlocks.map((fb, i) => {
+                      const fIdx = factories.findIndex(f => f.id === fb.factory.id);
+                      return <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[(fIdx >= 0 ? fIdx : i) % FAC_COLORS.length] }} />{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</span>;
+                    })
                 }
                 <span style={{ marginLeft: 'auto' }}><span style={{ borderBottom: '1.5px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Pathway</span>
                 {viewMode === 'SINGLE' && singleFacTarget !== null && (
@@ -683,12 +694,12 @@ export default function OverviewPage() {
                   <tbody>
                     {displayBlocks.map((fb, i) => (
                       <tr key={fb.factory.id}>
-                        <td><span style={{color:FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id)],fontWeight:700,marginRight:3}}>●</span>{fb.factory.country==='India'?'🇮🇳':'🇻🇳'} {fb.factory.name}</td>
+                        <td><span style={{color:FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id) % FAC_COLORS.length],fontWeight:700,marginRight:3}}>●</span>{fb.factory.country==='India'?'🇮🇳':'🇻🇳'} {fb.factory.name}</td>
                         <td style={{textAlign:'right',fontWeight:600}}>{fmt(fb.s1)}</td>
                         <td style={{textAlign:'right',fontWeight:600}}>{fmt(fb.s2)}</td>
                         <td style={{textAlign:'right',fontWeight:700}}>{fmt(fb.total)}</td>
                         <td style={{textAlign:'right',color:'#888'}}>{(fb.kWh/1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')}</td>
-                        <td><div className="ov-share-bar"><div style={{width:`${dispTotal>0?(fb.total/dispTotal*100):0}%`,background:FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id)]}}/></div></td>
+                        <td><div className="ov-share-bar"><div style={{width:`${dispTotal>0?(fb.total/dispTotal*100):0}%`,background:FAC_COLORS[factories.findIndex(f=>f.id===fb.factory.id) % FAC_COLORS.length]}}/></div></td>
                       </tr>
                     ))}
                   </tbody>
@@ -761,12 +772,12 @@ export default function OverviewPage() {
                         </span>
                       )}
                     </div>
-                    <svg viewBox="0 0 520 110" width="100%" height="110">
+                    <svg viewBox="0 0 520 100" width="100%" height="100">
                       {/* Grid lines */}
                       {[0, 0.5, 1].map((p, gi) => (
                         <g key={gi}>
-                          <line x1={28} y1={8 + 82*(1-p)} x2={516} y2={8 + 82*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
-                          <text x={26} y={8 + 82*(1-p) + 3} textAnchor="end" fontSize="6" fill="#ccc">{Math.round(maxMonthVal*p)}</text>
+                          <line x1={28} y1={8 + 76*(1-p)} x2={516} y2={8 + 76*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
+                          <text x={26} y={8 + 76*(1-p) + 3} textAnchor="end" fontSize="6" fill="#ccc">{Math.round(maxMonthVal*p)}</text>
                         </g>
                       ))}
                       {/* Bars */}
@@ -778,34 +789,34 @@ export default function OverviewPage() {
                           // previous year same month for ghost bar
                           const prvMn = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === m.mn);
                           const prvTotal = calcS1(prvMn) + calcS2(prvMn, si.prevYear, facObj);
-                          const ph = maxMonthVal > 0 ? (prvTotal / maxMonthVal) * 82 : 0;
+                          const ph = maxMonthVal > 0 ? (prvTotal / maxMonthVal) * 76 : 0;
                           return (
                             <g key={idx}>
-                              {prvTotal > 0 && <rect x={bx+4} y={90-ph} width={bW-8} height={ph} rx={2} fill="#e5e5e5" opacity={0.5}/>}
-                              <text x={bx+bW/2} y={100} textAnchor="middle" fontSize="6.5" fill="#ccc">{MN[idx]}</text>
+                              {prvTotal > 0 && <rect x={bx+4} y={84-ph} width={bW-8} height={ph} rx={2} fill="#e5e5e5" opacity={0.5}/>}
+                              <text x={bx+bW/2} y={94} textAnchor="middle" fontSize="6.5" fill="#ccc">{MN[idx]}</text>
                             </g>
                           );
                         }
-                        const totH = maxMonthVal > 0 ? (m.total / maxMonthVal) * 82 : 0;
-                        const s1H = maxMonthVal > 0 ? (m.s1 / maxMonthVal) * 82 : 0;
+                        const totH = maxMonthVal > 0 ? (m.total / maxMonthVal) * 76 : 0;
+                        const s1H = maxMonthVal > 0 ? (m.s1 / maxMonthVal) * 76 : 0;
                         const s2H = totH - s1H;
                         // Previous year same month
                         const prvMn = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === m.mn);
                         const prvTotal = calcS1(prvMn) + calcS2(prvMn, si.prevYear, facObj);
-                        const ph = maxMonthVal > 0 ? (prvTotal / maxMonthVal) * 82 : 0;
+                        const ph = maxMonthVal > 0 ? (prvTotal / maxMonthVal) * 76 : 0;
                         return (
                           <g key={idx}>
                             {/* Prev year ghost */}
-                            {prvTotal > 0 && <rect x={bx} y={90-ph} width={bW-2} height={ph} rx={2} fill="#e0e0e0" opacity={0.55}/>}
+                            {prvTotal > 0 && <rect x={bx} y={84-ph} width={bW-2} height={ph} rx={2} fill="#e0e0e0" opacity={0.55}/>}
                             {/* Current year stacked */}
-                            <rect x={bx+3} y={90-totH+s1H} width={bW-8} height={s2H} rx={1} fill="#FBBF24" opacity={0.85}/>
-                            <rect x={bx+3} y={90-s1H} width={bW-8} height={s1H} rx={s2H<0.5?1:0} fill="#E32314" opacity={0.9}/>
+                            <rect x={bx+3} y={84-totH+s1H} width={bW-8} height={s2H} rx={1} fill="#FBBF24" opacity={0.85}/>
+                            <rect x={bx+3} y={84-s1H} width={bW-8} height={s1H} rx={s2H<0.5?1:0} fill="#E32314" opacity={0.9}/>
                             {/* Value label */}
-                            <text x={bx+bW/2} y={90-totH-3} textAnchor="middle" fontSize="6.5" fontWeight="700"
+                            <text x={bx+bW/2} y={84-totH-3} textAnchor="middle" fontSize="6.5" fontWeight="700"
                               fill={isLatest ? '#E32314' : '#666'}>{fmt(m.total)}</text>
-                            <text x={bx+bW/2} y={100} textAnchor="middle" fontSize="6.5"
+                            <text x={bx+bW/2} y={94} textAnchor="middle" fontSize="6.5"
                               fill={isLatest ? '#E32314' : '#999'} fontWeight={isLatest?800:400}>{MN[idx]}</text>
-                            {isLatest && <text x={bx+bW/2} y={107} textAnchor="middle" fontSize="5.5" fill="#E32314" fontWeight="700">NEW</text>}
+                            {isLatest && <text x={bx+bW/2} y={101} textAnchor="middle" fontSize="5.5" fill="#E32314" fontWeight="700">NEW</text>}
                           </g>
                         );
                       })}
@@ -997,7 +1008,7 @@ export default function OverviewPage() {
                       {/* Management narrative */}
                       <div style={{ background: 'linear-gradient(135deg, #F5A62310, #6366F110)', border: '1px solid #F5A62340', borderRadius: 8, padding: '10px 12px', flex: 1 }}>
                         <div style={{ fontSize: 10, fontWeight: 800, color: '#F5A623', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          💡 Nhận xét Ban Giám Đốc
+                          💡 Nhận xét
                         </div>
                         <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>{narrative}</div>
                         {hasPrev && si.s1TotalPrev > 0 && (() => {
@@ -1025,8 +1036,8 @@ export default function OverviewPage() {
             {/* ── COMPARE MODE: Scope 1 Breakdown + RCN Intensity ── */}
             {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
               const [blkA, blkB] = displayBlocks;
-              const colorA = FAC_COLORS[factories.findIndex(f => f.id === blkA.factory.id)] || FAC_COLORS[0];
-              const colorB = FAC_COLORS[factories.findIndex(f => f.id === blkB.factory.id)] || FAC_COLORS[1];
+              const colorA = FAC_COLORS[factories.findIndex(f => f.id === blkA.factory.id) % FAC_COLORS.length] || FAC_COLORS[0];
+              const colorB = FAC_COLORS[factories.findIndex(f => f.id === blkB.factory.id) % FAC_COLORS.length] || FAC_COLORS[1];
 
               // Collect all S1 categories from both
               const allCatKeys = Array.from(new Set([
