@@ -13,21 +13,22 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Emission Factors
 const EF = {
-  wood_logs: 43.89327,     // kg CO2e / ton
-  wastewater: 0.201,       // kg CO2e / m3
-  lpg: 2939.29,            // kg CO2e / ton
-  diesel: 2.512064,        // kg CO2e / litre
-  fgas_r134a: 1300,        // HFC kg/kg
-  fgas_r410a: 3943,        // HFC kg/kg
-  fgas_r404a: 1924,        // HFC kg/kg
-  co2_packing: 1,          // CO2 kg/kg
-  co2_pccc: 1,             // CO2 kg/kg
+  wood_logs: { Vietnam: 28, India: 28 },         // 0.028 t CO2e/ton -> 28 kg CO2e/ton
+  wastewater: { Vietnam: 0.2013, India: 0.2013 }, // kg CO2e / m3
+  // LPG density ~ 0.54 kg/L => 1 ton = 1851.85 L
+  lpg: { Vietnam: 1.571 * 1851.85, India: 1.52 * 1851.85 }, // kg CO2e / ton
+  diesel: { Vietnam: 2.68, India: 2.68 },        // kg CO2e / litre
+  fgas_r134a: { Vietnam: 1300, India: 1300 },    // HFC kg/kg
+  fgas_r410a: { Vietnam: 2088, India: 2088 },    // HFC kg/kg
+  fgas_r404a: { Vietnam: 3920, India: 3920 },    // HFC kg/kg
+  co2_packing: { Vietnam: 1, India: 1 },         // CO2 kg/kg
+  co2_pccc: { Vietnam: 1, India: 1 },            // CO2 kg/kg
 };
 
 // Grid EF by country & year
 const GRID_EF = {
-  Vietnam: { 2021: 0.7221, 2022: 0.7098, 2023: 0.6969, 2024: 0.6855, 2025: 0.6750, 2026: 0.6650 },
-  India:   { 2021: 0.7080, 2022: 0.7160, 2023: 0.7020, 2024: 0.6940, 2025: 0.6850, 2026: 0.6770 },
+  Vietnam: { 2020: 0.8041, 2021: 0.7221, 2022: 0.6766, 2023: 0.6592, 2024: 0.6592, 2025: 0.6592, 2026: 0.6592 },
+  India:   { 2020: 0.7130, 2021: 0.7030, 2022: 0.7150, 2023: 0.7160, 2024: 0.7270, 2025: 0.7100, 2026: 0.7100 },
 };
 
 const FACTORY_COUNTRY = {
@@ -60,15 +61,15 @@ function parseNum(val) {
 function calcEmissions(category, activityData, country, year) {
   let ef = 0;
   switch (category) {
-    case 'wood_logs':    ef = EF.wood_logs; break;
-    case 'wastewater':   ef = EF.wastewater; break;
-    case 'lpg':          ef = EF.lpg; break;
-    case 'diesel':       ef = EF.diesel; break;
-    case 'fgas_r134a':   ef = EF.fgas_r134a; break;
-    case 'fgas_r410a':   ef = EF.fgas_r410a; break;
-    case 'fgas_r404a':   ef = EF.fgas_r404a; break;
-    case 'co2_packing':  ef = EF.co2_packing; break;
-    case 'co2_pccc':     ef = EF.co2_pccc; break;
+    case 'wood_logs':    ef = EF.wood_logs[country]; break;
+    case 'wastewater':   ef = EF.wastewater[country]; break;
+    case 'lpg':          ef = EF.lpg[country]; break;
+    case 'diesel':       ef = EF.diesel[country]; break;
+    case 'fgas_r134a':   ef = EF.fgas_r134a[country]; break;
+    case 'fgas_r410a':   ef = EF.fgas_r410a[country]; break;
+    case 'fgas_r404a':   ef = EF.fgas_r404a[country]; break;
+    case 'co2_packing':  ef = EF.co2_packing[country]; break;
+    case 'co2_pccc':     ef = EF.co2_pccc[country]; break;
     case 'electricity':
       ef = (GRID_EF[country] && GRID_EF[country][year]) || 0.7;
       break;

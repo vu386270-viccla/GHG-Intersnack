@@ -123,13 +123,15 @@ export interface TrendPoint {
 // ── Scope 1 Categories (actual EFs from Intersnack) ──
 
 export const SCOPE_1_CATEGORIES = [
-  { key: 'wood_logs', label: 'Củi / Gỗ (Boiler)', unit: 'tấn', icon: '🪵', process: 'Boiler', efUnit: 'kg CO₂e/tấn', ef: 43.89327 },
-  { key: 'wastewater', label: 'Nước thải (WWTS)', unit: 'm³', icon: '🌊', process: 'WWTS', efUnit: 'kg CO₂e/m³', ef: 0.201 },
-  { key: 'lpg', label: 'Khí LPG (Xe nâng)', unit: 'tấn', icon: '🛢️', process: 'FLTs', efUnit: 'kg CO₂e/tấn', ef: 2939.29 },
-  { key: 'diesel', label: 'Dầu Diesel (Máy phát/Xe)', unit: 'lít', icon: '⛽', process: 'Generator / Company Car', efUnit: 'kg CO₂e/lít', ef: 2.512064 },
+  { key: 'wood_logs', label: 'Củi / Gỗ (Boiler)', unit: 'tấn', icon: '🪵', process: 'Boiler', efUnit: 'kg CO₂e/tấn', ef: 28 },
+  { key: 'wastewater', label: 'Nước thải (WWTS)', unit: 'm³', icon: '🌊', process: 'WWTS', efUnit: 'kg CO₂e/m³', ef: 0.2013 },
+  { key: 'lpg', label: 'Khí LPG (Xe nâng)', unit: 'tấn', icon: '🛢️', process: 'FLTs', efUnit: 'kg CO₂e/tấn', ef: 2909.26 }, // 1.571 * 1851.85 (Vietnam)
+  { key: 'diesel', label: 'Dầu Diesel (Máy phát/Xe)', unit: 'lít', icon: '⛽', process: 'Generator / Company Car', efUnit: 'kg CO₂e/lít', ef: 2.68 },
+  { key: 'fgas_r22', label: 'F-Gas R22', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HCFC kg/kg', ef: 1810 },
+  { key: 'fgas_r32', label: 'F-Gas R32', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 675 },
   { key: 'fgas_r134a', label: 'F-Gas R134A', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 1300 },
-  { key: 'fgas_r410a', label: 'F-Gas R410A', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 3943 },
-  { key: 'fgas_r404a', label: 'F-Gas R404A', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 1924 },
+  { key: 'fgas_r410a', label: 'F-Gas R410A', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 2088 },
+  { key: 'fgas_r404a', label: 'F-Gas R404A', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 3920 },
   { key: 'co2_cylinder', label: 'Bình CO₂', unit: 'kg', icon: '🧪', process: 'CO₂ Tanks', efUnit: 'CO₂ kg/kg', ef: 1 },
 ] as const;
 
@@ -146,18 +148,20 @@ export interface GridEF {
 }
 
 export const GRID_EMISSION_FACTORS: GridEF[] = [
+  { country: 'Vietnam', year: 2020, factor: 0.8041, source: 'MONRE Vietnam' },
   { country: 'Vietnam', year: 2021, factor: 0.7221, source: 'MONRE Vietnam' },
-  { country: 'Vietnam', year: 2022, factor: 0.7098, source: 'MONRE Vietnam' },
-  { country: 'Vietnam', year: 2023, factor: 0.6969, source: 'MONRE Vietnam' },
-  { country: 'Vietnam', year: 2024, factor: 0.6855, source: 'MONRE Vietnam' },
-  { country: 'Vietnam', year: 2025, factor: 0.6750, source: 'MONRE Vietnam (est.)' },
-  { country: 'Vietnam', year: 2026, factor: 0.6650, source: 'MONRE Vietnam (est.)' },
-  { country: 'India', year: 2021, factor: 0.7080, source: 'CEA India' },
-  { country: 'India', year: 2022, factor: 0.7160, source: 'CEA India' },
-  { country: 'India', year: 2023, factor: 0.7020, source: 'CEA India' },
-  { country: 'India', year: 2024, factor: 0.6940, source: 'CEA India' },
-  { country: 'India', year: 2025, factor: 0.6850, source: 'CEA India (est.)' },
-  { country: 'India', year: 2026, factor: 0.6770, source: 'CEA India (est.)' },
+  { country: 'Vietnam', year: 2022, factor: 0.6766, source: 'MONRE Vietnam' },
+  { country: 'Vietnam', year: 2023, factor: 0.6592, source: 'MONRE Vietnam' },
+  { country: 'Vietnam', year: 2024, factor: 0.6592, source: 'MONRE Vietnam' },
+  { country: 'Vietnam', year: 2025, factor: 0.6592, source: 'MONRE Vietnam' },
+  { country: 'Vietnam', year: 2026, factor: 0.6592, source: 'MONRE Vietnam' },
+  { country: 'India', year: 2020, factor: 0.7130, source: 'CEA India' },
+  { country: 'India', year: 2021, factor: 0.7030, source: 'CEA India' },
+  { country: 'India', year: 2022, factor: 0.7150, source: 'CEA India' },
+  { country: 'India', year: 2023, factor: 0.7160, source: 'CEA India' },
+  { country: 'India', year: 2024, factor: 0.7270, source: 'CEA India' },
+  { country: 'India', year: 2025, factor: 0.7100, source: 'CEA India' },
+  { country: 'India', year: 2026, factor: 0.7100, source: 'CEA India' },
 ];
 
 export const SCOPE_3_CATEGORIES = [
