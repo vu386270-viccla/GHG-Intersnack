@@ -164,16 +164,22 @@ export default function OverviewPage() {
     });
   }, [allEmissions, factories, viewMode, factoryA, factoryB, useCommonEF, prodData]);
 
-  /* ── SINGLE mode: YoY insight analysis (same-period) ── */
+  /* ── SINGLE mode: YoY insight analysis (intensity-based) ── */
   const singleInsight = useMemo(() => {
     if (viewMode !== 'SINGLE' || !factoryA) return null;
     const fac = factories.find(f => f.id === factoryA);
     if (!fac) return null;
     const prevYear = selectedYear - 1;
     const curRows  = allEmissions.filter(e => e.year === selectedYear && e.factory_id === factoryA);
-    // Same-period: only months that have current-year data
+    // Previous year: use ALL 12 months to get full-year benchmark
+    const prevRows = allEmissions.filter(e => e.year === prevYear && e.factory_id === factoryA);
+
+    // Months with current-year data (for avg/month calc)
     const activeMonths = Array.from(new Set(curRows.map(e => e.month)));
-    const prevRows = allEmissions.filter(e => e.year === prevYear && e.factory_id === factoryA && activeMonths.includes(e.month));
+    const nMonthsCur   = activeMonths.length || 1;
+    // Previous year distinct months (for avg/month)
+    const prevMonths   = Array.from(new Set(prevRows.map(e => e.month)));
+    const nMonthsPrev  = prevMonths.length || 1;
 
     // Scope 1 by category
     const agg = (rows: RawRow[], scope: string) => {
@@ -198,26 +204,39 @@ export default function OverviewPage() {
     const s2EmCur  = useCommonEF ? kWhCur  * COMMON_EF / 1000 : kWhCur  * efCur  / 1000;
     const s2EmPrev = useCommonEF ? kWhPrev * COMMON_EF / 1000 : kWhPrev * efPrev / 1000;
 
-    // Production — same active months only
-    const rcnCur = prodData.filter(p => p.year === selectedYear && p.factory_id === factoryA && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-    const rcnPrev = prodData.filter(p => p.year === prevYear && p.factory_id === factoryA && p.category === 'rcn_input' && activeMonths.includes(p.month)).reduce((s, p) => s + Number(p.quantity), 0);
-
     const totalCur  = s1TotalCur  + s2EmCur;
     const totalPrev = s1TotalPrev + s2EmPrev;
 
-    // Intensity = tCO2e / MT RCN
+    // Production — cur: YTD, prev: full year
+    const rcnCur  = prodData.filter(p => p.year === selectedYear && p.factory_id === factoryA && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+    const rcnPrev = prodData.filter(p => p.year === prevYear    && p.factory_id === factoryA && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+
+    // ── Metric 1: Intensity tCO₂e / MT RCN ──
+    // YTD intensity vs full-year intensity of previous year (apples-to-apples on per-unit basis)
     const intTotCur   = rcnCur  > 0 ? totalCur   / rcnCur  : 0;
-    const intTotPrev  = rcnPrev > 0 ? totalPrev  / rcnPrev : 0;
+    const intTotPrev  = rcnPrev > 0 ? totalPrev  / rcnPrev : 0;   // full-year 2025 rate
     const intS1Cur    = rcnCur  > 0 ? s1TotalCur / rcnCur  : 0;
     const intS1Prev   = rcnPrev > 0 ? s1TotalPrev/ rcnPrev : 0;
     const intkWhCur   = rcnCur  > 0 ? kWhCur     / rcnCur  : 0;
     const intkWhPrev  = rcnPrev > 0 ? kWhPrev    / rcnPrev : 0;
 
-    // All category keys
+    // ── Metric 2: Average tCO₂e per month ──
+    // Avg of active months vs avg of all months in previous year
+    const avgTotCur  = totalCur    / nMonthsCur;
+    const avgTotPrev = totalPrev   / nMonthsPrev;   // full-year monthly avg 2025
+    const avgS1Cur   = s1TotalCur  / nMonthsCur;
+    const avgS1Prev  = s1TotalPrev / nMonthsPrev;
+    const avgS2Cur   = s2EmCur     / nMonthsCur;
+    const avgS2Prev  = s2EmPrev    / nMonthsPrev;
+
+    // All category keys (for Scope 1 breakdown comparison)
     const allCatKeys = Array.from(new Set([...Object.keys(s1Cur.em), ...Object.keys(s1Prev.em)]));
     const s1Drivers = allCatKeys.map(key => {
-      const cur = s1Cur.em[key] || 0; const prev = s1Prev.em[key] || 0;
-      const actCur = s1Cur.act[key] || 0; const actPrev = s1Prev.act[key] || 0;
+      // Compare per-month avg of each category
+      const cur  = (s1Cur.em[key]  || 0) / nMonthsCur;
+      const prev = (s1Prev.em[key] || 0) / nMonthsPrev;
+      const actCur  = (s1Cur.act[key]  || 0) / nMonthsCur;
+      const actPrev = (s1Prev.act[key] || 0) / nMonthsPrev;
       return { key, cur, prev, delta: cur - prev, actCur, actPrev };
     }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
@@ -229,7 +248,11 @@ export default function OverviewPage() {
       kWhCur, kWhPrev, s2EmCur, s2EmPrev, efCur,
       rcnCur, rcnPrev,
       totalCur, totalPrev,
+      nMonthsCur, nMonthsPrev,
+      // Intensity metrics (tCO₂e / MT RCN)
       intTotCur, intTotPrev, intS1Cur, intS1Prev, intkWhCur, intkWhPrev,
+      // Monthly avg metrics (tCO₂e / month)
+      avgTotCur, avgTotPrev, avgS1Cur, avgS1Prev, avgS2Cur, avgS2Prev,
       pct,
     };
   }, [viewMode, factoryA, allEmissions, prodData, selectedYear, useCommonEF, factories]);
@@ -696,45 +719,29 @@ export default function OverviewPage() {
               });
 
               const latestMn = Math.max(...monthRows.filter(m => m.hasData).map(m => m.mn), 0);
-              const kWhPctChg = pct(si.kWhCur, si.kWhPrev);
-              const rcnPctChg = pct(si.rcnCur, si.rcnPrev);
-              const s1PctChg  = pct(si.s1TotalCur, si.s1TotalPrev);
-              const s2PctChg  = pct(si.s2EmCur, si.s2EmPrev);
+              // Use intensity and monthly averages for fair comparison against full previous year
+              const kWhAvgPctChg = pct(si.kWhCur / si.nMonthsCur, si.kWhPrev / si.nMonthsPrev);
+              const rcnAvgPctChg = pct(si.rcnCur / si.nMonthsCur, si.rcnPrev / si.nMonthsPrev);
+              const s1AvgPctChg  = pct(si.avgS1Cur, si.avgS1Prev);
+              const s2AvgPctChg  = pct(si.avgS2Cur, si.avgS2Prev);
               const intKWhChg = pct(si.intkWhCur, si.intkWhPrev);
 
               let narrative = '';
               if (!hasPrev) narrative = 'Chưa có dữ liệu năm trước để so sánh.';
-              else if (kWhPctChg > 0 && rcnPctChg > 0)
+              else if (kWhAvgPctChg > 0 && rcnAvgPctChg > 0)
                 narrative = intKWhChg <= 1
-                  ? `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN cũng tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện ổn định.`
-                  : `Điện tăng ${kWhPctChg.toFixed(1)}% trong khi RCN chỉ tăng ${rcnPctChg.toFixed(1)}% → kém hiệu quả hơn, kWh/MT RCN tăng ${intKWhChg.toFixed(1)}%.`;
-              else if (kWhPctChg > 0)
-                narrative = `Điện tăng ${kWhPctChg.toFixed(1)}% nhưng RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → hiệu suất điện giảm đáng kể.`;
-              else if (rcnPctChg > 0)
-                narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}% trong khi RCN tăng ${rcnPctChg.toFixed(1)}% → hiệu suất điện cải thiện tốt.`;
+                  ? `TB điện/tháng tăng ${kWhAvgPctChg.toFixed(1)}% nhưng TB RCN/tháng cũng tăng ${rcnAvgPctChg.toFixed(1)}% → hiệu suất điện ổn định (kWh/MT).`
+                  : `TB điện/tháng tăng ${kWhAvgPctChg.toFixed(1)}% trong khi RCN/tháng tăng ${rcnAvgPctChg.toFixed(1)}% → kém hiệu quả hơn, cường độ điện tăng ${intKWhChg.toFixed(1)}%.`;
+              else if (kWhAvgPctChg > 0)
+                narrative = `TB điện/tháng tăng ${kWhAvgPctChg.toFixed(1)}% nhưng rcn/tháng giảm ${Math.abs(rcnAvgPctChg).toFixed(1)}% → hiệu suất điện giảm đáng kể.`;
+              else if (rcnAvgPctChg > 0)
+                narrative = `TB điện/tháng giảm ${Math.abs(kWhAvgPctChg).toFixed(1)}% trong khi rcn/tháng tăng ${rcnAvgPctChg.toFixed(1)}% → hiệu suất điện cải thiện tốt.`;
               else
-                narrative = `Điện giảm ${Math.abs(kWhPctChg).toFixed(1)}%, RCN giảm ${Math.abs(rcnPctChg).toFixed(1)}% → kWh/MT RCN ${intKWhChg > 0 ? 'tăng nhẹ' : 'ổn định'}.`;
+                narrative = `TB điện/tháng giảm ${Math.abs(kWhAvgPctChg).toFixed(1)}%, rcn/tháng giảm ${Math.abs(rcnAvgPctChg).toFixed(1)}% → cường độ điện ${intKWhChg > 0 ? 'tăng nhẹ' : 'ổn định'} so với TBNN.`;
 
               const dColor = (v: number) => v > 0 ? '#E32314' : v < 0 ? '#27AE60' : '#aaa';
               const dSign  = (v: number) => v > 0 ? '+' : '';
               const MN = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
-
-              // Same-period comparison: only compare months that have current-year data
-              const activeMns = monthRows.filter(m => m.hasData).map(m => m.mn);
-              const prevSamePeriodTotal = activeMns.reduce((s, mn) => {
-                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
-                return s + calcS1(prv) + calcS2(prv, si.prevYear, facObj);
-              }, 0);
-              const prevSamePeriodS1 = activeMns.reduce((s, mn) => {
-                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
-                return s + calcS1(prv);
-              }, 0);
-              const prevSamePeriodS2 = activeMns.reduce((s, mn) => {
-                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
-                return s + calcS2(prv, si.prevYear, facObj);
-              }, 0);
-              const hasSamePeriodPrev = prevSamePeriodTotal > 0;
-              const samePeriodLabel = activeMns.length > 0 ? `T1–T${activeMns[activeMns.length - 1]}` : '';
 
               // Chart max for monthly bar chart
               const maxMonthVal = Math.max(...monthRows.filter(m => m.hasData).map(m => m.total), 1);
@@ -747,10 +754,10 @@ export default function OverviewPage() {
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
                       <div className="ov-table-title">📅 Phát thải theo tháng — {selectedYear}</div>
                       {latestMn > 0 && <span style={{ fontSize: 9, color: '#aaa' }}>Đến T{latestMn}</span>}
-                      {hasSamePeriodPrev && (
+                      {hasPrev && si.avgTotPrev > 0 && si.avgTotCur > 0 && (
                         <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700,
-                          color: dColor(si.totalCur - prevSamePeriodTotal) }}>
-                          YTD {samePeriodLabel}: {dSign(si.totalCur - prevSamePeriodTotal)}{pct(si.totalCur, prevSamePeriodTotal).toFixed(1)}% vs {si.prevYear}
+                          color: dColor(si.avgTotCur - si.avgTotPrev) }}>
+                          TB YTD: {fmt(si.avgTotCur)} t/tháng ({dSign(pct(si.avgTotCur, si.avgTotPrev))}{pct(si.avgTotCur, si.avgTotPrev).toFixed(1)}% vs TB {si.prevYear})
                         </span>
                       )}
                     </div>
@@ -818,9 +825,9 @@ export default function OverviewPage() {
                     <div className="ov-compare-block" style={{ flex: '0 0 54%' }}>
                       <div className="ov-table-title" style={{ color: '#E32314', marginBottom: 6 }}>
                         🔥 Scope 1 — Nguồn phát thải YTD
-                        {hasPrev && si.s1TotalPrev > 0 && (
-                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s1PctChg) }}>
-                            {s1PctChg > 0 ? '▲' : '▼'} {Math.abs(s1PctChg).toFixed(1)}% vs {si.prevYear} <span style={{ fontSize: 9, color: '#aaa', fontWeight: 400 }}>(cùng kỳ)</span>
+                        {hasPrev && si.avgS1Prev > 0 && (
+                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s1AvgPctChg) }}>
+                            {s1AvgPctChg > 0 ? '▲' : '▼'} {Math.abs(s1AvgPctChg).toFixed(1)}% vs TB {si.prevYear}
                           </span>
                         )}
                       </div>
@@ -872,9 +879,9 @@ export default function OverviewPage() {
                           <div style={{ textAlign: 'right' }}>
                             <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: '#E32314' }}>{fmt(si.s1TotalCur)}</span>
                             <span style={{ fontSize: 10, color: '#aaa', marginLeft: 4 }}>tCO₂e</span>
-                            {hasPrev && si.s1TotalPrev > 0 && (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: dColor(s1PctChg) }}>
-                                {dSign(s1PctChg)}{s1PctChg.toFixed(1)}% vs {si.prevYear} ({dSign(si.s1TotalCur - si.s1TotalPrev)}{fmt(si.s1TotalCur - si.s1TotalPrev)} t)
+                            {hasPrev && si.avgS1Prev > 0 && si.avgS1Cur > 0 && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: dColor(s1AvgPctChg) }}>
+                                TB: {fmt(si.avgS1Cur)} t/tháng ({dSign(s1AvgPctChg)}{s1AvgPctChg.toFixed(1)}% vs {si.prevYear})
                               </div>
                             )}
                           </div>
@@ -887,9 +894,9 @@ export default function OverviewPage() {
                       <div className="ov-compare-block">
                         <div className="ov-table-title" style={{ color: '#F5A623', marginBottom: 8 }}>
                           ⚡ Scope 2 — Điện & Cường độ
-                          {hasPrev && si.s2EmPrev > 0 && (
-                            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s2PctChg) }}>
-                              {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs {si.prevYear}
+                          {hasPrev && si.avgS2Prev > 0 && (
+                            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s2AvgPctChg) }}>
+                              {s2AvgPctChg > 0 ? '▲' : '▼'} TB {Math.abs(s2AvgPctChg).toFixed(1)}% vs {si.prevYear}
                             </span>
                           )}
                         </div>
@@ -901,8 +908,8 @@ export default function OverviewPage() {
                               <span style={{ fontSize: 11, color: '#aaa', marginLeft: 3 }}>{si.kWhCur >= 1000000 ? 'GWh' : 'MWh'}</span>
                             </div>
                             {hasPrev && si.kWhPrev > 0 && (
-                              <div style={{ fontSize: 10, marginTop: 4, color: dColor(kWhPctChg), fontWeight: 700 }}>
-                                {kWhPctChg > 0 ? '▲' : '▼'} {Math.abs(kWhPctChg).toFixed(1)}% vs {si.prevYear}
+                              <div style={{ fontSize: 10, marginTop: 4, color: dColor(kWhAvgPctChg), fontWeight: 700 }}>
+                                {kWhAvgPctChg > 0 ? '▲' : '▼'} TB {Math.abs(kWhAvgPctChg).toFixed(1)}% vs {si.prevYear}
                               </div>
                             )}
                           </div>
@@ -912,8 +919,8 @@ export default function OverviewPage() {
                               {fmt(si.s2EmCur)}<span style={{ fontSize: 11, color: '#aaa', marginLeft: 3 }}>tCO₂e</span>
                             </div>
                             {hasPrev && si.s2EmPrev > 0 && (
-                              <div style={{ fontSize: 10, marginTop: 4, color: dColor(s2PctChg), fontWeight: 700 }}>
-                                {s2PctChg > 0 ? '▲' : '▼'} {Math.abs(s2PctChg).toFixed(1)}% vs {si.prevYear}
+                              <div style={{ fontSize: 10, marginTop: 4, color: dColor(s2AvgPctChg), fontWeight: 700 }}>
+                                {s2AvgPctChg > 0 ? '▲' : '▼'} TB {Math.abs(s2AvgPctChg).toFixed(1)}% vs {si.prevYear}
                               </div>
                             )}
                           </div>
@@ -924,8 +931,8 @@ export default function OverviewPage() {
                               {si.rcnCur > 0 && <span style={{ fontSize: 11, color: '#aaa', marginLeft: 3 }}>MT</span>}
                             </div>
                             {hasPrev && si.rcnPrev > 0 && (
-                              <div style={{ fontSize: 10, marginTop: 4, color: rcnPctChg > 0 ? '#27AE60' : '#E32314', fontWeight: 700 }}>
-                                {rcnPctChg > 0 ? '▲' : '▼'} {Math.abs(rcnPctChg).toFixed(1)}% vs {si.prevYear}
+                              <div style={{ fontSize: 10, marginTop: 4, color: rcnAvgPctChg > 0 ? '#27AE60' : '#E32314', fontWeight: 700 }}>
+                                {rcnAvgPctChg > 0 ? '▲' : '▼'} TB {Math.abs(rcnAvgPctChg).toFixed(1)}% vs {si.prevYear}
                               </div>
                             )}
                           </div>
