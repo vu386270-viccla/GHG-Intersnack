@@ -11,15 +11,6 @@ const S1_COLORS = ['#E32314', '#FF6B35', '#F5A623', '#FFD93D', '#6BCB77', '#4D96
 const FAC_COLORS = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
 const FAC_COLORS_LIGHT = ['#FF8A80', '#FFD180', '#B388FF', '#CCFF90'];
 
-// Factory-specific SBTi 2032 Scope 1+2 annual targets (tCO₂e)
-const getFactoryTarget = (factory: Factory): number | null => {
-  if (factory.country === 'India') return 334;
-  const n = factory.name;
-  if (n.includes('Ninh') || n.includes('TN')) return 304;
-  if (n.includes('Long')) return 265;
-  if (n.includes('Phan') || n.includes('Thiết')) return 223;
-  return null;
-};
 
 interface RawRow {
   factory_id: string; year: number; month: number; scope: string;
@@ -42,7 +33,8 @@ function MiniDonut({ segments, size = 120, thickness = 22, centerLabel, centerSu
   const circ = 2 * Math.PI * r;
   let cumAngle = -90;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      style={{ display: 'block', flexShrink: 0, minWidth: size, minHeight: size }}>
       {segments.filter(s => s.value > 0).map((seg, i) => {
         const pct = seg.value / total;
         const dash = pct * circ;
@@ -131,7 +123,7 @@ export default function OverviewPage() {
 
   /* ── Multi-year SBTi roadmap data ── (filters by selected factories) */
   const roadmapData = useMemo(() => {
-    const years = [2021, 2022, 2023, 2024, 2025, 2026];
+    const years = [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032];
     // Base year = 2021, ALL factories (for consistent baseline)
     const baseRows2021 = allEmissions.filter(e => e.year === 2021);
 
@@ -172,14 +164,16 @@ export default function OverviewPage() {
     });
   }, [allEmissions, factories, viewMode, factoryA, factoryB, useCommonEF, prodData]);
 
-  /* ── SINGLE mode: YoY insight analysis ── */
+  /* ── SINGLE mode: YoY insight analysis (same-period) ── */
   const singleInsight = useMemo(() => {
     if (viewMode !== 'SINGLE' || !factoryA) return null;
     const fac = factories.find(f => f.id === factoryA);
     if (!fac) return null;
     const prevYear = selectedYear - 1;
-    const curRows  = allEmissions.filter(e => e.year === selectedYear  && e.factory_id === factoryA);
-    const prevRows = allEmissions.filter(e => e.year === prevYear       && e.factory_id === factoryA);
+    const curRows  = allEmissions.filter(e => e.year === selectedYear && e.factory_id === factoryA);
+    // Same-period: only months that have current-year data
+    const activeMonths = Array.from(new Set(curRows.map(e => e.month)));
+    const prevRows = allEmissions.filter(e => e.year === prevYear && e.factory_id === factoryA && activeMonths.includes(e.month));
 
     // Scope 1 by category
     const agg = (rows: RawRow[], scope: string) => {
@@ -204,9 +198,9 @@ export default function OverviewPage() {
     const s2EmCur  = useCommonEF ? kWhCur  * COMMON_EF / 1000 : kWhCur  * efCur  / 1000;
     const s2EmPrev = useCommonEF ? kWhPrev * COMMON_EF / 1000 : kWhPrev * efPrev / 1000;
 
-    // Production
-    const rcn = (yr: number) => prodData.filter(p => p.year === yr && p.factory_id === factoryA && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-    const rcnCur = rcn(selectedYear); const rcnPrev = rcn(prevYear);
+    // Production — same active months only
+    const rcnCur = prodData.filter(p => p.year === selectedYear && p.factory_id === factoryA && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+    const rcnPrev = prodData.filter(p => p.year === prevYear && p.factory_id === factoryA && p.category === 'rcn_input' && activeMonths.includes(p.month)).reduce((s, p) => s + Number(p.quantity), 0);
 
     const totalCur  = s1TotalCur  + s2EmCur;
     const totalPrev = s1TotalPrev + s2EmPrev;
@@ -277,16 +271,16 @@ export default function OverviewPage() {
     </div>
   );
 
-  /* Roadmap SVG dimensions for the SBTi chart */
+  /* Roadmap SVG dimensions for the SBTi chart — 12 years (2021→2032) */
   const rmMaxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
-  const rmW = 560, rmH = 175, rmPadL = 42, rmPadR = 52, rmPadT = 22, rmPadB = 36;
+  const rmW = 660, rmH = 185, rmPadL = 44, rmPadR = 12, rmPadT = 22, rmPadB = 36;
   const rmPlotW = rmW - rmPadL - rmPadR;
   const rmPlotH = rmH - rmPadT - rmPadB;
   // RCN secondary axis
   const rmMaxRCN = Math.max(...roadmapData.map(d => d.rcn), 1) * 1.2;
-  // Factory-specific target (SINGLE mode)
-  const singleFacTarget = viewMode === 'SINGLE'
-    ? (() => { const fac = factories.find(f => f.id === factoryA); return fac ? getFactoryTarget(fac) : null; })()
+  // Factory-specific 2032 target (SINGLE mode): 50% of 2021 base for that factory
+  const singleFacTarget = viewMode === 'SINGLE' && roadmapData.length > 0
+    ? (roadmapData[0].baseTotal > 0 ? roadmapData[0].baseTotal * 0.5 : null)
     : null;
 
   return (
@@ -383,13 +377,13 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            {/* Scope 1 + Scope 2 Donuts */}
-            <div style={{ display: 'flex', gap: 6 }}>
+            {/* Scope 1 + Scope 2 Donuts — side by side, no overlap */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               {/* Scope 1 */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 8, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>🔥 Scope 1</div>
-                <div className="ov-donut-inline" style={{ gap: 4 }}>
-                  <MiniDonut size={100} thickness={18} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
+              <div style={{ background: '#fff5f4', border: '1px solid #fce0e0', borderRadius: 8, padding: '6px 8px' }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>🔥 Scope 1</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
                     segments={(() => {
                       const cats: Record<string, number> = {};
                       displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
@@ -398,22 +392,21 @@ export default function OverviewPage() {
                         return { label: def?.label || key, value: val, color: S1_COLORS[i] };
                       });
                     })()} />
-                  <div className="ov-donut-legend-sm">
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {(() => {
-                      const cats: Record<string, { em: number; act: number }> = {};
+                      const cats: Record<string, { em: number }> = {};
                       displayBlocks.forEach(b => b.s1ByCat.forEach(c => {
-                        if (!cats[c.key]) cats[c.key] = { em: 0, act: 0 };
+                        if (!cats[c.key]) cats[c.key] = { em: 0 };
                         cats[c.key].em += c.value;
-                        cats[c.key].act += c.activity;
                       }));
                       const totalS1 = Object.values(cats).reduce((s, v) => s + v.em, 0);
-                      return Object.entries(cats).sort(([,a],[,b]) => b.em - a.em).slice(0, 5).map(([key, v], i) => {
+                      return Object.entries(cats).sort(([,a],[,b]) => b.em - a.em).slice(0, 4).map(([key, v], i) => {
                         const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
                         const pct = totalS1 > 0 ? (v.em / totalS1 * 100).toFixed(0) : '0';
-                        return <div key={key} className="ov-dls-item">
-                          <span className="ov-legend-dot" style={{ background: S1_COLORS[i] }}/>
-                          <span style={{ fontWeight: 700, color: S1_COLORS[i], minWidth: 24 }}>{pct}%</span>
-                          <span style={{ color: '#555' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || key}</span>
+                        return <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 2, background: S1_COLORS[i], flexShrink: 0, display: 'inline-block' }}/>
+                          <span style={{ fontWeight: 700, color: S1_COLORS[i], minWidth: 20 }}>{pct}%</span>
+                          <span style={{ color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || key}</span>
                         </div>;
                       });
                     })()}
@@ -422,21 +415,21 @@ export default function OverviewPage() {
               </div>
 
               {/* Scope 2 — 100% electricity */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 8, fontWeight: 800, color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 3 }}>⚡ Scope 2</div>
-                <div className="ov-donut-inline" style={{ gap: 4 }}>
-                  <MiniDonut size={100} thickness={18} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
+              <div style={{ background: '#fffbf0', border: '1px solid #ffe5a0', borderRadius: 8, padding: '6px 8px' }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>⚡ Scope 2</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
                     segments={[{ label: 'Electricity', value: 1, color: '#F5A623' }]} />
-                  <div className="ov-donut-legend-sm">
-                    <div className="ov-dls-item">
-                      <span className="ov-legend-dot" style={{ background: '#F5A623' }}/>
-                      <span style={{ fontWeight: 700, color: '#F5A623', minWidth: 24 }}>100%</span>
-                      <span style={{ color: '#555' }}>⚡ Điện lưới</span>
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: 2, background: '#F5A623', flexShrink: 0, display: 'inline-block' }}/>
+                      <span style={{ fontWeight: 700, color: '#F5A623' }}>100%</span>
+                      <span style={{ color: '#666' }}>⚡ Điện lưới</span>
                     </div>
-                    <div className="ov-dls-item" style={{ paddingLeft: 10, color: '#aaa', fontSize: 9 }}>
+                    <div style={{ fontSize: 8, color: '#aaa', paddingLeft: 10 }}>
                       {(displayBlocks.reduce((s,b)=>s+b.kWh,0)/1000).toFixed(0)} MWh
                     </div>
-                    <div className="ov-dls-item" style={{ paddingLeft: 10, color: '#aaa', fontSize: 9 }}>
+                    <div style={{ fontSize: 8, color: '#aaa', paddingLeft: 10 }}>
                       EF: {useCommonEF ? COMMON_EF : 'Country'} kg/kWh
                     </div>
                   </div>
@@ -523,164 +516,121 @@ export default function OverviewPage() {
                   </g>
                 ))}
 
-                {/* Target pathway line (dashed green) — extends to 2032 */}
+                {/* Shaded "future" background (2027→2032) */}
                 {(() => {
+                  const n = roadmapData.length; // 12
+                  const xFuture = rmPadL + (6 / (n - 1)) * rmPlotW; // start of 2027
+                  return <rect x={xFuture} y={rmPadT} width={rmW - rmPadR - xFuture} height={rmPlotH}
+                    fill="#f7f7f3" rx={2} opacity={0.7}/>;
+                })()}
+
+                {/* SBTi Pathway line (dashed green) — full 2021→2032 */}
+                {(() => {
+                  const n = roadmapData.length;
                   const pts = roadmapData.map((d, i) => {
-                    const totalCols = roadmapData.length; // 6 bars (2021-2026)
-                    const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
+                    const x = rmPadL + (i / (n - 1)) * rmPlotW;
                     const y = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
                     return `${x},${y}`;
                   });
-                  // Extend dashed line to 2032 endpoint at right edge
-                  const x2032 = rmW - rmPadR + 48;
-                  const t2032 = roadmapData[0]?.baseTotal * 0.5 || 0;
-                  const y2032 = rmPadT + rmPlotH * (1 - t2032 / rmMaxVal);
-                  return <polyline points={[...pts, `${x2032},${y2032}`].join(' ')} fill="none" stroke="#8CB92D" strokeWidth={1.5} strokeDasharray="5,3" opacity={0.75}/>;
+                  return <polyline points={pts.join(' ')} fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.85}/>;
                 })()}
 
-                {/* RCN dotted line (secondary axis — right side) */}
-                {rmMaxRCN > 1 && (() => {
-                  const rcnPts = roadmapData
-                    .filter(d => d.rcn > 0)
-                    .map(d => {
-                      const i = roadmapData.indexOf(d);
-                      const totalCols = roadmapData.length;
-                      const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
-                      const y = rmPadT + rmPlotH * (1 - d.rcn / rmMaxRCN);
-                      return `${x},${y}`;
-                    });
-                  if (rcnPts.length < 2) return null;
+                {/* Factory-specific 2032 target flat line (SINGLE mode) */}
+                {singleFacTarget !== null && (() => {
+                  const ty = rmPadT + rmPlotH * (1 - singleFacTarget / rmMaxVal);
                   return (
                     <g>
-                      <polyline points={rcnPts.join(' ')} fill="none" stroke="#6366F1" strokeWidth={1.2} strokeDasharray="2,3" opacity={0.55}/>
-                      {roadmapData.filter(d => d.rcn > 0).map(d => {
-                        const i = roadmapData.indexOf(d);
-                        const totalCols = roadmapData.length;
-                        const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
-                        const y = rmPadT + rmPlotH * (1 - d.rcn / rmMaxRCN);
-                        const rcnK = d.rcn >= 1000 ? `${(d.rcn/1000).toFixed(1)}k` : Math.round(d.rcn).toString();
-                        return (
-                          <g key={`rcn${d.year}`}>
-                            <circle cx={x} cy={y} r={2} fill="#6366F1" opacity={0.6}/>
-                            <text x={x} y={y - 4} textAnchor="middle" fontSize="6" fill="#6366F1" opacity={0.8}>{rcnK}</text>
-                          </g>
-                        );
-                      })}
-                      {/* Right axis label */}
-                      <text x={rmW - rmPadR + 4} y={rmPadT} fontSize="6.5" fill="#6366F1" opacity={0.7}>MT RCN →</text>
+                      <line x1={rmPadL} y1={ty} x2={rmW - rmPadR} y2={ty}
+                        stroke="#E32314" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.85}/>
+                      <rect x={rmPadL} y={ty - 10} width={38} height={11} rx={2} fill="#E32314" opacity={0.12}/>
+                      <text x={rmPadL + 19} y={ty - 2} textAnchor="middle" fontSize="7" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget)}t</text>
                     </g>
                   );
                 })()}
 
-                {/* Stacked bars per year */}
+                {/* Bars per year */}
                 {roadmapData.map((d, i) => {
-                  const totalCols = roadmapData.length;
-                  const x = rmPadL + (i / (totalCols - 1)) * rmPlotW;
-                  const barW = 24;
+                  const n = roadmapData.length;
+                  const x = rmPadL + (i / (n - 1)) * rmPlotW;
+                  const barW = 16;
                   const barX = x - barW / 2;
-                  let cumH = 0;
-                  const targetY = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
+                  const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
                   const isCurrent = d.year === selectedYear;
+                  const targetY = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
+                  let cumH = 0;
 
                   return (
                     <g key={d.year}>
-                      {d.perFactory.sort((a,b) => b.total - a.total).map((pf, fi) => {
-                        const h = rmMaxVal > 0 ? (pf.total / rmMaxVal) * rmPlotH : 0;
-                        const y = rmPadT + rmPlotH - cumH - h;
-                        cumH += h;
-                        const fIdx = factories.findIndex(f => f.id === pf.factory.id);
-                        // In SINGLE mode: red if over target, green if under target
-                        const barColor = singleFacTarget !== null && d.actual > 0
-                          ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
-                          : FAC_COLORS[fIdx >= 0 ? fIdx : fi];
-                        return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1.5}
-                          fill={barColor} opacity={isCurrent ? 0.92 : 0.55}
-                          stroke={isCurrent ? '#333' : 'none'} strokeWidth={isCurrent ? 0.8 : 0}/>;
-                      })}
+                      {isFuture ? (
+                        /* Future year: show target as hollow bar */
+                        <rect x={barX} y={targetY} width={barW} height={Math.max(rmPadT + rmPlotH - targetY, 1)} rx={1.5}
+                          fill="none" stroke="#8CB92D" strokeWidth={1} strokeDasharray="3,2" opacity={0.5}/>
+                      ) : (
+                        /* Past/current year: actual stacked bars */
+                        d.perFactory.sort((a,b) => b.total - a.total).map((pf, fi) => {
+                          const h = rmMaxVal > 0 ? (pf.total / rmMaxVal) * rmPlotH : 0;
+                          const y = rmPadT + rmPlotH - cumH - h;
+                          cumH += h;
+                          const fIdx = factories.findIndex(f => f.id === pf.factory.id);
+                          const barColor = singleFacTarget !== null && d.actual > 0
+                            ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
+                            : FAC_COLORS[fIdx >= 0 ? fIdx : fi];
+                          return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1.5}
+                            fill={barColor} opacity={isCurrent ? 0.92 : 0.6}
+                            stroke={isCurrent ? '#333' : 'none'} strokeWidth={isCurrent ? 0.8 : 0}/>;
+                        })
+                      )}
 
-                      {/* Actual value label above bar */}
+                      {/* Actual value label */}
                       {d.actual > 0 && (
-                        <text x={x} y={rmPadT + rmPlotH - cumH - 5} textAnchor="middle" fontSize="7.5" fontWeight="700"
+                        <text x={x} y={rmPadT + rmPlotH - cumH - 4} textAnchor="middle" fontSize="6.5" fontWeight="700"
                           fill={isCurrent ? '#E32314' : '#666'}>
                           {fmt(d.actual)}
                         </text>
                       )}
 
-                      {/* 2026: also show % vs target annotation */}
+                      {/* % vs 2021 for current year */}
                       {isCurrent && d.actual > 0 && (() => {
-                        const pctReduced = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
-                        const sign = pctReduced >= 0 ? '-' : '+';
+                        const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
                         return (
-                          <text x={x} y={rmPadT + rmPlotH - cumH - 14} textAnchor="middle" fontSize="6.5" fontWeight="600"
+                          <text x={x} y={rmPadT + rmPlotH - cumH - 12} textAnchor="middle" fontSize="6" fontWeight="600"
                             fill={d.onTrack ? '#27AE60' : '#E32314'}>
-                            {sign}{Math.abs(pctReduced).toFixed(1)}% vs 2021
+                            {pct >= 0 ? '-' : '+'}{Math.abs(pct).toFixed(1)}%
                           </text>
                         );
                       })()}
 
-                      {/* Target dot on SBTi pathway */}
-                      <circle cx={x} cy={targetY} r={2.5} fill="#8CB92D" opacity={0.7}/>
+                      {/* SBTi pathway dot */}
+                      <circle cx={x} cy={targetY} r={d.year === 2032 ? 4 : 2} fill="#8CB92D" opacity={0.8}/>
+                      {d.year === 2032 && (
+                        <>
+                          <text x={x} y={targetY - 8} textAnchor="middle" fontSize="6.5" fill="#4A6E12" fontWeight="800">{fmt(d.target)}</text>
+                          <rect x={x-13} y={targetY+5} width={26} height={10} rx={2} fill="#8CB92D" opacity={0.15}/>
+                          <text x={x} y={targetY+13} textAnchor="middle" fontSize="6" fill="#4A6E12" fontWeight="800">-50%</text>
+                        </>
+                      )}
 
                       {/* Year label */}
-                      <text x={x} y={rmH - rmPadB + 12} textAnchor="middle" fontSize="8.5"
-                        fill={isCurrent ? '#E32314' : '#888'}
-                        fontWeight={isCurrent ? 800 : 400}>
+                      <text x={x} y={rmH - rmPadB + 12} textAnchor="middle"
+                        fontSize={d.year % 2 === 1 ? '7' : '8.5'}
+                        fill={isCurrent ? '#E32314' : d.year === 2032 ? '#4A6E12' : isFuture ? '#bbb' : '#888'}
+                        fontWeight={isCurrent || d.year === 2032 ? 800 : 400}>
                         {d.year}
                       </text>
 
-                      {/* On-track status */}
+                      {/* On-track badge (years with data only) */}
                       {d.actual > 0 && (() => {
-                        const onTrack = singleFacTarget !== null
-                          ? d.actual <= singleFacTarget
-                          : d.onTrack;
+                        const onTrack = singleFacTarget !== null ? d.actual <= singleFacTarget : d.onTrack;
                         return (
-                          <text x={x} y={rmH - rmPadB + 22} textAnchor="middle" fontSize="6.5"
+                          <text x={x} y={rmH - rmPadB + 22} textAnchor="middle" fontSize="6"
                             fill={onTrack ? '#2ECC71' : '#E32314'} fontWeight="700">
-                            {onTrack ? '✓ On track' : '✗ Over'}
+                            {onTrack ? '✓' : '✗'}
                           </text>
                         );
                       })()}
                     </g>
                   );
                 })}
-
-                {/* Factory-specific target line — drawn on top of bars */}
-                {singleFacTarget !== null && (() => {
-                  const ty = rmPadT + rmPlotH * (1 - singleFacTarget / rmMaxVal);
-                  const x2032 = rmW - rmPadR + 48;
-                  return (
-                    <g>
-                      <line x1={rmPadL} y1={ty} x2={x2032} y2={ty}
-                        stroke="#E32314" strokeWidth={1.8} strokeDasharray="4,3" opacity={0.9}/>
-                      {/* Left label */}
-                      <rect x={rmPadL} y={ty - 10} width={36} height={11} rx={2} fill="#E32314" opacity={0.15}/>
-                      <text x={rmPadL + 18} y={ty - 2} textAnchor="middle" fontSize="7" fill="#E32314" fontWeight="800">🎯 {singleFacTarget}t</text>
-                      {/* Right endpoint */}
-                      <circle cx={x2032} cy={ty} r={4} fill="none" stroke="#E32314" strokeWidth={1.5} opacity={0.8}/>
-                      <circle cx={x2032} cy={ty} r={2} fill="#E32314" opacity={0.8}/>
-                    </g>
-                  );
-                })()}
-
-                {/* 2032 target endpoint marker */}
-                {(() => {
-                  const x = rmW - rmPadR + 48;
-                  const t2032 = roadmapData[0]?.baseTotal * 0.5 || 0;
-                  const y = rmPadT + rmPlotH * (1 - t2032 / rmMaxVal);
-                  return (
-                    <g>
-                      <circle cx={x} cy={y} r={6} fill="none" stroke="#8CB92D" strokeWidth={2}/>
-                      <circle cx={x} cy={y} r={2.5} fill="#8CB92D"/>
-                      {/* Value above */}
-                      <text x={x} y={y - 10} textAnchor="middle" fontSize="7.5" fill="#4A6E12" fontWeight="800">{fmt(t2032)}</text>
-                      {/* -50% target badge */}
-                      <rect x={x-14} y={y+8} width={28} height={11} rx={3} fill="#8CB92D" opacity={0.15}/>
-                      <text x={x} y={y+17} textAnchor="middle" fontSize="7" fill="#4A6E12" fontWeight="800">-50% target</text>
-                      {/* Year */}
-                      <text x={x} y={rmH - rmPadB + 12} textAnchor="middle" fontSize="8.5" fill="#8CB92D" fontWeight="800">2032</text>
-                    </g>
-                  );
-                })()}
               </svg>
 
               <div className="ov-roadmap-legend">
@@ -693,11 +643,9 @@ export default function OverviewPage() {
                     ))
                 }
                 <span style={{ marginLeft: 'auto' }}><span style={{ borderBottom: '1.5px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Pathway</span>
-                {viewMode === 'SINGLE' && (() => {
-                  const fac = factories.find(f => f.id === factoryA);
-                  const tgt = fac ? getFactoryTarget(fac) : null;
-                  return tgt ? <span><span style={{ borderBottom: '1.5px dashed #E32314', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> Factory Target ({tgt} tCO₂e)</span> : null;
-                })()}
+                {viewMode === 'SINGLE' && singleFacTarget !== null && (
+                  <span><span style={{ borderBottom: '1.5px dashed #E32314', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> Factory 2032 Target ({Math.round(singleFacTarget)} tCO₂e)</span>
+                )}
                 <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> RCN (MT)</span>
                 <span>✓ On track · ✗ Over</span>
               </div>
@@ -771,83 +719,95 @@ export default function OverviewPage() {
               const dSign  = (v: number) => v > 0 ? '+' : '';
               const MN = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
+              // Same-period comparison: only compare months that have current-year data
+              const activeMns = monthRows.filter(m => m.hasData).map(m => m.mn);
+              const prevSamePeriodTotal = activeMns.reduce((s, mn) => {
+                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
+                return s + calcS1(prv) + calcS2(prv, si.prevYear, facObj);
+              }, 0);
+              const prevSamePeriodS1 = activeMns.reduce((s, mn) => {
+                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
+                return s + calcS1(prv);
+              }, 0);
+              const prevSamePeriodS2 = activeMns.reduce((s, mn) => {
+                const prv = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === mn);
+                return s + calcS2(prv, si.prevYear, facObj);
+              }, 0);
+              const hasSamePeriodPrev = prevSamePeriodTotal > 0;
+              const samePeriodLabel = activeMns.length > 0 ? `T1–T${activeMns[activeMns.length - 1]}` : '';
+
+              // Chart max for monthly bar chart
+              const maxMonthVal = Math.max(...monthRows.filter(m => m.hasData).map(m => m.total), 1);
+
               return (
                 <div style={{ marginTop: 8 }}>
 
-                  {/* 1. Monthly Table */}
+                  {/* 1. Monthly Chart */}
                   <div className="ov-compare-block" style={{ marginBottom: 8 }}>
-                    <div className="ov-table-title" style={{ marginBottom: 6 }}>
-                      📅 Phân tích theo tháng — {selectedYear}
-                      {latestMn > 0 && <span style={{ marginLeft: 8, fontSize: 10, color: '#888', fontWeight: 400 }}>Đến T{latestMn}</span>}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                      <div className="ov-table-title">📅 Phát thải theo tháng — {selectedYear}</div>
+                      {latestMn > 0 && <span style={{ fontSize: 9, color: '#aaa' }}>Đến T{latestMn}</span>}
+                      {hasSamePeriodPrev && (
+                        <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700,
+                          color: dColor(si.totalCur - prevSamePeriodTotal) }}>
+                          YTD {samePeriodLabel}: {dSign(si.totalCur - prevSamePeriodTotal)}{pct(si.totalCur, prevSamePeriodTotal).toFixed(1)}% vs {si.prevYear}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 560 }}>
-                        <thead>
-                          <tr style={{ background: '#f8f8f8', borderBottom: '2px solid #e0e0e0' }}>
-                            <th style={{ textAlign: 'left', padding: '5px 8px', color: '#555', fontWeight: 700, width: 40 }}>T</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#E32314', fontWeight: 700 }}>🔥 Scope 1</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#F5A623', fontWeight: 700 }}>⚡ Scope 2</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#333', fontWeight: 800, borderLeft: '2px solid #e0e0e0', whiteSpace: 'nowrap' }}>Tổng tCO₂e</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#6366F1', fontWeight: 700 }}>MWh điện</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#6B9B1E', fontWeight: 700 }}>🥜 RCN (MT)</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#888', fontWeight: 600 }}>kWh/MT</th>
-                            <th style={{ textAlign: 'right', padding: '5px 8px', color: '#888', fontWeight: 600, borderLeft: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>Δ vs T-1</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {monthRows.map((m, idx) => {
-                            if (!m.hasData) return (
-                              <tr key={m.mn} style={{ borderBottom: '1px solid #f5f5f5', opacity: 0.3 }}>
-                                <td style={{ padding: '4px 8px', fontWeight: 700, color: '#ccc' }}>{MN[idx]}</td>
-                                <td colSpan={7} style={{ textAlign: 'center', color: '#eee', fontSize: 10 }}>—</td>
-                              </tr>
-                            );
-                            const isLatest = m.mn === latestMn;
-                            const prevM = idx > 0 ? monthRows[idx - 1] : null;
-                            const dVsPrev = prevM?.hasData ? m.total - prevM.total : null;
-                            return (
-                              <tr key={m.mn} style={{
-                                borderBottom: '1px solid #f0f0f0',
-                                background: isLatest ? '#fff9f0' : idx % 2 === 0 ? '#fafafa' : '#fff',
-                              }}>
-                                <td style={{ padding: '5px 8px', fontWeight: 800, color: isLatest ? '#E32314' : '#666' }}>
-                                  {MN[idx]}
-                                  {isLatest && <span style={{ fontSize: 8, background: '#E32314', color: '#fff', padding: '1px 3px', borderRadius: 3, marginLeft: 3, verticalAlign: 'middle' }}>NEW</span>}
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', fontWeight: 700, color: '#E32314', fontSize: 12 }}>{fmt(m.s1)}</td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', fontWeight: 700, color: '#F5A623', fontSize: 12 }}>{fmt(m.s2)}</td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', borderLeft: '2px solid #e8e8e8' }}>
-                                  <span style={{ fontFamily: 'var(--font-display)', fontSize: isLatest ? 15 : 13, fontWeight: 800, color: '#333' }}>{fmt(m.total)}</span>
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', color: '#6366F1', fontSize: 12 }}>
-                                  {m.kWh > 0 ? (m.kWh / 1000).toFixed(0) : '—'}
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', color: '#6B9B1E', fontSize: 12 }}>
-                                  {m.rcn > 0 ? fmt(m.rcn) : '—'}
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', fontFamily: 'var(--font-display)', color: '#888', fontSize: 12 }}>
-                                  {m.intkWh > 0 ? m.intkWh.toFixed(0) : '—'}
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '5px 8px', borderLeft: '1px solid #eee', fontWeight: 700, fontSize: 11, color: dVsPrev !== null ? dColor(dVsPrev) : '#ddd' }}>
-                                  {dVsPrev !== null ? `${dSign(dVsPrev)}${fmt(dVsPrev)}` : '—'}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          <tr style={{ background: '#f0f0f0', borderTop: '2px solid #d0d0d0', fontWeight: 800 }}>
-                            <td style={{ padding: '6px 8px', fontSize: 11, color: '#333' }}>YTD</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', fontSize: 13, color: '#E32314', fontWeight: 800 }}>{fmt(si.s1TotalCur)}</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', fontSize: 13, color: '#F5A623', fontWeight: 800 }}>{fmt(si.s2EmCur)}</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', borderLeft: '2px solid #d0d0d0', fontFamily: 'var(--font-display)', fontSize: 17, color: '#222', fontWeight: 800 }}>{fmt(si.totalCur)}</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', color: '#6366F1', fontWeight: 700 }}>{(si.kWhCur / 1000).toFixed(0)}</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', color: '#6B9B1E', fontWeight: 700 }}>{si.rcnCur > 0 ? fmt(si.rcnCur) : '—'}</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'var(--font-display)', color: '#888', fontWeight: 700 }}>{si.intkWhCur > 0 ? si.intkWhCur.toFixed(0) : '—'}</td>
-                            <td style={{ textAlign: 'right', padding: '6px 8px', borderLeft: '1px solid #d0d0d0', fontSize: 11, fontWeight: 700, color: hasPrev && si.totalPrev > 0 ? dColor(si.totalCur - si.totalPrev) : '#ccc' }}>
-                              {hasPrev && si.totalPrev > 0 ? `${dSign(si.totalCur - si.totalPrev)}${pct(si.totalCur, si.totalPrev).toFixed(1)}% vs ${si.prevYear}` : '—'}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <svg viewBox="0 0 520 110" width="100%" height="110">
+                      {/* Grid lines */}
+                      {[0, 0.5, 1].map((p, gi) => (
+                        <g key={gi}>
+                          <line x1={28} y1={8 + 82*(1-p)} x2={516} y2={8 + 82*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
+                          <text x={26} y={8 + 82*(1-p) + 3} textAnchor="end" fontSize="6" fill="#ccc">{Math.round(maxMonthVal*p)}</text>
+                        </g>
+                      ))}
+                      {/* Bars */}
+                      {monthRows.map((m, idx) => {
+                        const bW = 30, gap = (486 - 12*bW) / 13;
+                        const bx = 30 + gap + idx * (bW + gap);
+                        const isLatest = m.mn === latestMn;
+                        if (!m.hasData) {
+                          // previous year same month for ghost bar
+                          const prvMn = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === m.mn);
+                          const prvTotal = calcS1(prvMn) + calcS2(prvMn, si.prevYear, facObj);
+                          const ph = maxMonthVal > 0 ? (prvTotal / maxMonthVal) * 82 : 0;
+                          return (
+                            <g key={idx}>
+                              {prvTotal > 0 && <rect x={bx+4} y={90-ph} width={bW-8} height={ph} rx={2} fill="#e5e5e5" opacity={0.5}/>}
+                              <text x={bx+bW/2} y={100} textAnchor="middle" fontSize="6.5" fill="#ccc">{MN[idx]}</text>
+                            </g>
+                          );
+                        }
+                        const totH = maxMonthVal > 0 ? (m.total / maxMonthVal) * 82 : 0;
+                        const s1H = maxMonthVal > 0 ? (m.s1 / maxMonthVal) * 82 : 0;
+                        const s2H = totH - s1H;
+                        // Previous year same month
+                        const prvMn = allEmissions.filter(e => e.year === si.prevYear && e.factory_id === factoryA && e.month === m.mn);
+                        const prvTotal = calcS1(prvMn) + calcS2(prvMn, si.prevYear, facObj);
+                        const ph = maxMonthVal > 0 ? (prvTotal / maxMonthVal) * 82 : 0;
+                        return (
+                          <g key={idx}>
+                            {/* Prev year ghost */}
+                            {prvTotal > 0 && <rect x={bx} y={90-ph} width={bW-2} height={ph} rx={2} fill="#e0e0e0" opacity={0.55}/>}
+                            {/* Current year stacked */}
+                            <rect x={bx+3} y={90-totH+s1H} width={bW-8} height={s2H} rx={1} fill="#FBBF24" opacity={0.85}/>
+                            <rect x={bx+3} y={90-s1H} width={bW-8} height={s1H} rx={s2H<0.5?1:0} fill="#E32314" opacity={0.9}/>
+                            {/* Value label */}
+                            <text x={bx+bW/2} y={90-totH-3} textAnchor="middle" fontSize="6.5" fontWeight="700"
+                              fill={isLatest ? '#E32314' : '#666'}>{fmt(m.total)}</text>
+                            <text x={bx+bW/2} y={100} textAnchor="middle" fontSize="6.5"
+                              fill={isLatest ? '#E32314' : '#999'} fontWeight={isLatest?800:400}>{MN[idx]}</text>
+                            {isLatest && <text x={bx+bW/2} y={107} textAnchor="middle" fontSize="5.5" fill="#E32314" fontWeight="700">NEW</text>}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                    {/* Legend */}
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 9, color: '#888' }}>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 8, background: '#E32314', borderRadius: 2, marginRight: 3, verticalAlign: 'middle' }}/>Scope 1</span>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 8, background: '#FBBF24', borderRadius: 2, marginRight: 3, verticalAlign: 'middle' }}/>Scope 2</span>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 8, background: '#e0e0e0', borderRadius: 2, marginRight: 3, verticalAlign: 'middle' }}/>{si.prevYear} (cùng kỳ)</span>
                     </div>
                   </div>
 
@@ -860,7 +820,7 @@ export default function OverviewPage() {
                         🔥 Scope 1 — Nguồn phát thải YTD
                         {hasPrev && si.s1TotalPrev > 0 && (
                           <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: dColor(s1PctChg) }}>
-                            {s1PctChg > 0 ? '▲' : '▼'} {Math.abs(s1PctChg).toFixed(1)}% vs {si.prevYear}
+                            {s1PctChg > 0 ? '▲' : '▼'} {Math.abs(s1PctChg).toFixed(1)}% vs {si.prevYear} <span style={{ fontSize: 9, color: '#aaa', fontWeight: 400 }}>(cùng kỳ)</span>
                           </span>
                         )}
                       </div>
