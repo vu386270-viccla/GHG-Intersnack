@@ -567,14 +567,15 @@ export default function DashboardPage() {
         </div>
         
         {(() => {
+          // Monthly KPI targets (per month, NOT annual)
           const kpiData = [
-            { key: 'LA', label: 'Long An', target: 265 },
-            { key: 'TN', label: 'Tây Ninh', target: 304 },
-            { key: 'PT', label: 'Phan Thiết', target: 223 },
-            { key: 'Tuti', label: 'Tuticorin', target: 334 },
+            { key: 'LA', label: 'Long An', monthlyTarget: 265 },
+            { key: 'TN', label: 'Tây Ninh', monthlyTarget: 304 },
+            { key: 'PT', label: 'Phan Thiết', monthlyTarget: 223 },
+            { key: 'Tuti', label: 'Tuticorin', monthlyTarget: 334 },
           ];
 
-          // Compute actuals dynamically from factorySummaries by name matching
+          // Compute actuals + count months with data for each factory
           const kpisWithActual = kpiData.map(kpi => {
             const fs = factorySummaries.find(f => 
               f.factory.name.includes(kpi.label) || 
@@ -584,13 +585,28 @@ export default function DashboardPage() {
               (kpi.key === 'Tuti' && f.factory.name.includes('Tuticorin')) ||
               f.factory.code === kpi.key
             );
+            // Count months with actual S1+S2 data
+            const monthsWithData = fs
+              ? fs.monthlyTrend.filter(m => (m.scope1 + m.scope2) > 0).length
+              : 0;
+            // YTD target = monthly target × months elapsed
+            const ytdTarget = kpi.monthlyTarget * Math.max(monthsWithData, 1);
             return {
               ...kpi,
-              actual: fs ? (fs.scope1 + fs.scope2) : 0
+              actual: fs ? (fs.scope1 + fs.scope2) : 0,
+              monthsWithData,
+              ytdTarget,
             };
           });
 
           const totalActual = kpisWithActual.reduce((acc, curr) => acc + curr.actual, 0);
+          // Total YTD target = sum of each factory's YTD target (1125/month × months)
+          const totalMonthlyTarget = 1125;
+          // Use average months across factories for total (or take max, typically same)
+          const avgMonths = kpisWithActual.length > 0
+            ? Math.round(kpisWithActual.reduce((s, k) => s + k.monthsWithData, 0) / kpisWithActual.length)
+            : 1;
+          const totalYtdTarget = totalMonthlyTarget * Math.max(avgMonths, 1);
 
           return (
             <>
@@ -600,10 +616,13 @@ export default function DashboardPage() {
                     <AbsoluteTargetGauge
                       label={`Nhà máy ${kpi.label}`}
                       actual={kpi.actual}
-                      target={kpi.target}
+                      target={kpi.ytdTarget}
                       size={150}
                       unit="tCO₂e"
                     />
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--color-text-muted)', textAlign: 'center' }}>
+                      KPI: {kpi.monthlyTarget} × {kpi.monthsWithData}T = <strong>{kpi.ytdTarget} tCO₂e</strong>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -615,10 +634,13 @@ export default function DashboardPage() {
                 <AbsoluteTargetGauge
                   label="Tổng 4 Nhà máy"
                   actual={totalActual}
-                  target={1125}
+                  target={totalYtdTarget}
                   size={240}
                   unit="tCO₂e"
                 />
+                <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                  KPI: 1,125/tháng × {avgMonths} tháng = <strong>{totalYtdTarget.toLocaleString()} tCO₂e</strong>
+                </div>
               </div>
             </>
           );
