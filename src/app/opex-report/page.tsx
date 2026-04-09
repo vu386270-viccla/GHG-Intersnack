@@ -302,21 +302,28 @@ export default function OpexReportPage() {
 
   useEffect(() => {
     async function load() {
-      const [facRes, rowRes] = await Promise.all([
+      const [facRes, rowRes1, rowRes2] = await Promise.all([
         supabase.from('factories').select('id, country'),
         supabase.from('emissions_data')
           .select('factory_id, year, scope, activity_data, emissions_tco2e')
           .gte('year', 2021)
           .lte('year', 2025)
+          .range(0, 999),
+        supabase.from('emissions_data')
+          .select('factory_id, year, scope, activity_data, emissions_tco2e')
+          .gte('year', 2021)
+          .lte('year', 2025)
+          .range(1000, 1999)
       ]);
 
-      if (!rowRes.data) { setLoading(false); return; }
+      const combData = [...(rowRes1.data || []), ...(rowRes2.data || [])];
+      if (combData.length === 0) { setLoading(false); return; }
 
       const facDict: Record<string, string> = {};
       facRes.data?.forEach(f => facDict[f.id] = f.country);
 
       const byYear: Record<number, { s1: number; s2: number }> = {};
-      for (const r of rowRes.data) {
+      for (const r of combData) {
         if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0 };
         if (r.scope === 'scope_1') {
           byYear[r.year].s1 += Number(r.emissions_tco2e);
