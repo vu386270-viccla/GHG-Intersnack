@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { GRID_EMISSION_FACTORS } from '@/lib/types';
 
@@ -298,14 +298,18 @@ function WaterfallChart({
 
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
-  const [data, setData] = useState<AnnualData[]>([]);
   const [loading, setLoading] = useState(true);
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
+  const [selectedFac, setSelectedFac] = useState<string>('ALL');
+
+  const [rawEms, setRawEms] = useState<any[]>([]);
+  const [rawProd, setRawProd] = useState<any[]>([]);
+  const [factories, setFactories] = useState<{id: string, country: string, name: string}[]>([]);
 
   useEffect(() => {
     async function load() {
       const [facRes, rowRes1, rowRes2, prodRes] = await Promise.all([
-        supabase.from('factories').select('id, country'),
+        supabase.from('factories').select('id, name, country'),
         supabase.from('emissions_data')
           .select('factory_id, year, scope, activity_data, emissions_tco2e')
           .gte('year', 2021)
@@ -317,45 +321,53 @@ export default function OpexReportPage() {
           .lte('year', 2025)
           .range(1000, 1999),
         supabase.from('production_data')
-          .select('year, category, quantity')
+          .select('factory_id, year, category, quantity')
           .eq('category', 'rcn_input')
       ]);
 
-      const combData = [...(rowRes1.data || []), ...(rowRes2.data || [])];
-      if (combData.length === 0) { setLoading(false); return; }
-
-      const facDict: Record<string, string> = {};
-      facRes.data?.forEach(f => facDict[f.id] = f.country);
-
-      const byYear: Record<number, { s1: number; s2: number; rcn: number }> = {};
-      for (const r of combData) {
-        if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0, rcn: 0 };
-        if (r.scope === 'scope_1') {
-          byYear[r.year].s1 += Number(r.emissions_tco2e);
-        } else if (r.scope === 'scope_2') {
-          const country = facDict[r.factory_id];
-          const gef = GRID_EMISSION_FACTORS.find(ef => ef.country === country && ef.year === r.year);
-          const factor = gef?.factor || 0.8041;
-          byYear[r.year].s2 += Number(r.activity_data) * factor / 1000;
-        }
-      }
-      if (prodRes.data) {
-        for (const p of prodRes.data) {
-          if (!byYear[p.year]) byYear[p.year] = { s1: 0, s2: 0, rcn: 0 };
-          byYear[p.year].rcn += Number(p.quantity) || 0;
-        }
-      }
-
-      setData([2021, 2022, 2023, 2024, 2025].map(year => ({
-        year,
-        scope1: Math.round(byYear[year]?.s1 || 0),
-        scope2: Math.round(byYear[year]?.s2 || 0),
-        rcn: byYear[year]?.rcn || 0,
-      })));
+      setFactories(facRes.data || []);
+      setRawEms([...(rowRes1.data || []), ...(rowRes2.data || [])]);
+      setRawProd(prodRes.data || []);
       setLoading(false);
     }
     load();
   }, []);
+
+  const data = useMemo<AnnualData[]>(() => {
+    if (rawEms.length === 0) return [];
+    
+    const facDict: Record<string, string> = {};
+    factories.forEach(f => facDict[f.id] = f.country);
+
+    const filteredEms = selectedFac === 'ALL' ? rawEms : rawEms.filter(r => r.factory_id === selectedFac);
+    const filteredProd = selectedFac === 'ALL' ? rawProd : rawProd.filter(p => p.factory_id === selectedFac);
+
+    const byYear: Record<number, { s1: number; s2: number; rcn: number }> = {};
+    for (const r of filteredEms) {
+      if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0, rcn: 0 };
+      if (r.scope === 'scope_1') {
+        byYear[r.year].s1 += Number(r.emissions_tco2e);
+      } else if (r.scope === 'scope_2') {
+        const country = facDict[r.factory_id];
+        const gef = GRID_EMISSION_FACTORS.find(ef => ef.country === country && ef.year === r.year);
+        const factor = gef?.factor || 0.8041;
+        byYear[r.year].s2 += Number(r.activity_data) * factor / 1000;
+      }
+    }
+    if (filteredProd.length > 0) {
+      for (const p of filteredProd) {
+        if (!byYear[p.year]) byYear[p.year] = { s1: 0, s2: 0, rcn: 0 };
+        byYear[p.year].rcn += Number(p.quantity) || 0;
+      }
+    }
+
+    return [2021, 2022, 2023, 2024, 2025].map(year => ({
+      year,
+      scope1: Math.round(byYear[year]?.s1 || 0),
+      scope2: Math.round(byYear[year]?.s2 || 0),
+      rcn: byYear[year]?.rcn || 0,
+    }));
+  }, [rawEms, rawProd, factories, selectedFac]);
 
   if (loading) {
     return (
@@ -481,7 +493,7 @@ export default function OpexReportPage() {
                 </span>
               </h1>
               
-              <div style={{ display: 'flex', background: '#f5f5f5', borderRadius: '6px', padding: '2px', border: '1px solid #ddd' }}>
+              <div style={{ display: 'flex', background: '#f5f5f5', borderRadius: '6px', padding: '2px', border: '1px solid #ddd', marginRight: '16px' }}>
                 <button
                   onClick={() => setTargetEndYear(2028)}
                   style={{
@@ -505,6 +517,26 @@ export default function OpexReportPage() {
                   Target 2031
                 </button>
               </div>
+
+              <select
+                value={selectedFac}
+                onChange={e => setSelectedFac(e.target.value)}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '13px',
+                  borderRadius: '4px',
+                  border: '1px solid #aaa',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: selectedFac === 'ALL' ? '#1a1a1a' : '#C8281A'
+                }}
+              >
+                <option value="ALL">Khu vực: Tất cả nhà máy</option>
+                {factories.map(f => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
             </div>
             <div style={{ fontSize: '20px', fontWeight: 600, color: '#222', marginTop: '4px' }}>
               50 % CO₂ reductions in Operations
@@ -583,24 +615,30 @@ export default function OpexReportPage() {
                   {' '}<em>{intGrowth > 0 ? 'Emissions outpaced production, indicating heat/boiler inefficiency.' : 'Efficiency improvements offset production volume impacts.'}</em>
                 </p>
 
-                <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
-                  <strong>🔍 Emission Source Breakdown (2024 → 2025):</strong>{' '}
-                  Scope 1 reduction was <strong>NOT</strong> driven by firewood or diesel —{' '}
-                  <span style={{ color: '#C8281A' }}>Wood logs +5% (+8.9 tCO₂e)</span>,{' '}
-                  <span style={{ color: '#C8281A' }}>Diesel flat (+0.6 tCO₂e)</span>.{' '}
-                  The net decrease came from <strong style={{ color: '#3E7B3E' }}>R410a refrigerant phaseout at India factory (−33 tCO₂e)</strong> and{' '}
-                  <span style={{ color: '#3E7B3E' }}>R134a elimination (−3.3 tCO₂e)</span>.{' '}
-                  <em>Firewood remains the largest source — ongoing biomass reduction is required to sustain the target trajectory.</em>
-                </p>
+                {selectedFac === 'ALL' && (
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
+                    <strong>🔍 Emission Source Breakdown (2024 → 2025):</strong>{' '}
+                    Scope 1 reduction was <strong>NOT</strong> driven by firewood or diesel —{' '}
+                    <span style={{ color: '#C8281A' }}>Wood logs +5% (+8.9 tCO₂e)</span>,{' '}
+                    <span style={{ color: '#C8281A' }}>Diesel flat (+0.6 tCO₂e)</span>.{' '}
+                    The net decrease came from <strong style={{ color: '#3E7B3E' }}>R410a refrigerant phaseout at India factory (−33 tCO₂e)</strong> and{' '}
+                    <span style={{ color: '#3E7B3E' }}>R134a elimination (−3.3 tCO₂e)</span>.{' '}
+                    <em>Firewood remains the largest source — ongoing biomass reduction is required to sustain the target trajectory.</em>
+                  </p>
+                )}
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
-                  <li>
-                    <strong>VICC Biomass Optimization</strong>: Restrict wood fuel consumption to align strictly with operational steam requirements.
-                  </li>
-                  <li>
-                    <strong>India Refrigerant Management</strong>: Implement rigorous F-Gas leak monitoring and phase out high-GWP refrigerants (e.g., R410A).
-                  </li>
+                  {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'Vietnam') && (
+                    <li>
+                      <strong>VICC Biomass Optimization</strong>: Restrict wood fuel consumption to align strictly with operational steam requirements.
+                    </li>
+                  )}
+                  {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'India') && (
+                    <li>
+                      <strong>India Refrigerant Management</strong>: Implement rigorous F-Gas leak monitoring and phase out high-GWP refrigerants (e.g., R410A).
+                    </li>
+                  )}
                 </ul>
               </div>
             );
@@ -667,12 +705,16 @@ export default function OpexReportPage() {
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
-                  <li>
-                    <strong>VICC RE Transition</strong>: Accelerate rooftop solar deployment across tier-1 facilities and secure REC pathways for grid shortfall.
-                  </li>
-                  <li>
-                    <strong>India Operations</strong>: Enforce ISO 50001 energy standards to flatten peak-load grid dependency and transition to solar infrastructure.
-                  </li>
+                  {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'Vietnam') && (
+                    <li>
+                      <strong>VICC RE Transition</strong>: Accelerate rooftop solar deployment across tier-1 facilities and secure REC pathways for grid shortfall.
+                    </li>
+                  )}
+                  {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'India') && (
+                    <li>
+                      <strong>India Operations</strong>: Enforce ISO 50001 energy standards to flatten peak-load grid dependency and transition to solar infrastructure.
+                    </li>
+                  )}
                 </ul>
               </div>
             );
