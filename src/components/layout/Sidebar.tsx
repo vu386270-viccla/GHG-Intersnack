@@ -30,6 +30,7 @@ const navItems = [
     items: [
       { href: '/input', label: 'Nhập dữ liệu', icon: '📝' },
       { href: '/targets', label: 'Mục tiêu SBTi', icon: '🎯' },
+      { href: '/opex-report', label: 'Opex Report', icon: '📋' },
     ],
   },
 ];
