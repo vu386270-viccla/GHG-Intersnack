@@ -351,6 +351,7 @@ export default function OverviewPage() {
   const rmPlotH = rmH - rmPadT - rmPadB;
   // RCN secondary axis
   const rmMaxRCN = Math.max(...roadmapData.map(d => d.rcn), 1) * 1.2;
+  const rmMaxInt = Math.max(...roadmapData.filter(d => d.rcn > 0).map(d => d.actual / d.rcn), 0) * 1.5 || 1;
   // Factory-specific 2032 target (SINGLE mode): 50% of 2021 base for that factory
   const singleFacTarget = viewMode === 'SINGLE' && roadmapData.length > 0
     ? (roadmapData[0].baseTotal > 0 ? roadmapData[0].baseTotal * 0.5 : null)
@@ -560,6 +561,7 @@ export default function OverviewPage() {
                   const xFuture = rmPadL + (6 / (n - 1)) * rmPlotW;
                   return <rect x={xFuture} y={rmPadT} width={rmW - rmPadR - xFuture} height={rmPlotH} fill="#f7f7f3" rx={2} opacity={0.7}/>;
                 })()}
+                {/* SBTi Pathway line (dashed green) — full 2021→2032 */}
                 {(() => {
                   const n = roadmapData.length;
                   const pts = roadmapData.map((d, i) => {
@@ -569,6 +571,39 @@ export default function OverviewPage() {
                   });
                   return <polyline points={pts.join(' ')} fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.85}/>;
                 })()}
+
+                {/* Intensity line (solid purple) */}
+                {(() => {
+                  const validData = roadmapData.filter(d => d.rcn > 0 && d.actual > 0);
+                  if (validData.length < 2) return null;
+                  const n = roadmapData.length;
+                  const pts = validData.map(d => {
+                    const i = roadmapData.findIndex(rd => rd.year === d.year);
+                    const x = rmPadL + (i / (n - 1)) * rmPlotW;
+                    const intensity = d.actual / d.rcn;
+                    const y = rmPadT + rmPlotH * (1 - intensity / rmMaxInt);
+                    return `${x},${y}`;
+                  });
+                  return <polyline points={pts.join(' ')} fill="none" stroke="#6366F1" strokeWidth={2} opacity={0.85}/>;
+                })()}
+
+                {/* Intensity data points */}
+                {roadmapData.map(d => {
+                  if (d.rcn <= 0 || d.actual <= 0) return null;
+                  const n = roadmapData.length;
+                  const i = roadmapData.findIndex(rd => rd.year === d.year);
+                  const x = rmPadL + (i / (n - 1)) * rmPlotW;
+                  const intensity = d.actual / d.rcn;
+                  const y = rmPadT + rmPlotH * (1 - intensity / rmMaxInt);
+                  return (
+                    <g key={`int-${d.year}`}>
+                      <circle cx={x} cy={y} r={3} fill="#fff" stroke="#6366F1" strokeWidth={1.5} />
+                      <text x={x} y={y - 6} textAnchor="middle" fontSize="6.5" fill="#6366F1" fontWeight="700">
+                        {intensity.toFixed(2)}
+                      </text>
+                    </g>
+                  );
+                })}
                 {singleFacTarget !== null && (() => {
                   const ty = rmPadT + rmPlotH * (1 - singleFacTarget / rmMaxVal);
                   return (
@@ -661,6 +696,7 @@ export default function OverviewPage() {
                   <span><span style={{ borderBottom: '1.5px dashed #E32314', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> Factory 2032 Target ({Math.round(singleFacTarget)} tCO₂e)</span>
                 )}
                 <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> RCN (MT)</span>
+                <span><span style={{ borderBottom: '1.5px solid #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> CO₂e/RCN Intensity</span>
                 <span style={{ whiteSpace: 'nowrap' }}>✓ On track · ✗ Over</span>
               </div>
             </div>
@@ -671,14 +707,7 @@ export default function OverviewPage() {
               const maxS1 = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.s1)), 1);
               const maxS2 = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.s2)), 1);
 
-              // Helper: compute MoM % change for a factory's scope value
-              const momChange = (fb: typeof displayBlocks[0], mi: number, scope: 's1' | 's2') => {
-                if (mi === 0) return null;
-                const cur = fb.monthly[mi][scope];
-                const prev = fb.monthly[mi - 1][scope];
-                if (prev <= 0 || cur <= 0) return null;
-                return ((cur - prev) / prev) * 100;
-              };
+
 
               const renderScopeChart = (
                 scopeKey: 's1' | 's2',
@@ -689,9 +718,9 @@ export default function OverviewPage() {
               ) => {
                 const bW = 36, gap = (525 - 12 * bW) / 13;
                 return (
-                  <div style={{ display: 'contents' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <div className="ov-chart-title" style={{ color: scopeColor, marginTop: 6 }}>{title}</div>
-                    <div className="ov-chart" style={{ background: bgColor, borderRadius: 6, paddingTop: 4 }}>
+                    <div className="ov-chart" style={{ background: bgColor, borderRadius: 6, paddingTop: 4, flex: 1 }}>
                       <svg viewBox="0 0 560 130" width="100%" height="130">
                         {[0, 0.5, 1].map((pct, gi) => (
                           <g key={`g${gi}`}>
@@ -711,7 +740,6 @@ export default function OverviewPage() {
                                 const fIdx = factories.findIndex(f => f.id === fb.factory.id);
                                 const colorIdx = fIdx >= 0 ? fIdx : fi;
                                 const color = scopeKey === 's1' ? FAC_COLORS[colorIdx % FAC_COLORS.length] : FAC_COLORS_LIGHT[colorIdx % FAC_COLORS_LIGHT.length];
-                                const mom = momChange(fb, mi, scopeKey);
                                 const centerX = bx + barW / 2;
                                 return (
                                   <g key={fi}>
@@ -723,22 +751,6 @@ export default function OverviewPage() {
                                         fontWeight="700" fill={color}>
                                         {Math.round(val)}
                                       </text>
-                                    )}
-                                    {/* MoM % badge */}
-                                    {mom !== null && (
-                                      <g>
-                                        <rect
-                                          x={centerX - 9} y={105 - h - 17}
-                                          width={18} height={9} rx={2}
-                                          fill={mom > 0 ? '#FFEDED' : '#EDFFF3'}
-                                          opacity={0.95}
-                                        />
-                                        <text x={centerX} y={105 - h - 10} textAnchor="middle"
-                                          fontSize="5" fontWeight="800"
-                                          fill={mom > 0 ? '#E32314' : '#16a34a'}>
-                                          {mom > 0 ? '▲' : '▼'}{Math.abs(mom).toFixed(0)}%
-                                        </text>
-                                      </g>
                                     )}
                                   </g>
                                 );
@@ -755,7 +767,6 @@ export default function OverviewPage() {
                           const color = scopeKey === 's1' ? FAC_COLORS[colorIdx % FAC_COLORS.length] : FAC_COLORS_LIGHT[colorIdx % FAC_COLORS_LIGHT.length];
                           return <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: color }} />{fb.factory.name}</span>;
                         })}
-                        <span style={{ marginLeft: 'auto', fontSize: 9, color: '#999' }}>▲▼ MoM%</span>
                       </div>
                     </div>
                   </div>
@@ -763,7 +774,7 @@ export default function OverviewPage() {
               };
 
               return (
-                <div style={{ display: 'contents' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
                   {renderScopeChart('s1', maxS1, `🔥 Scope 1 — Phát thải trực tiếp ${selectedYear} (tCO₂e)`, '#E32314', '#fff8f8')}
                   {renderScopeChart('s2', maxS2, `⚡ Scope 2 — Điện lưới ${selectedYear} (tCO₂e)`, '#F5A623', '#fffcf0')}
                 </div>
