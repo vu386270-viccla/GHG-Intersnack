@@ -478,18 +478,17 @@ export default function OpexReportPage() {
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
           />
 
-          {/* Commentary */}
+          {/* Commentary — 100% data-driven from DB */}
           {(() => {
-            const s1_2023 = get(2023).scope1;
-            const s1_2022 = get(2022).scope1;
-            const s1_2024v = get(2024).scope1;
-            const yoy2025_s1 = s1_2025 - s1_2024v;
-            const worstYoY_s1_year = [2022,2023,2024].reduce((acc, y) => {
-              const prev = y === 2022 ? b1 : get(y-1).scope1;
-              const d = get(y).scope1 - prev;
-              return d > (get(acc === 0 ? 2022 : acc).scope1 - (acc === 2022 ? b1 : get(acc-1).scope1)) ? y : acc;
-            }, 2022);
-            const delta2023_s1 = s1_2023 - s1_2022;
+            const years = [2022, 2023, 2024, 2025];
+            // YoY deltas for Scope 1
+            const s1Deltas = years.map(y => ({
+              year: y,
+              delta: get(y).scope1 - (y === 2022 ? b1 : get(y - 1).scope1),
+            }));
+            const bestS1 = s1Deltas.reduce((a, b) => b.delta < a.delta ? b : a); // most negative = best
+            const worstS1 = s1Deltas.reduce((a, b) => b.delta > a.delta ? b : a); // most positive = worst
+            const yoy2025_s1 = get(2025).scope1 - get(2024).scope1;
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
                 <p style={{ margin: '0 0 5px' }}>
@@ -504,7 +503,12 @@ export default function OpexReportPage() {
                   <strong style={{ color: yoy2025_s1 <= 0 ? '#3E7B3E' : '#C8281A' }}>
                     {yoy2025_s1 > 0 ? '+' : ''}{fmt(yoy2025_s1)} tCO₂e
                   </strong>.
-                  {' '}The largest single-year reduction was in 2023 ({fmt(Math.abs(delta2023_s1))} tCO₂e drop).
+                  {bestS1.delta < 0 && (
+                    <> {' '}Best reduction year: <strong style={{ color: '#3E7B3E' }}>{bestS1.year}</strong> ({fmt(Math.abs(bestS1.delta))} tCO₂e drop).</>
+                  )}
+                  {worstS1.delta > 0 && (
+                    <> Largest increase: <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
+                  )}
                 </p>
                 <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
@@ -531,14 +535,16 @@ export default function OpexReportPage() {
             legendOrder={['baseline', 'estimated', 'actual', 'target']}
           />
 
-          {/* Commentary */}
+          {/* Commentary — 100% data-driven from DB */}
           {(() => {
-            const s2_2024v = get(2024).scope2;
-            const yoy2025_s2 = s2_2025 - s2_2024v;
-            const s2_2023 = get(2023).scope2;
-            const s2_2022 = get(2022).scope2;
-            const biggestJump = s2_2022 - b2 > s2_2023 - s2_2022 ? 2022 : 2023;
-            const biggestJumpVal = biggestJump === 2022 ? s2_2022 - b2 : s2_2023 - s2_2022;
+            const years = [2022, 2023, 2024, 2025];
+            const s2Deltas = years.map(y => ({
+              year: y,
+              delta: get(y).scope2 - (y === 2022 ? b2 : get(y - 1).scope2),
+            }));
+            const bestS2 = s2Deltas.reduce((a, b) => b.delta < a.delta ? b : a);
+            const worstS2 = s2Deltas.reduce((a, b) => b.delta > a.delta ? b : a);
+            const yoy2025_s2 = get(2025).scope2 - get(2024).scope2;
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
                 <p style={{ margin: '0 0 5px' }}>
@@ -553,9 +559,12 @@ export default function OpexReportPage() {
                   <strong style={{ color: yoy2025_s2 <= 0 ? '#3E7B3E' : '#C8281A' }}>
                     {yoy2025_s2 > 0 ? '+' : ''}{fmt(Math.round(yoy2025_s2))} tCO₂e
                   </strong>.
-                  {' '}Scope 2 emissions have trended upward since baseline,
-                  with the largest increase in {biggestJump} (+{fmt(Math.round(biggestJumpVal))} tCO₂e),
-                  driven by higher grid electricity consumption.
+                  {worstS2.delta > 0 && (
+                    <> Largest single-year increase: <strong style={{ color: '#C8281A' }}>{worstS2.year}</strong> (+{fmt(Math.round(worstS2.delta))} tCO₂e), driven by higher grid electricity consumption.</>
+                  )}
+                  {bestS2.delta < 0 && (
+                    <> Best reduction: <strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} tCO₂e drop).</>
+                  )}
                 </p>
                 <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
