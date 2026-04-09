@@ -21,7 +21,7 @@ const C = {
 
 // ── Helpers ────────────────────────────────────────────────
 function sbtiTarget(baseline: number, year: number): number {
-  const BASE = 2021, END = 2032;
+  const BASE = 2021, END = 2031;
   if (year <= BASE) return baseline;
   if (year >= END) return baseline * 0.5;
   return baseline * (1 - 0.5 * (year - BASE) / (END - BASE));
@@ -172,6 +172,10 @@ function WaterfallChart({
               <line x1={cx(i-1) + bw/2} y1={py(prevVal)} x2={bx(i)} y2={py(prevVal)} stroke="#222" strokeWidth="1" />
             );
 
+            const rawDelta = val - prevVal;
+            const absDeltaStr = fmt(Math.abs(rawDelta));
+            const deltaStr = isFloating ? (rawDelta > 0 ? `+${absDeltaStr}` : `-${absDeltaStr}`) : fmt(val);
+
             prevVal = val;
 
             return (
@@ -202,18 +206,18 @@ function WaterfallChart({
                     {/* text delta */}
                     {boxH > 20 ? (
                       <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="white">
-                        {fmt(delta)}
+                        {deltaStr}
                       </text>
                     ) : (
                       <text x={cx(i)} y={boxY - 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
-                        {fmt(delta)}
+                        {deltaStr}
                       </text>
                     )}
                   </>
                 )}
 
-                {/* Absolute value below axis for Totals */}
-                {b.isTotal && (
+                {/* Absolute value below axis for milestones */}
+                {(b.isTotal || b.key === '2025') && (
                   <text x={cx(i)} y={PT + chartH + 15} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222">
                     {fmt(val)}
                   </text>
@@ -221,7 +225,7 @@ function WaterfallChart({
 
                 {/* Year labels below axis */}
                 {b.label.map((l, li) => (
-                  <text key={li} x={cx(i)} y={PT + chartH + (b.isTotal ? 28 : 15) + li * 13} textAnchor="middle" fontSize="10.5" fill="#555">
+                  <text key={li} x={cx(i)} y={PT + chartH + ((b.isTotal || b.key === '2025') ? 28 : 15) + li * 13} textAnchor="middle" fontSize="10.5" fill="#555">
                     {l}
                   </text>
                 ))}
@@ -345,7 +349,7 @@ export default function OpexReportPage() {
     { key: '2022', label: ['2022'], actual: get(2022).scope1 },
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
-    { key: '2025', label: ['2025'], actual: s1_2025, isTotal: true },
+    { key: '2025', label: ['2025'], actual: s1_2025 },
     { key: '2026', label: ['2026'], target: Math.round(sbtiTarget(b1, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(sbtiTarget(b1, 2027)) },
     { key: '2028', label: ['2028'], target: Math.round(sbtiTarget(b1, 2028)) },
@@ -375,7 +379,7 @@ export default function OpexReportPage() {
     { key: '2022', label: ['2022'], actual: get(2022).scope2 },
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
-    { key: '2025', label: ['2025'], actual: s2_2025, isTotal: true },
+    { key: '2025', label: ['2025'], actual: s2_2025 },
     { key: '2026', label: ['2026'], target: Math.round(sbtiTarget(b2, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(sbtiTarget(b2, 2027)) },
     { key: '2028', label: ['2028'], target: Math.round(sbtiTarget(b2, 2028)) },
