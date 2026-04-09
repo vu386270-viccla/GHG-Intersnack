@@ -58,6 +58,23 @@ export default function OverviewPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('ALL');
   const [factoryA, setFactoryA] = useState('');
   const [factoryB, setFactoryB] = useState('');
+  const [slideScale, setSlideScale] = useState(1);
+
+  // Measure window size to scale 1536x864 native slide layout
+  useEffect(() => {
+    const calcScale = () => {
+      const baseW = 1536;
+      const baseH = 864;
+      const maxW = window.innerWidth * 0.98;
+      const maxH = window.innerHeight * 0.96;
+      const sW = maxW / baseW;
+      const sH = maxH / baseH;
+      setSlideScale(Math.min(sW, sH));
+    };
+    calcScale();
+    window.addEventListener('resize', calcScale);
+    return () => window.removeEventListener('resize', calcScale);
+  }, []);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [useCommonEF, setUseCommonEF] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -408,7 +425,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Slide */}
-      <div className="overview-slide">
+      <div className="overview-slide" style={{ transform: `scale(${slideScale})`, transformOrigin: 'center center' }}>
         <div className="ov-topbar">
           <div className="ov-logo">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -553,7 +570,7 @@ export default function OverviewPage() {
                 {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
                   <g key={`rg${i}`}>
                     <line x1={rmPadL} y1={rmPadT + rmPlotH*(1-p)} x2={rmW-rmPadR} y2={rmPadT + rmPlotH*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
-                    <text x={rmPadL-4} y={rmPadT + rmPlotH*(1-p)+3} textAnchor="end" fontSize="7" fill="#bbb">{fmt(rmMaxVal*p)}</text>
+                    <text x={rmPadL-4} y={rmPadT + rmPlotH*(1-p)+3} textAnchor="end" fontSize="9" fill="#bbb" fontWeight="500">{fmt(rmMaxVal*p)}</text>
                   </g>
                 ))}
                 {(() => {
@@ -598,7 +615,7 @@ export default function OverviewPage() {
                   return (
                     <g key={`int-${d.year}`}>
                       <circle cx={x} cy={y} r={3} fill="#fff" stroke="#6366F1" strokeWidth={1.5} />
-                      <text x={x} y={y - 6} textAnchor="middle" fontSize="6.5" fill="#6366F1" fontWeight="700">
+                      <text x={x} y={y - 7} textAnchor="middle" fontSize="8" fill="#6366F1" fontWeight="700">
                         {intensity.toFixed(2)}
                       </text>
                     </g>
@@ -609,8 +626,8 @@ export default function OverviewPage() {
                   return (
                     <g>
                       <line x1={rmPadL} y1={ty} x2={rmW - rmPadR} y2={ty} stroke="#E32314" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.85}/>
-                      <rect x={rmPadL} y={ty - 10} width={38} height={11} rx={2} fill="#E32314" opacity={0.12}/>
-                      <text x={rmPadL + 19} y={ty - 2} textAnchor="middle" fontSize="7" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget)}t</text>
+                      <rect x={rmPadL} y={ty - 12} width={50} height={14} rx={2} fill="#E32314" opacity={0.12}/>
+                      <text x={rmPadL + 25} y={ty - 3} textAnchor="middle" fontSize="9" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget)}t</text>
                     </g>
                   );
                 })()}
@@ -643,36 +660,36 @@ export default function OverviewPage() {
                         })
                       )}
                       {d.actual > 0 && (
-                        <text x={x} y={rmPadT + rmPlotH - cumH - 4} textAnchor="middle" fontSize="6.5" fontWeight="700" fill={isCurrent ? '#E32314' : '#666'}>
+                        <text x={x} y={rmPadT + rmPlotH - cumH - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={isCurrent ? '#E32314' : '#666'}>
                           {fmt(d.actual)}
                         </text>
                       )}
                       {isCurrent && d.actual > 0 && (() => {
                         const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
                         return (
-                          <text x={x} y={rmPadT + rmPlotH - cumH - 12} textAnchor="middle" fontSize="6" fontWeight="600" fill={d.onTrack ? '#27AE60' : '#E32314'}>
+                          <text x={x} y={rmPadT + rmPlotH - cumH - 14} textAnchor="middle" fontSize="8" fontWeight="700" fill={d.onTrack ? '#27AE60' : '#E32314'}>
                             {pct >= 0 ? '-' : '+'}{Math.abs(pct).toFixed(1)}%
                           </text>
                         );
                       })()}
-                      <circle cx={x} cy={targetY} r={d.year === 2032 ? 4 : 2} fill="#8CB92D" opacity={0.8}/>
+                      <circle cx={x} cy={targetY} r={d.year === 2032 ? 4.5 : 2.5} fill="#8CB92D" opacity={0.8}/>
                       {d.year === 2032 && (
                         <>
-                          <text x={x} y={targetY - 8} textAnchor="middle" fontSize="6.5" fill="#4A6E12" fontWeight="800">{fmt(d.target)}</text>
-                          <rect x={x-13} y={targetY+5} width={26} height={10} rx={2} fill="#8CB92D" opacity={0.15}/>
-                          <text x={x} y={targetY+13} textAnchor="middle" fontSize="6" fill="#4A6E12" fontWeight="800">-50%</text>
+                          <text x={x} y={targetY - 10} textAnchor="middle" fontSize="8" fill="#4A6E12" fontWeight="800">{fmt(d.target)}</text>
+                          <rect x={x-16} y={targetY+6} width={32} height={12} rx={2} fill="#8CB92D" opacity={0.15}/>
+                          <text x={x} y={targetY+15} textAnchor="middle" fontSize="8" fill="#4A6E12" fontWeight="800">-50%</text>
                         </>
                       )}
-                      <text x={x} y={rmH - rmPadB + 12} textAnchor="middle"
-                        fontSize={d.year % 2 === 1 ? '7' : '8.5'}
+                      <text x={x} y={rmH - rmPadB + 13} textAnchor="middle"
+                        fontSize={d.year % 2 === 1 ? '9' : '10'}
                         fill={isCurrent ? '#E32314' : d.year === 2032 ? '#4A6E12' : isFuture ? '#bbb' : '#888'}
-                        fontWeight={isCurrent || d.year === 2032 ? 800 : 400}>
+                        fontWeight={isCurrent || d.year === 2032 ? 800 : 500}>
                         {d.year}
                       </text>
                       {d.actual > 0 && (() => {
                         const onTrack = singleFacTarget !== null ? d.actual <= singleFacTarget : d.onTrack;
                         return (
-                          <text x={x} y={rmH - rmPadB + 22} textAnchor="middle" fontSize="6" fill={onTrack ? '#2ECC71' : '#E32314'} fontWeight="700">
+                          <text x={x} y={rmH - rmPadB + 24} textAnchor="middle" fontSize="9" fill={onTrack ? '#2ECC71' : '#E32314'} fontWeight="800">
                             {onTrack ? '✓' : '✗'}
                           </text>
                         );
@@ -725,7 +742,7 @@ export default function OverviewPage() {
                         {[0, 0.5, 1].map((pct, gi) => (
                           <g key={`g${gi}`}>
                             <line x1={30} y1={105 - pct * 80} x2={555} y2={105 - pct * 80} stroke="#f0f0f0" strokeWidth={0.5} />
-                            <text x={28} y={108 - pct * 80} textAnchor="end" fontSize="6.5" fill="#ccc">{Math.round(maxVal * pct)}</text>
+                            <text x={28} y={108 - pct * 80} textAnchor="end" fontSize="8" fill="#ccc">{Math.round(maxVal * pct)}</text>
                           </g>
                         ))}
                         {Array.from({ length: 12 }, (_, mi) => {
@@ -747,15 +764,15 @@ export default function OverviewPage() {
                                       fill={color} opacity={scopeKey === 's2' ? 0.8 : 0.9} />
                                     {/* Value label */}
                                     {val > 0 && (
-                                      <text x={centerX} y={105 - h - 2} textAnchor="middle" fontSize="5.5"
-                                        fontWeight="700" fill={color}>
+                                      <text x={centerX} y={105 - h - 3} textAnchor="middle" fontSize="7.5"
+                                        fontWeight="800" fill={color}>
                                         {Math.round(val)}
                                       </text>
                                     )}
                                   </g>
                                 );
                               })}
-                              <text x={x0 + bW / 2} y={118} textAnchor="middle" fontSize="6.5" fill="#999">{MONTHS_VI[mi]}</text>
+                              <text x={x0 + bW / 2} y={118} textAnchor="middle" fontSize="8.5" fill="#999" fontWeight="500">{MONTHS_VI[mi]}</text>
                             </g>
                           );
                         })}
@@ -868,8 +885,8 @@ export default function OverviewPage() {
                         {[0, 0.5, 1].map((p, gi) => (
                           <g key={gi}>
                             <line x1={28} y1={12 + 58*(1-p)} x2={516} y2={12 + 58*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
-                            <text x={26} y={12 + 58*(1-p) + 2} textAnchor="end" fontSize="5.5" fill="#ccc">{Math.round(maxMonthVal*p)}</text>
-                            <text x={518} y={12 + 58*(1-p) + 2} textAnchor="start" fontSize="5.5" fill="#a5b4fc">{(maxIntVal*p).toFixed(2)}</text>
+                            <text x={26} y={12 + 58*(1-p) + 2} textAnchor="end" fontSize="7" fill="#ccc">{Math.round(maxMonthVal*p)}</text>
+                            <text x={518} y={12 + 58*(1-p) + 2} textAnchor="start" fontSize="7" fill="#a5b4fc">{(maxIntVal*p).toFixed(2)}</text>
                           </g>
                         ))}
                         {/* Target Line */}
@@ -878,8 +895,8 @@ export default function OverviewPage() {
                             return (
                                 <g>
                                     <line x1={28} y1={ty} x2={516} y2={ty} stroke="#E32314" strokeWidth="1" strokeDasharray="3,2" opacity={0.6}/>
-                                    <rect x={495} y={ty-9} width={16} height={8} fill="#E32314" rx={1} opacity={0.15}/>
-                                    <text x={503} y={ty-3} fontSize="5" fill="#E32314" fontWeight="800" textAnchor="middle">KPI</text>
+                                    <rect x={495} y={ty-9} width={18} height={9} fill="#E32314" rx={1} opacity={0.15}/>
+                                    <text x={504} y={ty-2} fontSize="7" fill="#E32314" fontWeight="800" textAnchor="middle">KPI</text>
                                 </g>
                             );
                         })()}
@@ -888,7 +905,7 @@ export default function OverviewPage() {
                           const bW = 28, gap = (486 - 12*bW) / 13;
                           const bx = 30 + gap + idx * (bW + gap);
                           const isLatest = m.mn === latestMn;
-                          if (!m.hasData) return <text key={`lbl-${idx}`} x={bx+bW/2} y={80} textAnchor="middle" fontSize="6" fill="#ccc">{MN[idx]}</text>;
+                          if (!m.hasData) return <text key={`lbl-${idx}`} x={bx+bW/2} y={82} textAnchor="middle" fontSize="7.5" fill="#ccc">{MN[idx]}</text>;
                           const totH = maxMonthVal > 0 ? (m.total / maxMonthVal) * 58 : 0;
                           const s1H = maxMonthVal > 0 ? (m.s1 / maxMonthVal) * 58 : 0;
                           const s2H = totH - s1H;
@@ -899,8 +916,8 @@ export default function OverviewPage() {
                             <g key={`bar-${idx}`}>
                               <rect x={bx+2} y={70-totH+s1H} width={bW-4} height={Math.max(s2H, 0)} rx={1} fill={fillS2} opacity={0.85}/>
                               <rect x={bx+2} y={70-s1H} width={bW-4} height={Math.max(s1H, 0)} rx={s2H<0.5?1:0} fill={fillS1} opacity={0.9}/>
-                              <text x={bx+bW/2} y={70-totH-2} textAnchor="middle" fontSize="6" fontWeight="700" fill={isOver ? '#E32314' : '#27AE60'}>{fmt(m.total)}</text>
-                              <text x={bx+bW/2} y={80} textAnchor="middle" fontSize="6" fill={isLatest ? '#333' : '#999'} fontWeight={isLatest?800:400}>{MN[idx]}</text>
+                              <text x={bx+bW/2} y={70-totH-3} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={isOver ? '#E32314' : '#27AE60'}>{fmt(m.total)}</text>
+                              <text x={bx+bW/2} y={82} textAnchor="middle" fontSize="8" fill={isLatest ? '#333' : '#999'} fontWeight={isLatest?800:500}>{MN[idx]}</text>
                             </g>
                           );
                         })}
@@ -923,8 +940,8 @@ export default function OverviewPage() {
                                    {dotPoints.map((d, i) => (
                                        <g key={`dot-${i}`}>
                                            <circle cx={d.x} cy={d.y} r="2.5" fill="#fff" stroke="#6366F1" strokeWidth="1.2"/>
-                                           <rect x={d.x-9} y={d.y-11} width={18} height={7} fill="#e0e7ff" rx="2" opacity="0.8"/>
-                                           <text x={d.x} y={d.y-6} textAnchor="middle" fontSize="5" fill="#4338ca" fontWeight="800">{d.val.toFixed(3)}</text>
+                                           <rect x={d.x-10} y={d.y-12} width={20} height={8} fill="#e0e7ff" rx="2" opacity="0.8"/>
+                                           <text x={d.x} y={d.y-6} textAnchor="middle" fontSize="6.5" fill="#4338ca" fontWeight="800">{d.val.toFixed(3)}</text>
                                        </g>
                                    ))}
                                </g>

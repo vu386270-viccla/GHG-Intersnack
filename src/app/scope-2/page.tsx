@@ -117,7 +117,7 @@ export default function Scope2Page() {
           onChange={e => setSelectedYear(Number(e.target.value))}
           style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: '14px', background: 'var(--color-card-bg)', color: 'var(--color-text)' }}
         >
-          {[2026, 2025, 2024, 2023].map(y => <option key={y} value={y}>{y}</option>)}
+          {[2026, 2025, 2024, 2023, 2022, 2021].map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 

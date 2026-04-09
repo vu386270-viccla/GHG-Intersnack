@@ -976,6 +976,7 @@ button {
   gap: 12px;
   padding: 12px;
   font-family: 'Inter', -apple-system, sans-serif;
+  overflow: hidden;
 }
 
 .overview-controls {
@@ -1088,15 +1089,16 @@ button {
 
 /* ── The Slide ── */
 .overview-slide {
-  width: min(96vw, 1280px);
-  aspect-ratio: 16 / 9;
+  width: 1536px;
+  height: 864px;
+  flex-shrink: 0;
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  font-size: 13px;
+  font-size: 14px;
   color: #333;
 }
 
@@ -1105,10 +1107,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px;
+  padding: 10px 24px;
   background: linear-gradient(90deg, #E32314, #8E1E19);
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 .ov-logo {
@@ -1116,24 +1118,24 @@ button {
   align-items: center;
   gap: 8px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 1px;
 }
-.ov-logo svg { stroke: #fff; }
-.ov-topbar-title { font-weight: 500; opacity: 0.9; }
+.ov-logo svg { stroke: #fff; width: 22px; height: 22px; }
+.ov-topbar-title { font-weight: 600; opacity: 0.95; font-size: 14px; }
 .ov-ef-badge {
-  padding: 3px 10px;
+  padding: 4px 12px;
   background: rgba(255,255,255,0.15);
   border-radius: 4px;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* Body */
 .ov-body {
   flex: 1;
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 390px 1fr;
   gap: 0;
   min-height: 0;
 }
