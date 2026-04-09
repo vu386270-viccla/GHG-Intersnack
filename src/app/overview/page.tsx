@@ -368,7 +368,7 @@ export default function OverviewPage() {
   const rmPlotH = rmH - rmPadT - rmPadB;
   // RCN secondary axis
   const rmMaxRCN = Math.max(...roadmapData.map(d => d.rcn), 1) * 1.2;
-  const rmMaxInt = Math.max(...roadmapData.filter(d => d.rcn > 0).map(d => d.actual / d.rcn), 0) * 1.5 || 1;
+  const rmMaxInt = Math.max(...roadmapData.filter(d => d.rcn > 0).map(d => d.actual / d.rcn), 0) * 2.3 || 1;
   // Factory-specific 2032 target (SINGLE mode): 50% of 2021 base for that factory
   const singleFacTarget = viewMode === 'SINGLE' && roadmapData.length > 0
     ? (roadmapData[0].baseTotal > 0 ? roadmapData[0].baseTotal * 0.5 : null)
@@ -614,8 +614,9 @@ export default function OverviewPage() {
                   const y = rmPadT + rmPlotH * (1 - intensity / rmMaxInt);
                   return (
                     <g key={`int-${d.year}`}>
-                      <circle cx={x} cy={y} r={3} fill="#fff" stroke="#6366F1" strokeWidth={1.5} />
-                      <text x={x} y={y - 7} textAnchor="middle" fontSize="8" fill="#6366F1" fontWeight="700">
+                      <circle cx={x} cy={y} r={3.5} fill="#fff" stroke="#6366F1" strokeWidth={1.5} />
+                      <rect x={x - 12} y={y - 15} width={24} height={9} fill="#e0e7ff" rx={3} opacity={0.85} />
+                      <text x={x} y={y - 7.5} textAnchor="middle" fontSize="7.5" fill="#4338ca" fontWeight="800">
                         {intensity.toFixed(2)}
                       </text>
                     </g>
@@ -777,14 +778,7 @@ export default function OverviewPage() {
                           );
                         })}
                       </svg>
-                      <div className="ov-chart-legend">
-                        {displayBlocks.map((fb, i) => {
-                          const fIdx = factories.findIndex(f => f.id === fb.factory.id);
-                          const colorIdx = fIdx >= 0 ? fIdx : i;
-                          const color = scopeKey === 's1' ? FAC_COLORS[colorIdx % FAC_COLORS.length] : FAC_COLORS_LIGHT[colorIdx % FAC_COLORS_LIGHT.length];
-                          return <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: color }} />{fb.factory.name}</span>;
-                        })}
-                      </div>
+
                     </div>
                   </div>
                 );
