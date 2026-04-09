@@ -42,10 +42,10 @@ function pctStr(val: number, base: number): string {
 interface BarPoint {
   key: string;
   label: string[];
-  actual?: number;       // red bar (or gray for baseline/end)
-  target?: number;       // green floating bar
-  isBaseline?: boolean;
-  isEndTarget?: boolean;
+  actual?: number;
+  target?: number;
+  isTotal?: boolean;         // draw from baseline (0) to value
+  isSplitSubtotal?: boolean; // draw as actual/estimated stack
 }
 
 interface Callout {
@@ -128,61 +128,101 @@ function WaterfallChart({
         <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth="1.5" />
 
         {/* ── Bars ── */}
-        {bars.map((b, i) => {
-          const isGrayBar = b.isBaseline || b.isEndTarget;
-          const isTargetMarker = b.target !== undefined && !b.actual;
-          const color = isGrayBar ? C.baseline : isTargetMarker ? C.target : C.actual;
-          const val = b.actual ?? b.target ?? 0;
-          if (val === 0) return null;
+        {(() => {
+          let prevVal = 0;
+          return bars.map((b, i) => {
+            const isFloating = !b.isTotal;
+            const isTargetMarker = b.target !== undefined && !b.actual;
+            const color = (b.isTotal && !b.isSplitSubtotal && (i === 0 || i === bars.length - 1)) ? C.baseline :
+                          isTargetMarker ? C.target : C.actual;
+            
+            const val = b.actual ?? b.target ?? 0;
+            if (val === 0) {
+              prevVal = val;
+              return null;
+            }
 
-          const barY = py(val);
-          const barH = ph(val);
+            // Box dimensions
+            let boxTop, boxBottom;
+            if (b.isTotal) {
+              boxTop = py(val);
+              boxBottom = py(0);
+            } else {
+              const v1 = prevVal;
+              const v2 = val;
+              boxTop = py(Math.max(v1, v2)); // max val = lowest py = top Edge
+              boxBottom = py(Math.min(v1, v2));
+            }
+            const boxH = Math.max(boxBottom - boxTop, 1);
+            const boxY = boxTop;
+            const delta = isFloating ? Math.abs(val - prevVal) : val;
 
-          return (
-            <g key={b.key}>
-              {/* Bar fill */}
-              <rect x={bx(i)} y={barY} width={bw} height={barH} fill={color} rx="2" />
+            // Connector from previous column
+            const connLine = i > 0 && (
+              <line x1={cx(i-1) + bw/2} y1={py(prevVal)} x2={bx(i)} y2={py(prevVal)} stroke="#222" strokeWidth="1" />
+            );
 
-              {/* Green target: extra outline box */}
-              {isTargetMarker && (
-                <rect x={bx(i) - 2} y={barY - 2} width={bw + 4} height={barH + 4}
-                  fill="none" stroke={C.target} strokeWidth="1.5" rx="3" />
-              )}
+            prevVal = val;
 
-              {/* Value inside bar (only if bar is tall enough) */}
-              {barH > 24 && (
-                <text x={cx(i)} y={barY + barH / 2 + 4}
-                  textAnchor="middle" fontSize="12" fontWeight="700" fill="white">
-                  {fmt(val)}
-                </text>
-              )}
+            return (
+              <g key={b.key}>
+                {connLine}
 
-              {/* Value label above bar (for target markers & small bars) */}
-              {(barH <= 24 || isTargetMarker) && (
-                <text x={cx(i)} y={barY - 5}
-                  textAnchor="middle" fontSize="11" fontWeight="700" fill={color}>
-                  {fmt(val)}
-                </text>
-              )}
+                {b.isSplitSubtotal ? (
+                  <>
+                    {/* Stacked 2025 bar (approx match PPT ~ 62.4% Est / 37.6% Act) */}
+                    <rect x={bx(i)} y={py(val)} width={bw} height={py(val * 0.376) - py(val)} fill={C.estimated} />
+                    <rect x={bx(i)} y={py(val * 0.376)} width={bw} height={py(0) - py(val * 0.376)} fill={C.actual} />
+                    <rect x={bx(i)} y={py(val)} width={bw} height={py(0) - py(val)} fill="none" stroke="#222" strokeWidth="0.8" />
+                    
+                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222">
+                      {fmt(val * 0.624)}
+                    </text>
+                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="white">
+                      {fmt(val * 0.376)}
+                    </text>
+                    
+                    {/* Total label above */}
+                    <text x={cx(i)} y={py(val) - 5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#222">
+                      {fmt(val)}
+                    </text>
+                  </>
+                ) : (
+                  <>
+                    <rect x={bx(i)} y={boxY} width={bw} height={boxH} fill={color} />
+                    {isTargetMarker && (
+                      <rect x={bx(i) - 2} y={boxY - 2} width={bw + 4} height={boxH + 4} fill="none" stroke={C.target} strokeWidth="1.5" rx="2" />
+                    )}
 
-              {/* Absolute value BELOW axis for baseline & end-target (matching PPT) */}
-              {(isGrayBar) && (
-                <text x={cx(i)} y={PT + chartH + 14}
-                  textAnchor="middle" fontSize="12" fontWeight="700" fill={C.baseline}>
-                  {fmt(val)}
-                </text>
-              )}
+                    {boxH > 20 ? (
+                      <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="white">
+                        {fmt(delta)}
+                      </text>
+                    ) : (
+                      <text x={cx(i)} y={boxY - 5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
+                        {fmt(delta)}
+                      </text>
+                    )}
+                  </>
+                )}
 
-              {/* Year / label below axis */}
-              {b.label.map((l, li) => (
-                <text key={li} x={cx(i)} y={PT + chartH + (isGrayBar ? 27 : 14) + li * 13}
-                  textAnchor="middle" fontSize="10.5" fill="#555">
-                  {l}
-                </text>
-              ))}
-            </g>
-          );
-        })}
+                {/* Absolute value below axis for Totals */}
+                {b.isTotal && (
+                  <text x={cx(i)} y={PT + chartH + 15} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222">
+                    {fmt(val)}
+                  </text>
+                )}
+
+                {/* Year labels below axis */}
+                {b.label.map((l, li) => (
+                  <text key={li} x={cx(i)} y={PT + chartH + (b.isTotal ? 28 : 15) + li * 13} textAnchor="middle" fontSize="10.5" fill="#555">
+                    {l}
+                  </text>
+                ))}
+              </g>
+            );
+          });
+        })()}
 
         {/* ── Think-cell H-bracket callouts ── */}
         {callouts.map((cal, idx) => {
@@ -316,15 +356,15 @@ export default function OpexReportPage() {
 
   // ── Scope 1 bars ──────────────────────────────────────────
   const s1Bars: BarPoint[] = [
-    { key: 'base', label: ['Baseline', '2021'], actual: b1, isBaseline: true },
+    { key: 'base', label: ['Baseline', '2021'], actual: b1, isTotal: true },
     { key: '2022', label: ['2022'], actual: get(2022).scope1 },
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
-    { key: '2025', label: ['2025'], actual: s1_2025 },
+    { key: '2025', label: ['2025'], actual: s1_2025, isTotal: true, isSplitSubtotal: true },
     { key: '2026', label: ['2026'], target: Math.round(sbtiTarget(b1, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(sbtiTarget(b1, 2027)) },
     { key: '2028', label: ['2028'], target: Math.round(sbtiTarget(b1, 2028)) },
-    { key: 'end', label: ['by End', '2028'], actual: end28_s1, isEndTarget: true },
+    { key: 'end', label: ['by End', '2028'], actual: end28_s1, isTotal: true },
   ];
 
   // ── Scope 1 callouts ──────────────────────────────────────
@@ -344,15 +384,15 @@ export default function OpexReportPage() {
 
   // ── Scope 2 bars ──────────────────────────────────────────
   const s2Bars: BarPoint[] = [
-    { key: 'base', label: ['Baseline', '2021'], actual: b2, isBaseline: true },
+    { key: 'base', label: ['Baseline', '2021'], actual: b2, isTotal: true },
     { key: '2022', label: ['2022'], actual: get(2022).scope2 },
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
-    { key: '2025', label: ['2025'], actual: s2_2025 },
+    { key: '2025', label: ['2025'], actual: s2_2025, isTotal: true, isSplitSubtotal: true },
     { key: '2026', label: ['2026'], target: Math.round(sbtiTarget(b2, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(sbtiTarget(b2, 2027)) },
     { key: '2028', label: ['2028'], target: Math.round(sbtiTarget(b2, 2028)) },
-    { key: 'end', label: ['by End', '2028'], actual: end28_s2, isEndTarget: true },
+    { key: 'end', label: ['by End', '2028'], actual: end28_s2, isTotal: true },
   ];
 
   // ── Scope 2 callouts ──────────────────────────────────────
