@@ -26,9 +26,9 @@ export default function Header() {
       <div className="header-actions">
         {/* Intersnack logo in header */}
         <img
-          src="/intersnack-logo.svg"
+          src="/intersnack-logo.png"
           alt="Intersnack"
-          style={{ height: '28px', width: 'auto', opacity: 0.9, marginRight: '4px' }}
+          style={{ height: '36px', width: 'auto', objectFit: 'contain', marginRight: '4px' }}
         />
         <div className="header-badge">
           📅 {currentYear}

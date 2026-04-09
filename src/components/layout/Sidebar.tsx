@@ -39,26 +39,26 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px', paddingBottom: '12px' }}>
-        {/* Intersnack logo */}
+      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border-light)' }}>
+        {/* Intersnack logo — place intersnack-logo.png in public/ */}
         <img
-          src="/intersnack-logo.svg"
+          src="/intersnack-logo.png"
           alt="Intersnack"
-          style={{ width: '140px', height: 'auto', display: 'block' }}
+          style={{ width: '120px', height: 'auto', display: 'block', objectFit: 'contain' }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div className="sidebar-logo-icon" style={{ width: '22px', height: '22px', flexShrink: 0 }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '2px' }}>
+          <div className="sidebar-logo-icon" style={{ width: '18px', height: '18px', flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/>
               <path d="M2 17l10 5 10-5"/>
               <path d="M2 12l10 5 10-5"/>
             </svg>
           </div>
           <div>
-            <div className="sidebar-logo-text">
+            <div className="sidebar-logo-text" style={{ fontSize: '13px' }}>
               <span>GHG</span> Tracker
             </div>
-            <div className="sidebar-logo-sub">Carbon Emissions Dashboard</div>
+            <div className="sidebar-logo-sub" style={{ fontSize: '10px' }}>Carbon Emissions Dashboard</div>
           </div>
         </div>
       </div>
