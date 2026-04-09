@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { GRID_EMISSION_FACTORS } from '@/lib/types';
 
 // ── Types ──────────────────────────────────────────────────
 interface AnnualData {
@@ -301,19 +302,30 @@ export default function OpexReportPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: rows } = await supabase
-        .from('emissions_data')
-        .select('year, scope, emissions_tco2e')
-        .gte('year', 2021)
-        .lte('year', 2025);
+      const [facRes, rowRes] = await Promise.all([
+        supabase.from('factories').select('id, country'),
+        supabase.from('emissions_data')
+          .select('factory_id, year, scope, activity_data, emissions_tco2e')
+          .gte('year', 2021)
+          .lte('year', 2025)
+      ]);
 
-      if (!rows) { setLoading(false); return; }
+      if (!rowRes.data) { setLoading(false); return; }
+
+      const facDict: Record<string, string> = {};
+      facRes.data?.forEach(f => facDict[f.id] = f.country);
 
       const byYear: Record<number, { s1: number; s2: number }> = {};
-      for (const r of rows) {
+      for (const r of rowRes.data) {
         if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0 };
-        if (r.scope === 'scope_1') byYear[r.year].s1 += Number(r.emissions_tco2e);
-        if (r.scope === 'scope_2') byYear[r.year].s2 += Number(r.emissions_tco2e);
+        if (r.scope === 'scope_1') {
+          byYear[r.year].s1 += Number(r.emissions_tco2e);
+        } else if (r.scope === 'scope_2') {
+          const country = facDict[r.factory_id];
+          const gef = GRID_EMISSION_FACTORS.find(ef => ef.country === country && ef.year === r.year);
+          const factor = gef?.factor || 0.8041;
+          byYear[r.year].s2 += Number(r.activity_data) * factor / 1000;
+        }
       }
 
       setData([2021, 2022, 2023, 2024, 2025].map(year => ({

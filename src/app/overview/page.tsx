@@ -76,7 +76,7 @@ export default function OverviewPage() {
     return () => window.removeEventListener('resize', calcScale);
   }, []);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [useCommonEF, setUseCommonEF] = useState(true);
+  const [useCommonEF, setUseCommonEF] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
