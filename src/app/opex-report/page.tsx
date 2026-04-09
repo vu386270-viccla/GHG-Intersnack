@@ -78,16 +78,14 @@ function WaterfallChart({
   const chartH = H - PT - PB;
 
   // Y scale
-  const allVals: number[] = [];
-  bars.forEach(b => {
-    if (b.actual) allVals.push(b.actual);
-    if (b.target) allVals.push(b.target);
-  });
-  const maxVal = Math.max(...allVals) * 1.18;
+  const rawMax = Math.max(...bars.map(b => b.actual ?? b.target ?? 0));
+  const yMax = rawMax > 0 ? rawMax * 1.25 : 100;
 
-  /** pixel Y for a value (low Y = top of chart = high emission) */
-  const py = (v: number) => PT + chartH * (1 - v / maxVal);
-  const ph = (v: number) => Math.max(chartH * v / maxVal, 2);
+  function py(val: number) {
+    if (yMax === 0) return PT + chartH;
+    return PT + chartH - (val / yMax) * chartH;
+  }
+  const ph = (v: number) => Math.max(chartH * v / yMax, 2);
   const cx = (i: number) => PL + cw * i + cw / 2;
   const bx = (i: number) => cx(i) - bw / 2;
 
