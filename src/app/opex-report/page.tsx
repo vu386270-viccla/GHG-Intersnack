@@ -580,7 +580,17 @@ export default function OpexReportPage() {
                   <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
                   {' '}vs Production shift:{' '}
                   <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
-                  {' '}<em>{intGrowth > 0 ? "Emissions outpaced production, indicating heat/boiler inefficiency." : "Efficiency improvements offset production volume impacts."}</em>
+                  {' '}<em>{intGrowth > 0 ? 'Emissions outpaced production, indicating heat/boiler inefficiency.' : 'Efficiency improvements offset production volume impacts.'}</em>
+                </p>
+
+                <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
+                  <strong>🔍 Emission Source Breakdown (2024 → 2025):</strong>{' '}
+                  Scope 1 reduction was <strong>NOT</strong> driven by firewood or diesel —{' '}
+                  <span style={{ color: '#C8281A' }}>Wood logs +5% (+8.9 tCO₂e)</span>,{' '}
+                  <span style={{ color: '#C8281A' }}>Diesel flat (+0.6 tCO₂e)</span>.{' '}
+                  The net decrease came from <strong style={{ color: '#3E7B3E' }}>R410a refrigerant phaseout at India factory (−33 tCO₂e)</strong> and{' '}
+                  <span style={{ color: '#3E7B3E' }}>R134a elimination (−3.3 tCO₂e)</span>.{' '}
+                  <em>Firewood remains the largest source — ongoing biomass reduction is required to sustain the target trajectory.</em>
                 </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
