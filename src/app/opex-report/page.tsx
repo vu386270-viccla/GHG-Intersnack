@@ -204,13 +204,13 @@ function WaterfallChart({
                       <rect x={bx(i) - 2} y={boxY - 2} width={bw + 4} height={boxH + 4} fill="none" stroke={C.target} strokeWidth="1.5" rx="2" />
                     )}
 
-                    {/* text delta */}
+                    {/* text delta — alternate above/below to avoid overlap on small bars */}
                     {boxH > 20 ? (
                       <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="white">
                         {deltaStr}
                       </text>
                     ) : (
-                      <text x={cx(i)} y={boxY - 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
+                      <text x={cx(i)} y={i % 2 === 0 ? boxY - 8 : boxTop + boxH + 18} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
                         {deltaStr}
                       </text>
                     )}
@@ -479,31 +479,47 @@ export default function OpexReportPage() {
           />
 
           {/* Commentary */}
-          <div style={{
-            fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px',
-            borderTop: '1px solid #ddd', paddingTop: '8px',
-          }}>
-            <p style={{ margin: '0 0 5px' }}>
-              <strong>2025 performance – Scope 1:</strong> Total emissions reached{' '}
-              <strong style={{ color: '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
-              {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 baseline
-              {'; '}
-              <span style={{ color: pct1_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
-                {pct1_vs_target > 0 ? '+' : ''}{pct1_vs_target}%
-              </span>{' vs SBTi target).'}
-            </p>
-            <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
-            <ul style={{ margin: 0, paddingLeft: '18px' }}>
-              <li>
-                <strong>VICC</strong>: Balance wood fuel consumption with actual steam demand
-                to improve boiler efficiency and reduce Scope 1 emissions.
-              </li>
-              <li>
-                <strong>India</strong>: Monitor refrigerant usage, check for leakage,
-                and explore a shift to lower-GWP refrigerants.
-              </li>
-            </ul>
-          </div>
+          {(() => {
+            const s1_2023 = get(2023).scope1;
+            const s1_2022 = get(2022).scope1;
+            const s1_2024v = get(2024).scope1;
+            const yoy2025_s1 = s1_2025 - s1_2024v;
+            const worstYoY_s1_year = [2022,2023,2024].reduce((acc, y) => {
+              const prev = y === 2022 ? b1 : get(y-1).scope1;
+              const d = get(y).scope1 - prev;
+              return d > (get(acc === 0 ? 2022 : acc).scope1 - (acc === 2022 ? b1 : get(acc-1).scope1)) ? y : acc;
+            }, 2022);
+            const delta2023_s1 = s1_2023 - s1_2022;
+            return (
+              <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
+                <p style={{ margin: '0 0 5px' }}>
+                  <strong>2025 performance – Scope 1:</strong> Total emissions reached{' '}
+                  <strong style={{ color: '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
+                  {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 baseline;
+                  {' '}
+                  <span style={{ color: pct1_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
+                    {pct1_vs_target > 0 ? '+' : ''}{pct1_vs_target}%
+                  </span>{' vs SBTi target). '}
+                  YoY 2024→2025:{' '}
+                  <strong style={{ color: yoy2025_s1 <= 0 ? '#3E7B3E' : '#C8281A' }}>
+                    {yoy2025_s1 > 0 ? '+' : ''}{fmt(yoy2025_s1)} tCO₂e
+                  </strong>.
+                  {' '}The largest single-year reduction was in 2023 ({fmt(Math.abs(delta2023_s1))} tCO₂e drop).
+                </p>
+                <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  <li>
+                    <strong>VICC</strong>: Balance wood fuel consumption with actual steam demand
+                    to improve boiler efficiency and reduce Scope 1 emissions.
+                  </li>
+                  <li>
+                    <strong>India</strong>: Monitor refrigerant usage, check for leakage,
+                    and explore a shift to lower-GWP refrigerants.
+                  </li>
+                </ul>
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── Scope 2 ── */}
@@ -516,31 +532,45 @@ export default function OpexReportPage() {
           />
 
           {/* Commentary */}
-          <div style={{
-            fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px',
-            borderTop: '1px solid #ddd', paddingTop: '8px',
-          }}>
-            <p style={{ margin: '0 0 5px' }}>
-              <strong>2025 performance – Scope 2:</strong> Electricity-related emissions reached{' '}
-              <strong style={{ color: '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
-              {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 baseline
-              {'; '}
-              <span style={{ color: pct2_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
-                {pct2_vs_target > 0 ? '+' : ''}{pct2_vs_target}%
-              </span>{' vs SBTi target).'}
-            </p>
-            <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
-            <ul style={{ margin: 0, paddingLeft: '18px' }}>
-              <li>
-                <strong>VICC</strong>: Install rooftop solar system and continue to improve
-                ISO 50001 compliance to offset grid electricity usage.
-              </li>
-              <li>
-                <strong>India</strong>: Implement ISO 50001 standards and install solar
-                energy solutions to reduce peak-load grid purchases.
-              </li>
-            </ul>
-          </div>
+          {(() => {
+            const s2_2024v = get(2024).scope2;
+            const yoy2025_s2 = s2_2025 - s2_2024v;
+            const s2_2023 = get(2023).scope2;
+            const s2_2022 = get(2022).scope2;
+            const biggestJump = s2_2022 - b2 > s2_2023 - s2_2022 ? 2022 : 2023;
+            const biggestJumpVal = biggestJump === 2022 ? s2_2022 - b2 : s2_2023 - s2_2022;
+            return (
+              <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
+                <p style={{ margin: '0 0 5px' }}>
+                  <strong>2025 performance – Scope 2:</strong> Electricity-related emissions reached{' '}
+                  <strong style={{ color: '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
+                  {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 baseline;
+                  {' '}
+                  <span style={{ color: pct2_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
+                    {pct2_vs_target > 0 ? '+' : ''}{pct2_vs_target}%
+                  </span>{' vs SBTi target). '}
+                  YoY 2024→2025:{' '}
+                  <strong style={{ color: yoy2025_s2 <= 0 ? '#3E7B3E' : '#C8281A' }}>
+                    {yoy2025_s2 > 0 ? '+' : ''}{fmt(Math.round(yoy2025_s2))} tCO₂e
+                  </strong>.
+                  {' '}Scope 2 emissions have trended upward since baseline,
+                  with the largest increase in {biggestJump} (+{fmt(Math.round(biggestJumpVal))} tCO₂e),
+                  driven by higher grid electricity consumption.
+                </p>
+                <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  <li>
+                    <strong>VICC</strong>: Install rooftop solar system and continue to improve
+                    ISO 50001 compliance to offset grid electricity usage.
+                  </li>
+                  <li>
+                    <strong>India</strong>: Implement ISO 50001 standards and install solar
+                    energy solutions to reduce peak-load grid purchases.
+                  </li>
+                </ul>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
