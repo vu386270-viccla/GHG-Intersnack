@@ -49,11 +49,12 @@ interface BarPoint {
 }
 
 interface Callout {
-  fromCol: number; // index in bars array
+  fromCol: number;
   toCol: number;
   fromVal: number;
   toVal: number;
   text: string;
+  level?: number;
 }
 
 function WaterfallChart({
@@ -129,8 +130,17 @@ function WaterfallChart({
 
         {/* ── Bars ── */}
         {(() => {
+          let prevValForBox = 0;
+          const boxTops = bars.map(b => {
+             const val = b.actual ?? b.target ?? 0;
+             let bt = py(val);
+             if (!b.isTotal && val !== 0) bt = py(Math.max(prevValForBox, val));
+             if (val !== 0) prevValForBox = val;
+             return Math.min(bt, py(val)); // guarantee visual top
+          });
+
           let prevVal = 0;
-          return bars.map((b, i) => {
+          const renderedBars = bars.map((b, i) => {
             const isFloating = !b.isTotal;
             const isTargetMarker = b.target !== undefined && !b.actual;
             const color = (b.isTotal && !b.isSplitSubtotal && (i === 0 || i === bars.length - 1)) ? C.baseline :
@@ -181,11 +191,6 @@ function WaterfallChart({
                     <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="white">
                       {fmt(val * 0.376)}
                     </text>
-                    
-                    {/* Total label above */}
-                    <text x={cx(i)} y={py(val) - 5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#222">
-                      {fmt(val)}
-                    </text>
                   </>
                 ) : (
                   <>
@@ -194,12 +199,13 @@ function WaterfallChart({
                       <rect x={bx(i) - 2} y={boxY - 2} width={bw + 4} height={boxH + 4} fill="none" stroke={C.target} strokeWidth="1.5" rx="2" />
                     )}
 
+                    {/* text delta */}
                     {boxH > 20 ? (
                       <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="white">
                         {fmt(delta)}
                       </text>
                     ) : (
-                      <text x={cx(i)} y={boxY - 5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
+                      <text x={cx(i)} y={boxY - 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
                         {fmt(delta)}
                       </text>
                     )}
@@ -222,83 +228,62 @@ function WaterfallChart({
               </g>
             );
           });
-        })()}
 
-        {/* ── Think-cell H-bracket callouts ── */}
-        {callouts.map((cal, idx) => {
-          const fromX = cx(cal.fromCol);
-          const toX   = cx(cal.toCol);
-          const fromBarTopY = py(cal.fromVal);   // pixel Y of the "from" bar's top
-          const toBarTopY   = py(cal.toVal);     // pixel Y of the "to" bar's top
+          const renderedCallouts = callouts.map((cal, idx) => {
+            const fromX = cx(cal.fromCol);
+            const toX   = cx(cal.toCol);
+            const fromBarTopY = boxTops[cal.fromCol];     // Absolute physical top edge!
+            const toBarTopY   = boxTops[cal.toCol];       // Absolute physical top edge!
 
-          // Bracket horizontal level: above the HIGHER of the two bars
-          const bracketY = Math.min(fromBarTopY, toBarTopY) - 26;
+            // Bracket horizontal level
+            const bracketY = Math.min(fromBarTopY, toBarTopY) - 26 - ((cal.level || 0) * 30);
 
-          // Oval label center
-          const midX = (fromX + toX) / 2;
-          const ovalRx = 32, ovalRy = 13;
+            // Oval label center
+            const midX = (fromX + toX) / 2;
+            const ovalRx = 32, ovalRy = 13;
 
-          const isGood = cal.toVal <= cal.fromVal; // reduction = green
-          const clr = isGood ? '#2E6B2E' : '#C8281A';
-          const lineColor = '#555';
-          const dash = '5,4';
+            const isGood = cal.toVal <= cal.fromVal; // reduction = green
+            const clr = isGood ? '#2E6B2E' : '#C8281A';
+            const lineColor = '#555';
+            const dash = '5,4';
+
+            return (
+              <g key={idx}>
+                {/* LEFT vertical drop to physical bar top */}
+                <line
+                  x1={fromX} y1={bracketY}
+                  x2={fromX} y2={fromBarTopY - 2}
+                  stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
+                  markerEnd="url(#arwD)"
+                />
+
+                <line x1={fromX} y1={bracketY} x2={midX - ovalRx} y2={bracketY} stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash} />
+                <line x1={midX + ovalRx} y1={bracketY} x2={toX} y2={bracketY} stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash} />
+
+                {/* RIGHT vertical drop to physical bar top */}
+                <line
+                  x1={toX} y1={bracketY}
+                  x2={toX} y2={toBarTopY - 2}
+                  stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
+                  markerEnd="url(#arwD)"
+                />
+
+                {/* Oval label */}
+                <ellipse cx={midX} cy={bracketY} rx={ovalRx} ry={ovalRy} fill="white" stroke={clr} strokeWidth="2" />
+                <text x={midX} y={bracketY + 4.5} textAnchor="middle" fontSize="12" fontWeight="800" fill={clr}>
+                  {cal.text}
+                </text>
+              </g>
+            );
+          });
 
           return (
-            <g key={idx}>
-              {/*
-                Think-cell bracket shape:
-
-                     [ oval ]
-                ----+        +----
-                    |             |
-                    ↓             ↓
-                  [fromBar]    [toBar]
-
-                Left side: vertical down from bracketY to fromBarTopY
-                Right side: vertical down from bracketY to toBarTopY (with arrow)
-                Horizontal line splits around the oval
-              */}
-
-              {/* LEFT vertical drop: bracketY → fromBarTopY (with arrow at bottom) */}
-              <line
-                x1={fromX} y1={bracketY}
-                x2={fromX} y2={fromBarTopY - 2}
-                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-                markerEnd="url(#arwD)"
-              />
-
-              {/* LEFT horizontal: fromX → oval left edge */}
-              <line
-                x1={fromX} y1={bracketY}
-                x2={midX - ovalRx} y2={bracketY}
-                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-              />
-
-              {/* RIGHT horizontal: oval right edge → toX */}
-              <line
-                x1={midX + ovalRx} y1={bracketY}
-                x2={toX} y2={bracketY}
-                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-              />
-
-              {/* RIGHT vertical drop: bracketY → toBarTopY (with arrow at bottom) */}
-              <line
-                x1={toX} y1={bracketY}
-                x2={toX} y2={toBarTopY - 2}
-                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-                markerEnd="url(#arwD)"
-              />
-
-              {/* Oval label — sits on the horizontal bracket line */}
-              <ellipse cx={midX} cy={bracketY} rx={ovalRx} ry={ovalRy}
-                fill="white" stroke={clr} strokeWidth="2" />
-              <text x={midX} y={bracketY + 4.5} textAnchor="middle"
-                fontSize="12" fontWeight="800" fill={clr}>
-                {cal.text}
-              </text>
-            </g>
+            <>
+              {renderedBars}
+              {renderedCallouts}
+            </>
           );
-        })}
+        })()}
       </svg>
     </div>
   );
@@ -370,15 +355,17 @@ export default function OpexReportPage() {
   // ── Scope 1 callouts ──────────────────────────────────────
   const s1_2024 = get(2024).scope1;
   const s1Callouts: Callout[] = [
-    b1 > 0 && s1_2024 > 0 ? {
-      fromCol: 0, toCol: 3,
-      fromVal: b1, toVal: s1_2024,
-      text: pctStr(s1_2024, b1),
-    } : null,
     b1 > 0 && s1_2025 > 0 ? {
       fromCol: 0, toCol: 4,
       fromVal: b1, toVal: s1_2025,
       text: pctStr(s1_2025, b1),
+      level: 0
+    } : null,
+    s1_2025 > 0 && end28_s1 > 0 ? {
+      fromCol: 4, toCol: 8,
+      fromVal: s1_2025, toVal: end28_s1,
+      text: pctStr(end28_s1, s1_2025),
+      level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
@@ -398,15 +385,17 @@ export default function OpexReportPage() {
   // ── Scope 2 callouts ──────────────────────────────────────
   const s2_2024 = get(2024).scope2;
   const s2Callouts: Callout[] = [
-    b2 > 0 && s2_2024 > 0 ? {
-      fromCol: 0, toCol: 3,
-      fromVal: b2, toVal: s2_2024,
-      text: pctStr(s2_2024, b2),
-    } : null,
     b2 > 0 && s2_2025 > 0 ? {
       fromCol: 0, toCol: 4,
       fromVal: b2, toVal: s2_2025,
       text: pctStr(s2_2025, b2),
+      level: 0
+    } : null,
+    s2_2025 > 0 && end28_s2 > 0 ? {
+      fromCol: 4, toCol: 8,
+      fromVal: s2_2025, toVal: end28_s2,
+      text: pctStr(end28_s2, s2_2025),
+      level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
