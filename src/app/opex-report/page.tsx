@@ -352,8 +352,12 @@ export default function OpexReportPage() {
   const b2 = get(2021).scope2;  // Scope 2 baseline
   const s1_2025 = get(2025).scope1;
   const s2_2025 = get(2025).scope2;
-  const end28_s1 = Math.round(sbtiTarget(b1, 2028));
-  const end28_s2 = Math.round(sbtiTarget(b2, 2028));
+
+  // Project targets down 5% of baseline every year starting FROM 2025 actuals
+  const targetProj = (base: number, act2025: number, year: number) => act2025 - base * 0.05 * (year - 2025);
+
+  const end28_s1 = Math.round(targetProj(b1, s1_2025, 2028));
+  const end28_s2 = Math.round(targetProj(b2, s2_2025, 2028));
 
   // ── Scope 1 bars ──────────────────────────────────────────
   const s1Bars: BarPoint[] = [
@@ -362,9 +366,9 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
-    { key: '2026', label: ['2026'], target: Math.round(sbtiTarget(b1, 2026)) },
-    { key: '2027', label: ['2027'], target: Math.round(sbtiTarget(b1, 2027)) },
-    { key: '2028', label: ['2028'], target: Math.round(sbtiTarget(b1, 2028)) },
+    { key: '2026', label: ['2026'], target: Math.round(targetProj(b1, s1_2025, 2026)) },
+    { key: '2027', label: ['2027'], target: Math.round(targetProj(b1, s1_2025, 2027)) },
+    { key: '2028', label: ['2028'], target: Math.round(targetProj(b1, s1_2025, 2028)) },
     { key: 'end', label: ['by End', '2028'], actual: end28_s1, isTotal: true },
   ];
 
@@ -392,9 +396,9 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
-    { key: '2026', label: ['2026'], target: Math.round(sbtiTarget(b2, 2026)) },
-    { key: '2027', label: ['2027'], target: Math.round(sbtiTarget(b2, 2027)) },
-    { key: '2028', label: ['2028'], target: Math.round(sbtiTarget(b2, 2028)) },
+    { key: '2026', label: ['2026'], target: Math.round(targetProj(b2, s2_2025, 2026)) },
+    { key: '2027', label: ['2027'], target: Math.round(targetProj(b2, s2_2025, 2027)) },
+    { key: '2028', label: ['2028'], target: Math.round(targetProj(b2, s2_2025, 2028)) },
     { key: 'end', label: ['by End', '2028'], actual: end28_s2, isTotal: true },
   ];
 
