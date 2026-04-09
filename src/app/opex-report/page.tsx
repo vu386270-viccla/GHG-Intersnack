@@ -67,8 +67,9 @@ function WaterfallChart({
   title: string;
   legendOrder?: ('baseline' | 'actual' | 'estimated' | 'target')[];
 }) {
-  const W = 530, H = 280;
-  const PL = 8, PR = 8, PT = 56, PB = 44;
+  // SVG dimensions — large top pad to hold bracket callouts above bars
+  const W = 530, H = 300;
+  const PL = 8, PR = 8, PT = 72, PB = 44;
   const cw = (W - PL - PR) / bars.length;
   const bw = Math.min(34, cw * 0.62);
   const chartH = H - PT - PB;
@@ -79,28 +80,29 @@ function WaterfallChart({
     if (b.actual) allVals.push(b.actual);
     if (b.target) allVals.push(b.target);
   });
-  const maxVal = Math.max(...allVals) * 1.22;
+  const maxVal = Math.max(...allVals) * 1.18;
 
+  /** pixel Y for a value (low Y = top of chart = high emission) */
   const py = (v: number) => PT + chartH * (1 - v / maxVal);
   const ph = (v: number) => Math.max(chartH * v / maxVal, 2);
   const cx = (i: number) => PL + cw * i + cw / 2;
   const bx = (i: number) => cx(i) - bw / 2;
 
-  const legendItems: { color: string; label: string }[] = (legendOrder || ['baseline', 'actual', 'estimated', 'target']).map(k => ({
+  const legendItems = (legendOrder || ['baseline', 'actual', 'estimated', 'target']).map(k => ({
     baseline: { color: C.baseline, label: 'Baseline' },
-    actual: { color: C.actual, label: 'Actual' },
-    estimated: { color: C.estimated, label: 'Est. Emission' },
-    target: { color: C.target, label: 'Target' },
-  }[k]));
+    actual:   { color: C.actual,   label: 'Actual' },
+    estimated:{ color: C.estimated,label: 'Est. Emission' },
+    target:   { color: C.target,   label: 'Target' },
+  }[k] as { color: string; label: string }));
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
       {/* Chart title */}
-      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#222', marginBottom: '6px', lineHeight: 1.3 }}
+      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#222', marginBottom: '5px', lineHeight: 1.3 }}
         dangerouslySetInnerHTML={{ __html: title }}
       />
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: '14px', marginBottom: '4px', fontSize: '10.5px', alignItems: 'center' }}>
+      {/* Legend — top right position matching PPT */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '2px', fontSize: '10.5px', alignItems: 'center', justifyContent: 'flex-end' }}>
         {legendItems.map(item => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px', flexShrink: 0 }} />
@@ -109,52 +111,71 @@ function WaterfallChart({
         ))}
       </div>
 
-      {/* SVG chart */}
+      {/* SVG chart — overflow visible so callout brackets show above viewBox */}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
         <defs>
-          <marker id="arw" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
-            <path d="M0,0 L0,7 L7,3.5 z" fill={C.arrow} />
+          {/*
+            Arrow marker: right-pointing triangle.
+            With orient="auto", rotates to match line direction.
+            For a DOWNWARD line → becomes downward-pointing arrow. ✓
+          */}
+          <marker id="arwD" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="#555" />
           </marker>
         </defs>
 
         {/* Bottom axis line */}
         <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth="1.5" />
 
-        {/* Bars */}
+        {/* ── Bars ── */}
         {bars.map((b, i) => {
-          const color = (b.isBaseline || b.isEndTarget) ? C.baseline : (b.target !== undefined && !b.actual) ? C.target : C.actual;
+          const isGrayBar = b.isBaseline || b.isEndTarget;
+          const isTargetMarker = b.target !== undefined && !b.actual;
+          const color = isGrayBar ? C.baseline : isTargetMarker ? C.target : C.actual;
           const val = b.actual ?? b.target ?? 0;
+          if (val === 0) return null;
+
           const barY = py(val);
           const barH = ph(val);
 
           return (
             <g key={b.key}>
-              {/* Main bar */}
+              {/* Bar fill */}
               <rect x={bx(i)} y={barY} width={bw} height={barH} fill={color} rx="2" />
 
-              {/* Green target: outline box */}
-              {b.target !== undefined && !b.actual && (
+              {/* Green target: extra outline box */}
+              {isTargetMarker && (
                 <rect x={bx(i) - 2} y={barY - 2} width={bw + 4} height={barH + 4}
                   fill="none" stroke={C.target} strokeWidth="1.5" rx="3" />
               )}
 
-              {/* Value label inside bar (if tall enough) */}
-              {barH > 22 && (
-                <text x={cx(i)} y={barY + barH / 2 + 4} textAnchor="middle"
-                  fontSize="12" fontWeight="700" fill="white">
+              {/* Value inside bar (only if bar is tall enough) */}
+              {barH > 24 && (
+                <text x={cx(i)} y={barY + barH / 2 + 4}
+                  textAnchor="middle" fontSize="12" fontWeight="700" fill="white">
                   {fmt(val)}
                 </text>
               )}
 
-              {/* Value label above bar */}
-              <text x={cx(i)} y={barY - 5} textAnchor="middle"
-                fontSize="12" fontWeight="700" fill={color}>
-                {fmt(val)}
-              </text>
+              {/* Value label above bar (for target markers & small bars) */}
+              {(barH <= 24 || isTargetMarker) && (
+                <text x={cx(i)} y={barY - 5}
+                  textAnchor="middle" fontSize="11" fontWeight="700" fill={color}>
+                  {fmt(val)}
+                </text>
+              )}
 
-              {/* Year labels below axis */}
+              {/* Absolute value BELOW axis for baseline & end-target (matching PPT) */}
+              {(isGrayBar) && (
+                <text x={cx(i)} y={PT + chartH + 14}
+                  textAnchor="middle" fontSize="12" fontWeight="700" fill={C.baseline}>
+                  {fmt(val)}
+                </text>
+              )}
+
+              {/* Year / label below axis */}
               {b.label.map((l, li) => (
-                <text key={li} x={cx(i)} y={PT + chartH + 14 + li * 13}
+                <text key={li} x={cx(i)} y={PT + chartH + (isGrayBar ? 27 : 14) + li * 13}
                   textAnchor="middle" fontSize="10.5" fill="#555">
                   {l}
                 </text>
@@ -163,34 +184,76 @@ function WaterfallChart({
           );
         })}
 
-        {/* Callout annotations (% change with oval label + dashed arrow) */}
+        {/* ── Think-cell H-bracket callouts ── */}
         {callouts.map((cal, idx) => {
-          const x1 = cx(cal.fromCol);
-          const y1 = py(cal.fromVal) - 2;
-          const x2 = cx(cal.toCol);
-          const y2 = py(cal.toVal) - 2;
-          const midX = (x1 + x2) / 2;
-          const midY = Math.min(y1, y2) - 32;
-          const cpY = midY - 10;
+          const fromX = cx(cal.fromCol);
+          const toX   = cx(cal.toCol);
+          const fromBarTopY = py(cal.fromVal);   // pixel Y of the "from" bar's top
+          const toBarTopY   = py(cal.toVal);     // pixel Y of the "to" bar's top
+
+          // Bracket horizontal level: above the HIGHER of the two bars
+          const bracketY = Math.min(fromBarTopY, toBarTopY) - 26;
+
+          // Oval label center
+          const midX = (fromX + toX) / 2;
+          const ovalRx = 32, ovalRy = 13;
+
+          const isGood = cal.toVal <= cal.fromVal; // reduction = green
+          const clr = isGood ? '#2E6B2E' : '#C8281A';
+          const lineColor = '#555';
+          const dash = '5,4';
 
           return (
             <g key={idx}>
-              {/* Dashed curved line with arrow */}
-              <path
-                d={`M ${x1} ${y1} Q ${x1} ${cpY} ${midX - 28} ${midY}`}
-                fill="none" stroke={C.arrow} strokeWidth="1.2"
-                strokeDasharray="5,4"
+              {/*
+                Think-cell bracket shape:
+
+                     [ oval ]
+                ----+        +----
+                    |             |
+                    ↓             ↓
+                  [fromBar]    [toBar]
+
+                Left side: vertical down from bracketY to fromBarTopY
+                Right side: vertical down from bracketY to toBarTopY (with arrow)
+                Horizontal line splits around the oval
+              */}
+
+              {/* LEFT vertical drop: bracketY → fromBarTopY (with arrow at bottom) */}
+              <line
+                x1={fromX} y1={bracketY}
+                x2={fromX} y2={fromBarTopY - 2}
+                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
+                markerEnd="url(#arwD)"
               />
-              <path
-                d={`M ${midX + 28} ${midY} Q ${x2} ${cpY} ${x2} ${y2}`}
-                fill="none" stroke={C.arrow} strokeWidth="1.2"
-                strokeDasharray="5,4"
-                markerEnd="url(#arw)"
+
+              {/* LEFT horizontal: fromX → oval left edge */}
+              <line
+                x1={fromX} y1={bracketY}
+                x2={midX - ovalRx} y2={bracketY}
+                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
               />
-              {/* Oval callout */}
-              <ellipse cx={midX} cy={midY} rx="26" ry="12" fill="white" stroke={C.actual} strokeWidth="1.8" />
-              <text x={midX} y={midY + 4} textAnchor="middle"
-                fontSize="11" fontWeight="800" fill={C.actual}>
+
+              {/* RIGHT horizontal: oval right edge → toX */}
+              <line
+                x1={midX + ovalRx} y1={bracketY}
+                x2={toX} y2={bracketY}
+                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
+              />
+
+              {/* RIGHT vertical drop: bracketY → toBarTopY (with arrow at bottom) */}
+              <line
+                x1={toX} y1={bracketY}
+                x2={toX} y2={toBarTopY - 2}
+                stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
+                markerEnd="url(#arwD)"
+              />
+
+              {/* Oval label — sits on the horizontal bracket line */}
+              <ellipse cx={midX} cy={bracketY} rx={ovalRx} ry={ovalRy}
+                fill="white" stroke={clr} strokeWidth="2" />
+              <text x={midX} y={bracketY + 4.5} textAnchor="middle"
+                fontSize="12" fontWeight="800" fill={clr}>
                 {cal.text}
               </text>
             </g>
@@ -200,6 +263,7 @@ function WaterfallChart({
     </div>
   );
 }
+
 
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
