@@ -168,8 +168,8 @@ function WaterfallChart({
             const boxY = boxTop;
             const delta = isFloating ? Math.abs(val - prevVal) : val;
 
-            // Connector from previous column — skip for total/milestone bars
-            const connLine = i > 0 && !b.isTotal && (
+            // Connector from previous column
+            const connLine = i > 0 && (
               <line x1={cx(i-1) + bw/2} y1={py(prevVal)} x2={bx(i)} y2={py(prevVal)} stroke="#222" strokeWidth="1" />
             );
 
@@ -365,7 +365,7 @@ export default function OpexReportPage() {
     { key: '2022', label: ['2022'], actual: get(2022).scope1 },
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
-    { key: 'd2025', label: [''], actual: s1_2025 },
+    { key: 'd2025', label: ['Δ', '2025'], actual: s1_2025 },
     { key: '2025', label: ['2025'], actual: s1_2025, isTotal: true },
     { key: '2026', label: ['2026'], target: Math.round(targetProj(b1, s1_2025, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(targetProj(b1, s1_2025, 2027)) },
@@ -396,7 +396,7 @@ export default function OpexReportPage() {
     { key: '2022', label: ['2022'], actual: get(2022).scope2 },
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
-    { key: 'd2025', label: [''], actual: s2_2025 },
+    { key: 'd2025', label: ['Δ', '2025'], actual: s2_2025 },
     { key: '2025', label: ['2025'], actual: s2_2025, isTotal: true },
     { key: '2026', label: ['2026'], target: Math.round(targetProj(b2, s2_2025, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(targetProj(b2, s2_2025, 2027)) },
