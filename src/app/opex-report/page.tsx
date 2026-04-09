@@ -299,6 +299,7 @@ function WaterfallChart({
 export default function OpexReportPage() {
   const [data, setData] = useState<AnnualData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [targetEndYear, setTargetEndYear] = useState<number>(2028);
 
   useEffect(() => {
     async function load() {
@@ -353,8 +354,6 @@ export default function OpexReportPage() {
       </div>
     );
   }
-
-  const [targetEndYear, setTargetEndYear] = useState<number>(2028);
 
   const get = (year: number) => data.find(d => d.year === year) || { year, scope1: 0, scope2: 0 };
   const b1 = get(2021).scope1;  // Scope 1 baseline
