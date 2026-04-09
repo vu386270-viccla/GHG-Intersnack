@@ -70,8 +70,8 @@ function WaterfallChart({
   legendOrder?: ('baseline' | 'actual' | 'estimated' | 'target')[];
 }) {
   // SVG dimensions — large top pad to hold bracket callouts above bars
-  const W = 530, H = 300;
-  const PL = 8, PR = 8, PT = 72, PB = 44;
+  const W = 550, H = 320;
+  const PL = 8, PR = 8, PT = 95, PB = 44;
   const cw = (W - PL - PR) / bars.length;
   const bw = Math.min(34, cw * 0.62);
   const chartH = H - PT - PB;
@@ -240,8 +240,8 @@ function WaterfallChart({
             const fromBarTopY = boxTops[cal.fromCol];     // Absolute physical top edge!
             const toBarTopY   = boxTops[cal.toCol];       // Absolute physical top edge!
 
-            // Bracket horizontal level
-            const bracketY = Math.min(fromBarTopY, toBarTopY) - 26 - ((cal.level || 0) * 30);
+            // Bracket horizontal level - push high enough to avoid delta text which spans above bars!
+            const bracketY = Math.min(fromBarTopY, toBarTopY) - 40 - ((cal.level || 0) * 30);
 
             // Oval label center
             const midX = (fromX + toX) / 2;
@@ -354,6 +354,8 @@ export default function OpexReportPage() {
     );
   }
 
+  const [targetEndYear, setTargetEndYear] = useState<number>(2028);
+
   const get = (year: number) => data.find(d => d.year === year) || { year, scope1: 0, scope2: 0 };
   const b1 = get(2021).scope1;  // Scope 1 baseline
   const b2 = get(2021).scope2;  // Scope 2 baseline
@@ -363,8 +365,15 @@ export default function OpexReportPage() {
   // Project targets down 5% of baseline every year starting FROM 2025 actuals
   const targetProj = (base: number, act2025: number, year: number) => act2025 - base * 0.05 * (year - 2025);
 
-  const end28_s1 = Math.round(targetProj(b1, s1_2025, 2028));
-  const end28_s2 = Math.round(targetProj(b2, s2_2025, 2028));
+  const end_s1 = Math.round(targetProj(b1, s1_2025, targetEndYear));
+  const end_s2 = Math.round(targetProj(b2, s2_2025, targetEndYear));
+
+  const targetBarsS1: BarPoint[] = [];
+  const targetBarsS2: BarPoint[] = [];
+  for (let y = 2026; y <= targetEndYear; y++) {
+    targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(b1, s1_2025, y)) });
+    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(b2, s2_2025, y)) });
+  }
 
   // ── Scope 1 bars ──────────────────────────────────────────
   const s1Bars: BarPoint[] = [
@@ -374,10 +383,8 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: 'd2025', label: ['Δ', '2025'], actual: s1_2025 },
     { key: '2025', label: ['2025'], actual: s1_2025, isTotal: true },
-    { key: '2026', label: ['2026'], target: Math.round(targetProj(b1, s1_2025, 2026)) },
-    { key: '2027', label: ['2027'], target: Math.round(targetProj(b1, s1_2025, 2027)) },
-    { key: '2028', label: ['2028'], target: Math.round(targetProj(b1, s1_2025, 2028)) },
-    { key: 'end', label: ['by End', '2028'], actual: end28_s1, isTotal: true },
+    ...targetBarsS1,
+    { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s1, isTotal: true },
   ];
 
   // ── Scope 1 callouts ──────────────────────────────────────
@@ -389,10 +396,10 @@ export default function OpexReportPage() {
       text: pctStr(s1_2025, b1),
       level: 0
     } : null,
-    s1_2025 > 0 && end28_s1 > 0 ? {
-      fromCol: 5, toCol: 9,
-      fromVal: s1_2025, toVal: end28_s1,
-      text: pctStr(end28_s1, s1_2025),
+    s1_2025 > 0 && end_s1 > 0 ? {
+      fromCol: 5, toCol: 5 + targetBarsS1.length + 1,
+      fromVal: s1_2025, toVal: end_s1,
+      text: pctStr(end_s1, s1_2025),
       level: 0
     } : null,
   ].filter(Boolean) as Callout[];
@@ -405,10 +412,8 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: 'd2025', label: ['Δ', '2025'], actual: s2_2025 },
     { key: '2025', label: ['2025'], actual: s2_2025, isTotal: true },
-    { key: '2026', label: ['2026'], target: Math.round(targetProj(b2, s2_2025, 2026)) },
-    { key: '2027', label: ['2027'], target: Math.round(targetProj(b2, s2_2025, 2027)) },
-    { key: '2028', label: ['2028'], target: Math.round(targetProj(b2, s2_2025, 2028)) },
-    { key: 'end', label: ['by End', '2028'], actual: end28_s2, isTotal: true },
+    ...targetBarsS2,
+    { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s2, isTotal: true },
   ];
 
   // ── Scope 2 callouts ──────────────────────────────────────
@@ -420,10 +425,10 @@ export default function OpexReportPage() {
       text: pctStr(s2_2025, b2),
       level: 0
     } : null,
-    s2_2025 > 0 && end28_s2 > 0 ? {
-      fromCol: 5, toCol: 9,
-      fromVal: s2_2025, toVal: end28_s2,
-      text: pctStr(end28_s2, s2_2025),
+    s2_2025 > 0 && end_s2 > 0 ? {
+      fromCol: 5, toCol: 5 + targetBarsS2.length + 1,
+      fromVal: s2_2025, toVal: end_s2,
+      text: pctStr(end_s2, s2_2025),
       level: 0
     } : null,
   ].filter(Boolean) as Callout[];
@@ -449,15 +454,42 @@ export default function OpexReportPage() {
       <div style={{ padding: '20px 32px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, margin: 0, lineHeight: 1.25 }}>
-              <span style={{ color: '#C8281A' }}>Reduce CO₂ emissions (SBTi)</span>{' '}
-              <span style={{
-                background: '#FFD700', color: '#1a1a1a',
-                padding: '1px 10px', borderRadius: '4px', fontSize: '20px',
-              }}>
-                2025 Annual Report
-              </span>
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <h1 style={{ fontSize: '26px', fontWeight: 900, margin: 0, lineHeight: 1.25 }}>
+                <span style={{ color: '#C8281A' }}>Reduce CO₂ emissions (SBTi)</span>{' '}
+                <span style={{
+                  background: '#FFD700', color: '#1a1a1a',
+                  padding: '1px 10px', borderRadius: '4px', fontSize: '20px',
+                }}>
+                  2025 Annual Report
+                </span>
+              </h1>
+              
+              <div style={{ display: 'flex', background: '#f5f5f5', borderRadius: '6px', padding: '2px', border: '1px solid #ddd' }}>
+                <button
+                  onClick={() => setTargetEndYear(2028)}
+                  style={{
+                    padding: '4px 12px', fontSize: '13px', fontWeight: targetEndYear === 2028 ? 'bold' : 'normal',
+                    background: targetEndYear === 2028 ? '#fff' : 'transparent',
+                    boxShadow: targetEndYear === 2028 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer', color: targetEndYear === 2028 ? '#C8281A' : '#666'
+                  }}
+                >
+                  Target 2028
+                </button>
+                <button
+                  onClick={() => setTargetEndYear(2031)}
+                  style={{
+                    padding: '4px 12px', fontSize: '13px', fontWeight: targetEndYear === 2031 ? 'bold' : 'normal',
+                    background: targetEndYear === 2031 ? '#fff' : 'transparent',
+                    boxShadow: targetEndYear === 2031 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer', color: targetEndYear === 2031 ? '#C8281A' : '#666'
+                  }}
+                >
+                  Target 2031
+                </button>
+              </div>
+            </div>
             <div style={{ fontSize: '20px', fontWeight: 600, color: '#222', marginTop: '4px' }}>
               50 % CO₂ reductions in Operations
             </div>
@@ -499,33 +531,31 @@ export default function OpexReportPage() {
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
                 <p style={{ margin: '0 0 5px' }}>
-                  <strong>2025 performance – Scope 1:</strong> Total emissions reached{' '}
+                  <strong>🏆 Scope 1 SBTi Performance (2025):</strong> Total volume stands at{' '}
                   <strong style={{ color: '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
-                  {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 baseline;
-                  {' '}
+                  {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 Base Year).
+                  {' '}SBTi Target Variance:{' '}
                   <span style={{ color: pct1_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
                     {pct1_vs_target > 0 ? '+' : ''}{pct1_vs_target}%
-                  </span>{' vs SBTi target). '}
-                  YoY 2024→2025:{' '}
+                  </span>.
+                  {' '}YoY 2024→2025 Shift:{' '}
                   <strong style={{ color: yoy2025_s1 <= 0 ? '#3E7B3E' : '#C8281A' }}>
                     {yoy2025_s1 > 0 ? '+' : ''}{fmt(yoy2025_s1)} tCO₂e
                   </strong>.
                   {bestS1.delta < 0 && (
-                    <> {' '}Best reduction year: <strong style={{ color: '#3E7B3E' }}>{bestS1.year}</strong> ({fmt(Math.abs(bestS1.delta))} tCO₂e drop).</>
+                    <> {' '}Highest reduction cycle: <strong style={{ color: '#3E7B3E' }}>{bestS1.year}</strong> ({fmt(Math.abs(bestS1.delta))} tCO₂e drop).</>
                   )}
                   {worstS1.delta > 0 && (
-                    <> Largest increase: <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
+                    <> Peak volume increase: <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
                   )}
                 </p>
-                <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
+                <p style={{ margin: '0 0 4px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   <li>
-                    <strong>VICC</strong>: Balance wood fuel consumption with actual steam demand
-                    to improve boiler efficiency and reduce Scope 1 emissions.
+                    <strong>VICC Biomass Optimization</strong>: Restrict wood fuel consumption to align strictly with operational steam requirements.
                   </li>
                   <li>
-                    <strong>India</strong>: Monitor refrigerant usage, check for leakage,
-                    and explore a shift to lower-GWP refrigerants.
+                    <strong>India Refrigerant Management</strong>: Implement rigorous F-Gas leak monitoring and phase out high-GWP refrigerants (e.g., R410A).
                   </li>
                 </ul>
               </div>
@@ -555,33 +585,31 @@ export default function OpexReportPage() {
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
                 <p style={{ margin: '0 0 5px' }}>
-                  <strong>2025 performance – Scope 2:</strong> Electricity-related emissions reached{' '}
+                  <strong>⚠️ Scope 2 SBTi Performance (2025):</strong> Electricity-driven footprint recorded at{' '}
                   <strong style={{ color: '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
-                  {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 baseline;
-                  {' '}
+                  {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 Base Year).
+                  {' '}SBTi Target Variance:{' '}
                   <span style={{ color: pct2_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
                     {pct2_vs_target > 0 ? '+' : ''}{pct2_vs_target}%
-                  </span>{' vs SBTi target). '}
-                  YoY 2024→2025:{' '}
+                  </span>.
+                  {' '}YoY 2024→2025 Shift:{' '}
                   <strong style={{ color: yoy2025_s2 <= 0 ? '#3E7B3E' : '#C8281A' }}>
                     {yoy2025_s2 > 0 ? '+' : ''}{fmt(Math.round(yoy2025_s2))} tCO₂e
                   </strong>.
                   {worstS2.delta > 0 && (
-                    <> Largest single-year increase: <strong style={{ color: '#C8281A' }}>{worstS2.year}</strong> (+{fmt(Math.round(worstS2.delta))} tCO₂e), driven by higher grid electricity consumption.</>
+                    <> Critical escalation identified in <strong style={{ color: '#C8281A' }}>{worstS2.year}</strong> (+{fmt(Math.round(worstS2.delta))} tCO₂e), driven by expanded grid reliance.</>
                   )}
                   {bestS2.delta < 0 && (
-                    <> Best reduction: <strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} tCO₂e drop).</>
+                    <> Strongest reduction trend seen in <strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} tCO₂e drop).</>
                   )}
                 </p>
-                <p style={{ margin: '0 0 4px' }}><strong>2025 Reduction Strategy:</strong></p>
+                <p style={{ margin: '0 0 4px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   <li>
-                    <strong>VICC</strong>: Install rooftop solar system and continue to improve
-                    ISO 50001 compliance to offset grid electricity usage.
+                    <strong>VICC RE Transition</strong>: Accelerate rooftop solar deployment across tier-1 facilities and secure REC pathways for grid shortfall.
                   </li>
                   <li>
-                    <strong>India</strong>: Implement ISO 50001 standards and install solar
-                    energy solutions to reduce peak-load grid purchases.
+                    <strong>India Operations</strong>: Enforce ISO 50001 energy standards to flatten peak-load grid dependency and transition to solar infrastructure.
                   </li>
                 </ul>
               </div>
