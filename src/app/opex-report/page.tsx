@@ -9,6 +9,7 @@ interface AnnualData {
   year: number;
   scope1: number;
   scope2: number;
+  rcn?: number;
 }
 
 // ── Colors matching the PPT slide exactly ──────────────────
@@ -303,7 +304,7 @@ export default function OpexReportPage() {
 
   useEffect(() => {
     async function load() {
-      const [facRes, rowRes1, rowRes2] = await Promise.all([
+      const [facRes, rowRes1, rowRes2, prodRes] = await Promise.all([
         supabase.from('factories').select('id, country'),
         supabase.from('emissions_data')
           .select('factory_id, year, scope, activity_data, emissions_tco2e')
@@ -314,7 +315,10 @@ export default function OpexReportPage() {
           .select('factory_id, year, scope, activity_data, emissions_tco2e')
           .gte('year', 2021)
           .lte('year', 2025)
-          .range(1000, 1999)
+          .range(1000, 1999),
+        supabase.from('production_data')
+          .select('year, category, quantity')
+          .eq('category', 'rcn_input')
       ]);
 
       const combData = [...(rowRes1.data || []), ...(rowRes2.data || [])];
@@ -323,9 +327,9 @@ export default function OpexReportPage() {
       const facDict: Record<string, string> = {};
       facRes.data?.forEach(f => facDict[f.id] = f.country);
 
-      const byYear: Record<number, { s1: number; s2: number }> = {};
+      const byYear: Record<number, { s1: number; s2: number; rcn: number }> = {};
       for (const r of combData) {
-        if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0 };
+        if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0, rcn: 0 };
         if (r.scope === 'scope_1') {
           byYear[r.year].s1 += Number(r.emissions_tco2e);
         } else if (r.scope === 'scope_2') {
@@ -335,11 +339,18 @@ export default function OpexReportPage() {
           byYear[r.year].s2 += Number(r.activity_data) * factor / 1000;
         }
       }
+      if (prodRes.data) {
+        for (const p of prodRes.data) {
+          if (!byYear[p.year]) byYear[p.year] = { s1: 0, s2: 0, rcn: 0 };
+          byYear[p.year].rcn += Number(p.quantity) || 0;
+        }
+      }
 
       setData([2021, 2022, 2023, 2024, 2025].map(year => ({
         year,
         scope1: Math.round(byYear[year]?.s1 || 0),
         scope2: Math.round(byYear[year]?.s2 || 0),
+        rcn: byYear[year]?.rcn || 0,
       })));
       setLoading(false);
     }
@@ -355,23 +366,28 @@ export default function OpexReportPage() {
     );
   }
 
-  const get = (year: number) => data.find(d => d.year === year) || { year, scope1: 0, scope2: 0 };
+  const get = (year: number) => data.find(d => d.year === year) || { year, scope1: 0, scope2: 0, rcn: 0 };
   const b1 = get(2021).scope1;  // Scope 1 baseline
   const b2 = get(2021).scope2;  // Scope 2 baseline
   const s1_2025 = get(2025).scope1;
   const s2_2025 = get(2025).scope2;
 
-  // Project targets down 5% of baseline every year starting FROM 2025 actuals
-  const targetProj = (base: number, act2025: number, year: number) => act2025 - base * 0.05 * (year - 2025);
+  // Compute required annual reduction so that "by End targetEndYear" = exactly 50% of baseline
+  // Formula: from 2025 actual, reduce linearly to reach (base * 0.5) by targetEndYear
+  const years = targetEndYear - 2025;
+  const s1AnnualCut = years > 0 ? (s1_2025 - b1 * 0.5) / years : 0;
+  const s2AnnualCut = years > 0 ? (s2_2025 - b2 * 0.5) / years : 0;
+  const targetProj = (act2025: number, annualCut: number, year: number) =>
+    act2025 - annualCut * (year - 2025);
 
-  const end_s1 = Math.round(targetProj(b1, s1_2025, targetEndYear));
-  const end_s2 = Math.round(targetProj(b2, s2_2025, targetEndYear));
+  const end_s1 = Math.round(b1 * 0.5);  // exactly 50% of baseline
+  const end_s2 = Math.round(b2 * 0.5);  // exactly 50% of baseline
 
   const targetBarsS1: BarPoint[] = [];
   const targetBarsS2: BarPoint[] = [];
   for (let y = 2026; y <= targetEndYear; y++) {
-    targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(b1, s1_2025, y)) });
-    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(b2, s2_2025, y)) });
+    targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s1_2025, s1AnnualCut, y)) });
+    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s2_2025, s2AnnualCut, y)) });
   }
 
   // ── Scope 1 bars ──────────────────────────────────────────
@@ -527,6 +543,14 @@ export default function OpexReportPage() {
             const bestS1 = s1Deltas.reduce((a, b) => b.delta < a.delta ? b : a); // most negative = best
             const worstS1 = s1Deltas.reduce((a, b) => b.delta > a.delta ? b : a); // most positive = worst
             const yoy2025_s1 = get(2025).scope1 - get(2024).scope1;
+
+            const rcn24 = data.find(d => d.year === 2024)?.rcn || 0;
+            const rcn25 = data.find(d => d.year === 2025)?.rcn || 0;
+            const int24 = rcn24 > 0 ? get(2024).scope1 / rcn24 : 0;
+            const int25 = rcn25 > 0 ? get(2025).scope1 / rcn25 : 0;
+            const rcnGrowth = rcn24 > 0 ? ((rcn25 - rcn24) / rcn24) * 100 : 0;
+            const intGrowth = int24 > 0 ? ((int25 - int24) / int24) * 100 : 0;
+
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
                 <p style={{ margin: '0 0 5px' }}>
@@ -548,7 +572,17 @@ export default function OpexReportPage() {
                     <> Peak volume increase: <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
                   )}
                 </p>
-                <p style={{ margin: '0 0 4px' }}><strong>Strategic Mitigation Plan:</strong></p>
+
+                <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
+                  <strong>📊 Intensity Analysis (Scope 1/RCN):</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
+                  {' '}Intensity shift:{' '}
+                  <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
+                  {' '}vs Production shift:{' '}
+                  <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
+                  {' '}<em>{intGrowth > 0 ? "Emissions outpaced production, indicating heat/boiler inefficiency." : "Efficiency improvements offset production volume impacts."}</em>
+                </p>
+
+                <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   <li>
                     <strong>VICC Biomass Optimization</strong>: Restrict wood fuel consumption to align strictly with operational steam requirements.
@@ -567,8 +601,8 @@ export default function OpexReportPage() {
           <WaterfallChart
             bars={s2Bars}
             callouts={s2Callouts}
-            title="<strong>Scope 2 (move towards renewable energy sources)</strong> CO₂ eq absol. emission in ton"
-            legendOrder={['baseline', 'estimated', 'actual', 'target']}
+            title="<strong>Scope 2 (grid electricity)</strong> – CO₂ eq absol. emission in ton"
+            legendOrder={['baseline', 'actual', 'estimated', 'target']}
           />
 
           {/* Commentary — 100% data-driven from DB */}
@@ -581,6 +615,14 @@ export default function OpexReportPage() {
             const bestS2 = s2Deltas.reduce((a, b) => b.delta < a.delta ? b : a);
             const worstS2 = s2Deltas.reduce((a, b) => b.delta > a.delta ? b : a);
             const yoy2025_s2 = get(2025).scope2 - get(2024).scope2;
+
+            const rcn24 = data.find(d => d.year === 2024)?.rcn || 0;
+            const rcn25 = data.find(d => d.year === 2025)?.rcn || 0;
+            const int24 = rcn24 > 0 ? get(2024).scope2 / rcn24 : 0;
+            const int25 = rcn25 > 0 ? get(2025).scope2 / rcn25 : 0;
+            const rcnGrowth = rcn24 > 0 ? ((rcn25 - rcn24) / rcn24) * 100 : 0;
+            const intGrowth = int24 > 0 ? ((int25 - int24) / int24) * 100 : 0;
+
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
                 <p style={{ margin: '0 0 5px' }}>
@@ -602,7 +644,17 @@ export default function OpexReportPage() {
                     <> Strongest reduction trend seen in <strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} tCO₂e drop).</>
                   )}
                 </p>
-                <p style={{ margin: '0 0 4px' }}><strong>Strategic Mitigation Plan:</strong></p>
+
+                <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
+                  <strong>📊 Intensity Analysis (Scope 2/RCN):</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
+                  {' '}Intensity shift:{' '}
+                  <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
+                  {' '}vs Production shift:{' '}
+                  <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
+                  {' '}<em>{intGrowth > 0 ? "Grid power usage is scaling worse than production growth. Priority intervention required." : "Grid efficiency improved relative to production throughput."}</em>
+                </p>
+
+                <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   <li>
                     <strong>VICC RE Transition</strong>: Accelerate rooftop solar deployment across tier-1 facilities and secure REC pathways for grid shortfall.
