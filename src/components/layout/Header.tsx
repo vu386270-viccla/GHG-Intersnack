@@ -24,6 +24,12 @@ export default function Header() {
         {pageInfo.accent && <> — <span>{pageInfo.accent}</span></>}
       </div>
       <div className="header-actions">
+        {/* Intersnack logo in header */}
+        <img
+          src="/intersnack-logo.svg"
+          alt="Intersnack"
+          style={{ height: '28px', width: 'auto', opacity: 0.9, marginRight: '4px' }}
+        />
         <div className="header-badge">
           📅 {currentYear}
         </div>

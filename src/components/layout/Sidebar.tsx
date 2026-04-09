@@ -39,19 +39,27 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <div>
-          <div className="sidebar-logo-text">
-            <span>GHG</span> Tracker
+      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px', paddingBottom: '12px' }}>
+        {/* Intersnack logo */}
+        <img
+          src="/intersnack-logo.svg"
+          alt="Intersnack"
+          style={{ width: '140px', height: 'auto', display: 'block' }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="sidebar-logo-icon" style={{ width: '22px', height: '22px', flexShrink: 0 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
           </div>
-          <div className="sidebar-logo-sub">Intersnack Group</div>
+          <div>
+            <div className="sidebar-logo-text">
+              <span>GHG</span> Tracker
+            </div>
+            <div className="sidebar-logo-sub">Carbon Emissions Dashboard</div>
+          </div>
         </div>
       </div>
 

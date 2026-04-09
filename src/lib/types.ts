@@ -120,12 +120,11 @@ export interface TrendPoint {
   values: { key: string; value: number; color: string }[];
 }
 
-// ── Scope 1 Categories (actual EFs from Intersnack) ──
-
+// ── Scope 1 EF — chung (tham khảo, IPCC/GHG Protocol default) ──
 export const SCOPE_1_CATEGORIES = [
   { key: 'wood_logs', label: 'Củi / Gỗ (Boiler)', unit: 'tấn', icon: '🪵', process: 'Boiler', efUnit: 'kg CO₂e/tấn', ef: 28 },
   { key: 'wastewater', label: 'Nước thải (WWTS)', unit: 'm³', icon: '🌊', process: 'WWTS', efUnit: 'kg CO₂e/m³', ef: 0.2013 },
-  { key: 'lpg', label: 'Khí LPG (Xe nâng)', unit: 'tấn', icon: '🛢️', process: 'FLTs', efUnit: 'kg CO₂e/tấn', ef: 2909.26 }, // 1.571 * 1851.85 (Vietnam)
+  { key: 'lpg', label: 'Khí LPG (Xe nâng)', unit: 'tấn', icon: '🛢️', process: 'FLTs', efUnit: 'kg CO₂e/tấn', ef: 2909.26 },
   { key: 'diesel', label: 'Dầu Diesel (Máy phát/Xe)', unit: 'lít', icon: '⛽', process: 'Generator / Company Car', efUnit: 'kg CO₂e/lít', ef: 2.68 },
   { key: 'fgas_r22', label: 'F-Gas R22', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HCFC kg/kg', ef: 1810 },
   { key: 'fgas_r32', label: 'F-Gas R32', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 675 },
@@ -134,6 +133,41 @@ export const SCOPE_1_CATEGORIES = [
   { key: 'fgas_r404a', label: 'F-Gas R404A', unit: 'kg', icon: '❄️', process: 'Refrigeration & A/C', efUnit: 'HFC kg/kg', ef: 3920 },
   { key: 'co2_cylinder', label: 'Bình CO₂', unit: 'kg', icon: '🧪', process: 'CO₂ Tanks', efUnit: 'CO₂ kg/kg', ef: 1 },
 ] as const;
+
+// ── Scope 1 EF theo vùng (MẶC ĐỊNH dùng khi tính toán) ──
+// Vietnam: MOC/MONRE national factors | India: MoEFCC/BEE national factors
+export interface Scope1RegionalEF {
+  country: string;
+  category: string;
+  ef: number;
+  efUnit: string;
+  source: string;
+}
+
+export const SCOPE_1_EF_BY_COUNTRY: Scope1RegionalEF[] = [
+  // ── Vietnam ──
+  { country: 'Vietnam', category: 'wood_logs',    ef: 28,      efUnit: 'kg CO₂e/tấn', source: 'MONRE VN (Biomass)' },
+  { country: 'Vietnam', category: 'wastewater',   ef: 0.2013,  efUnit: 'kg CO₂e/m³',  source: 'MONRE VN' },
+  { country: 'Vietnam', category: 'lpg',          ef: 2909.26, efUnit: 'kg CO₂e/tấn', source: 'MOC VN 2015 × GWP AR5' },
+  { country: 'Vietnam', category: 'diesel',       ef: 2.68,    efUnit: 'kg CO₂e/lít', source: 'MONRE VN / DEFRA' },
+  { country: 'Vietnam', category: 'fgas_r22',     ef: 1810,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'Vietnam', category: 'fgas_r32',     ef: 675,     efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'Vietnam', category: 'fgas_r134a',   ef: 1300,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'Vietnam', category: 'fgas_r410a',   ef: 2088,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'Vietnam', category: 'fgas_r404a',   ef: 3920,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'Vietnam', category: 'co2_cylinder', ef: 1,       efUnit: 'kg CO₂e/kg',  source: 'GHG Protocol' },
+  // ── India ──
+  { country: 'India',   category: 'wood_logs',    ef: 28,      efUnit: 'kg CO₂e/tấn', source: 'BEE India (Biomass)' },
+  { country: 'India',   category: 'wastewater',   ef: 0.2013,  efUnit: 'kg CO₂e/m³',  source: 'IPCC Default' },
+  { country: 'India',   category: 'lpg',          ef: 2983.00, efUnit: 'kg CO₂e/tấn', source: 'MoEFCC India 2023' },
+  { country: 'India',   category: 'diesel',       ef: 2.72,    efUnit: 'kg CO₂e/lít', source: 'MoEFCC India 2023' },
+  { country: 'India',   category: 'fgas_r22',     ef: 1810,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'India',   category: 'fgas_r32',     ef: 675,     efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'India',   category: 'fgas_r134a',   ef: 1300,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'India',   category: 'fgas_r410a',   ef: 2088,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'India',   category: 'fgas_r404a',   ef: 3920,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
+  { country: 'India',   category: 'co2_cylinder', ef: 1,       efUnit: 'kg CO₂e/kg',  source: 'GHG Protocol' },
+];
 
 export const SCOPE_2_CATEGORIES = [
   { key: 'electricity', label: 'Điện lưới mua', unit: 'kWh', icon: '⚡', process: 'Grid Electricity' },

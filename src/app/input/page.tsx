@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getDashboardData } from '@/lib/data-service';
 import { supabase } from '@/lib/supabase';
 import {
-  SCOPE_1_CATEGORIES, SCOPE_2_CATEGORIES, SCOPE_3_CATEGORIES,
+  SCOPE_1_CATEGORIES, SCOPE_1_EF_BY_COUNTRY, SCOPE_2_CATEGORIES, SCOPE_3_CATEGORIES,
   GRID_EMISSION_FACTORS, SCOPE_COLORS,
 } from '@/lib/types';
 import type { Factory } from '@/lib/types';
@@ -22,11 +22,19 @@ interface InputRow {
 
 type ScopeKey = 'scope_1' | 'scope_2' | 'scope_3';
 
-function buildScope1Rows(): InputRow[] {
-  return SCOPE_1_CATEGORIES.map(cat => ({
-    category: cat.key, label: cat.label, icon: cat.icon, unit: cat.unit,
-    ef: cat.ef, efUnit: cat.efUnit, value: '', emissions: 0,
-  }));
+function buildScope1Rows(country?: string): InputRow[] {
+  return SCOPE_1_CATEGORIES.map(cat => {
+    // Use regional EF if available (default), fallback to generic
+    const regional = country
+      ? SCOPE_1_EF_BY_COUNTRY.find(r => r.country === country && r.category === cat.key)
+      : undefined;
+    return {
+      category: cat.key, label: cat.label, icon: cat.icon, unit: cat.unit,
+      ef: regional?.ef ?? cat.ef,
+      efUnit: regional?.efUnit ?? cat.efUnit,
+      value: '', emissions: 0,
+    };
+  });
 }
 
 function buildScope2Rows(country: string, ef: number): InputRow[] {
@@ -76,6 +84,13 @@ export default function InputPage() {
     ef => ef.country === factory?.country && ef.year === selectedYear
   );
 
+  // Rebuild Scope 1 rows when factory changes (regional EF)
+  useEffect(() => {
+    if (activeScope !== 'scope_1') return;
+    const country = factory?.country || 'Vietnam';
+    setRows(buildScope1Rows(country));
+  }, [selectedFactory]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Bug 2: rebuild Scope 2 row when factory or year changes
   useEffect(() => {
     if (activeScope !== 'scope_2') return;
@@ -97,7 +112,7 @@ export default function InputPage() {
     if (saved) {
       setRows(saved);
     } else if (scope === 'scope_1') {
-      setRows(buildScope1Rows());
+      setRows(buildScope1Rows(factory?.country || 'Vietnam'));
     } else if (scope === 'scope_2') {
       setRows(buildScope2Rows(factory?.country || 'Vietnam', gridEF?.factor || 0.6855));
     } else {
@@ -197,10 +212,20 @@ export default function InputPage() {
             </select>
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ padding: 'var(--space-sm) var(--space-lg)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600 }}>Grid EF ({factory?.country})</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--color-scope-2)', fontWeight: 700 }}>{gridEF?.factor.toFixed(4) || 'N/A'}</div>
-            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>kg CO₂e/kWh</div>
+          {/* EF badge area */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {activeScope === 'scope_1' && (
+              <div style={{ padding: 'var(--space-sm) var(--space-lg)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600 }}>EF Scope 1 ({factory?.country || 'VN'})</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '13px', color: 'var(--color-scope-1)', fontWeight: 700 }}>Theo vùng 🌏</div>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Mặc định: {factory?.country === 'India' ? 'MoEFCC India' : 'MONRE VN'}</div>
+              </div>
+            )}
+            <div style={{ padding: 'var(--space-sm) var(--space-lg)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600 }}>Grid EF ({factory?.country})</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--color-scope-2)', fontWeight: 700 }}>{gridEF?.factor.toFixed(4) || 'N/A'}</div>
+              <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>kg CO₂e/kWh</div>
+            </div>
           </div>
         </div>
       </div>
@@ -226,7 +251,15 @@ export default function InputPage() {
                 <td style={{ fontSize: '18px' }}>{row.icon}</td>
                 <td style={{ fontWeight: 600 }}>{row.label}</td>
                 <td style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{row.unit}</td>
-                <td><code style={{ background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>{row.ef > 0 ? row.ef : '—'} {row.efUnit}</code></td>
+                <td><code style={{ background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
+                  {row.ef > 0 ? row.ef : '—'} {row.efUnit}
+                </code>
+                {/* Show regional EF source */}
+                {activeScope === 'scope_1' && (() => {
+                  const src = SCOPE_1_EF_BY_COUNTRY.find(r => r.country === (factory?.country || 'Vietnam') && r.category === row.category);
+                  return src ? <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{src.source}</div> : null;
+                })()}
+                </td>
                 <td><input type="number" className="form-input" placeholder="0" value={row.value} onChange={e => updateValue(i, e.target.value)} style={{ width: '100%', textAlign: 'right' }} /></td>
                 <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: row.emissions > 0 ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
                   {row.emissions > 0 ? row.emissions.toFixed(2) : '—'}
