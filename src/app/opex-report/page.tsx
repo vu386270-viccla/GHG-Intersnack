@@ -365,6 +365,7 @@ export default function OpexReportPage() {
     { key: '2022', label: ['2022'], actual: get(2022).scope1 },
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
+    { key: 'd2025', label: [''], actual: s1_2025 },
     { key: '2025', label: ['2025'], actual: s1_2025, isTotal: true },
     { key: '2026', label: ['2026'], target: Math.round(targetProj(b1, s1_2025, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(targetProj(b1, s1_2025, 2027)) },
@@ -376,13 +377,13 @@ export default function OpexReportPage() {
   const s1_2024 = get(2024).scope1;
   const s1Callouts: Callout[] = [
     b1 > 0 && s1_2025 > 0 ? {
-      fromCol: 0, toCol: 4,
+      fromCol: 0, toCol: 5,
       fromVal: b1, toVal: s1_2025,
       text: pctStr(s1_2025, b1),
       level: 0
     } : null,
     s1_2025 > 0 && end28_s1 > 0 ? {
-      fromCol: 4, toCol: 8,
+      fromCol: 5, toCol: 9,
       fromVal: s1_2025, toVal: end28_s1,
       text: pctStr(end28_s1, s1_2025),
       level: 0
@@ -395,6 +396,7 @@ export default function OpexReportPage() {
     { key: '2022', label: ['2022'], actual: get(2022).scope2 },
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
+    { key: 'd2025', label: [''], actual: s2_2025 },
     { key: '2025', label: ['2025'], actual: s2_2025, isTotal: true },
     { key: '2026', label: ['2026'], target: Math.round(targetProj(b2, s2_2025, 2026)) },
     { key: '2027', label: ['2027'], target: Math.round(targetProj(b2, s2_2025, 2027)) },
@@ -406,13 +408,13 @@ export default function OpexReportPage() {
   const s2_2024 = get(2024).scope2;
   const s2Callouts: Callout[] = [
     b2 > 0 && s2_2025 > 0 ? {
-      fromCol: 0, toCol: 4,
+      fromCol: 0, toCol: 5,
       fromVal: b2, toVal: s2_2025,
       text: pctStr(s2_2025, b2),
       level: 0
     } : null,
     s2_2025 > 0 && end28_s2 > 0 ? {
-      fromCol: 4, toCol: 8,
+      fromCol: 5, toCol: 9,
       fromVal: s2_2025, toVal: end28_s2,
       text: pctStr(end28_s2, s2_2025),
       level: 0
