@@ -202,6 +202,28 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     };
   });
 
+  // ── Scope 2 Monthly by Category ──
+  const scope2Monthly = Array.from({ length: 12 }, (_, i) => {
+    const monthEmissions = emissions.filter(e => e.scope === 'scope_2' && e.month === i + 1);
+    const catMap: Record<string, number> = {};
+    for (const e of monthEmissions) {
+      catMap[e.category] = (catMap[e.category] || 0) + Number(e.emissions_tco2e);
+    }
+    const total = Object.values(catMap).reduce((s, v) => s + v, 0);
+    return {
+      month: i + 1,
+      label: MONTHS_VI[i],
+      categories: Object.entries(catMap).map(([key, value]) => ({ key, value: Math.round(value) })),
+      total: Math.round(total),
+    };
+  });
+
+  // ── Monthly RCN totals (all factories) for intensity calc ──
+  const monthlyRCN = Array.from({ length: 12 }, (_, i) =>
+    prodRows.filter(p => p.category === 'rcn_input' && p.month === i + 1)
+            .reduce((s, p) => s + Number(p.quantity), 0)
+  );
+
   // ── SBTi Targets ──
   // Use 2021 as base year — fetch 2021 emissions
   let baseS1S2 = 0;
@@ -296,6 +318,8 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     grandTotal: Math.round(grandTotal),
     monthlyTotals,
     scope1Monthly,
+    scope2Monthly,
+    monthlyRCN,
     targets,
     rcnData,
     rcnByFactory,
