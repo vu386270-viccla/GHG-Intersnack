@@ -372,16 +372,17 @@ export default function OpexReportPage() {
   const s1_2025 = get(2025).scope1;
   const s2_2025 = get(2025).scope2;
 
-  // Compute required annual reduction so that "by End targetEndYear" = exactly 50% of baseline
-  // Formula: from 2025 actual, reduce linearly to reach (base * 0.5) by targetEndYear
-  const years = targetEndYear - 2025;
-  const s1AnnualCut = years > 0 ? (s1_2025 - b1 * 0.5) / years : 0;
-  const s2AnnualCut = years > 0 ? (s2_2025 - b2 * 0.5) / years : 0;
+  // Compute required annual reduction so that we reach exactly 50% of baseline by 2031
+  // Formula: from 2025 actual, reduce linearly to reach (base * 0.5) by 2031
+  const ultimateTargetYear = 2031;
+  const yearsToTarget = ultimateTargetYear - 2025;
+  const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - b1 * 0.5) / yearsToTarget : 0;
+  const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - b2 * 0.5) / yearsToTarget : 0;
   const targetProj = (act2025: number, annualCut: number, year: number) =>
     act2025 - annualCut * (year - 2025);
 
-  const end_s1 = Math.round(b1 * 0.5);  // exactly 50% of baseline
-  const end_s2 = Math.round(b2 * 0.5);  // exactly 50% of baseline
+  const end_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, targetEndYear));
+  const end_s2 = Math.round(targetProj(s2_2025, s2AnnualCut, targetEndYear));
 
   const targetBarsS1: BarPoint[] = [];
   const targetBarsS2: BarPoint[] = [];
