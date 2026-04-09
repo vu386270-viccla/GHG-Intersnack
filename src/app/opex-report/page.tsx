@@ -143,8 +143,8 @@ function WaterfallChart({
           const renderedBars = bars.map((b, i) => {
             const isFloating = !b.isTotal;
             const isTargetMarker = b.target !== undefined && !b.actual;
-            const color = (b.key === 'base' || b.key === 'end') ? C.baseline :
-                          isTargetMarker ? C.target : C.actual;
+            const color = b.key === 'base' ? C.baseline :
+                          (b.key === 'end' || isTargetMarker) ? C.target : C.actual;
             
             const val = b.actual ?? b.target ?? 0;
             if (val === 0) {
@@ -216,9 +216,9 @@ function WaterfallChart({
                   </>
                 )}
 
-                {/* Absolute value below axis for milestones */}
-                {(b.isTotal || b.key === '2025') && (
-                  <text x={cx(i)} y={PT + chartH + 15} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222">
+                {/* Absolute value below axis for milestones — exclude 'base' to avoid overlap when bar count grows */}
+                {(b.key === 'end' || b.key === '2025') && (
+                  <text x={cx(i)} y={PT + chartH + 15} textAnchor="middle" fontSize="12" fontWeight="700" fill={b.key === 'end' ? C.target : '#222'}>
                     {fmt(val)}
                   </text>
                 )}
