@@ -325,21 +325,81 @@ const ORIGIN_EF: Record<string, { ef: number; flag: boolean; color: string }> = 
   'India':      { ef: 2.18,  flag: true,  color: '#E8960E' },  // moderate
   'Cambodia':   { ef: 2.70,  flag: true,  color: '#E8960E' },  // moderate
   'Tanzania':   { ef: 1.98,  flag: true,  color: '#3E7B3E' },  // low
-  'Mozambique': { ef: 1.85,  flag: true,  color: '#3E7B3E' },  // low
   'Nigeria':    { ef: 1.56,  flag: true,  color: '#3E7B3E' },  // low
   'Benin':      { ef: 2.13,  flag: true,  color: '#3E7B3E' },  // low
-  'C.Ivory':    { ef: 1.92,  flag: true,  color: '#3E7B3E' },  // low
-  'Guinea-B':   { ef: 1.74,  flag: true,  color: '#3E7B3E' },  // low
+  'C.Ivory':    { ef: 1.92,  flag: true,  color: '#3E7B3E' },  // low – Ivory Coast
+  'Guinea-B':   { ef: 1.74,  flag: true,  color: '#3E7B3E' },  // low – Guinea-Bissau
+  'Ghana':      { ef: 1.65,  flag: true,  color: '#3E7B3E' },  // low
+  'Senegal':    { ef: 1.60,  flag: true,  color: '#3E7B3E' },  // low
+  'Guinea':     { ef: 1.70,  flag: true,  color: '#3E7B3E' },  // low – Conakry/Guinea
 };
 
-// Origin procurement mix per year (MTs shipped — approximate based on SBTi FLAG reports)
-// When real data is available from supabase scope3_origin_data table, replace this.
+// Origin procurement mix per year (MTs shipped — ACTUAL from raw data CSV)
+// Source: Google Drive raw data (scope3 origin dataset), aggregated India + VN regions
+// Updated: 2026-04-10
 const ORIGIN_MIX: Record<number, Record<string, number>> = {
-  2021: { 'Indonesia': 12400, 'Vietnam': 8200, 'India': 5100, 'Tanzania': 3200, 'Nigeria': 1800, 'Benin': 1400, 'C.Ivory': 900 },
-  2022: { 'Indonesia': 16800, 'Vietnam': 9100, 'India': 5400, 'Tanzania': 2800, 'Nigeria': 2100, 'Benin': 1600, 'C.Ivory': 1100 },
-  2023: { 'Indonesia': 11200, 'Vietnam': 8600, 'India': 5800, 'Tanzania': 3600, 'Nigeria': 2400, 'Benin': 1800, 'C.Ivory': 1200, 'Cambodia': 800 },
-  2024: { 'Indonesia': 10500, 'Vietnam': 8900, 'India': 6100, 'Tanzania': 4100, 'Nigeria': 3200, 'Benin': 2200, 'C.Ivory': 1500, 'Cambodia': 1000, 'Guinea-B': 600 },
-  2025: { 'Indonesia': 9800,  'Vietnam': 9200, 'India': 6400, 'Tanzania': 4800, 'Nigeria': 4100, 'Benin': 2800, 'C.Ivory': 1900, 'Cambodia': 1200, 'Guinea-B': 900, 'Mozambique': 500 },
+  2021: {
+    'C.Ivory':  35412,  // IVORY COAST: India 10,999 + VN 24,413
+    'Guinea-B': 12655,  // BISSAU: India 12,655
+    'Ghana':    14786,  // GHANA: India 5,128 + VN 9,658
+    'Cambodia':  4789,  // CAMBODIA: VN 4,789
+    'Tanzania':  4054,  // TANZANIA: VN 4,054
+    'Benin':     4219,  // BENIN: India 4,219
+    'India':     1174,  // INDIA domestic: India 1,174
+  },
+  2022: {
+    'C.Ivory':  32182,  // IVORY COAST: India 21,272 + VN 10,910
+    'Guinea-B': 20902,  // BISSAU: India 15,844 + VN 5,058
+    'Tanzania': 13735,  // TANZANIA: VN 13,735
+    'Ghana':     9917,  // GHANA: VN 9,917
+    'Cambodia':  3219,  // CAMBODIA: VN 3,219
+    'Senegal':   2015,  // SENEGAL: VN 2,015
+    'Guinea':    1062,  // CONAKRY: VN 1,062
+  },
+  2023: {
+    'C.Ivory':  22889,  // IVORY COAST: India 11,220 + VN 11,669
+    'Tanzania': 15381,  // TANZANIA: VN 15,381
+    'Cambodia':  8358,  // CAMBODIA: VN 8,358
+    'Guinea-B':  7321,  // BISSAU: VN 7,321
+    'Ghana':     5597,  // GHANA: India 5,097 + VN 500
+    'Indonesia': 1455,  // INDONESIA: VN 1,455
+    'Senegal':   1069,  // SENEGAL: VN 1,069
+    'Vietnam':   1026,  // VIETNAM: VN 1,026
+  },
+  2024: {
+    'C.Ivory':  11463,  // IVORY COAST: India 2,461 + VN 9,001
+    'Tanzania': 15588,  // TANZANIA: India 2,409 + VN 13,179
+    'Guinea-B': 16541,  // BISSAU: India 11,897 + VN 4,645
+    'Indonesia':  4098,  // INDONESIA: VN 4,098
+    'Ghana':     3034,  // GHANA: India 1,543 + VN 1,491
+    'Cambodia':  2429,  // CAMBODIA: VN 2,429
+    'Senegal':   1316,  // SENEGAL: VN 1,316
+    'Vietnam':    484,  // VIETNAM: VN 484
+  },
+  2025: {
+    'C.Ivory':  16530,  // IVORY COAST: India 5,541 + VN 10,989
+    'Tanzania': 15492,  // TANZANIA: India 2,105 + VN 13,387
+    'Guinea-B': 15308,  // BISSAU: India 7,836 + VN 7,472
+    'Ghana':     7788,  // GHANA: India 4,809 + VN 2,979
+    'Senegal':   3321,  // SENEGAL: VN 3,321
+    'Cambodia':  3241,  // CAMBODIA: VN 3,241
+    'Nigeria':   2200,  // NIGERIA: India 1,060 + VN 1,140
+    'Guinea':    1276,  // CONAKRY: VN 1,276
+    'Indonesia':  984,  // INDONESIA: VN 984
+    'Vietnam':    205,  // VIETNAM: VN 205
+  },
+};
+
+// ── Static Transport Data (actual KM×Tons from raw CSV) ───────
+// Source: Google Drive raw data — exact shipping records, India + VN combined
+// Used for Cat.4 Upstream Transport (vessel + road) calculation
+// EFs: vessel = 0.01604 kg/km·ton (IMO Tier 2), road = 0.07547 kg/km·ton (GHG Protocol)
+const TRANSPORT_STATIC: Record<number, { vessel: number; road: number; qty: number }> = {
+  2021: { vessel: 1_161_599_654, road:  9_993_561, qty:  77090 },
+  2022: { vessel: 1_185_494_849, road:  8_861_755, qty:  83032 },
+  2023: { vessel:   756_317_036, road:  6_770_330, qty:  63097 },
+  2024: { vessel:   541_928_701, road: 11_311_107, qty:  54954 },
+  2025: { vessel:   806_825_797, road:  6_748_142, qty:  66346 },
 };
 
 // ── Main Page ──────────────────────────────────────────────
@@ -357,11 +417,9 @@ export default function OpexReportPage() {
   const [rawEms, setRawEms] = useState<any[]>([]);
   const [rawProd, setRawProd] = useState<any[]>([]);
   const [factories, setFactories] = useState<{id: string, country: string, name: string}[]>([]);
-  const [rawS3, setRawS3]   = useState<any[]>([]);
-
   useEffect(() => {
     async function load() {
-      const [facRes, rowRes1, rowRes2, prodRes, s3Res] = await Promise.all([
+      const [facRes, rowRes1, rowRes2, prodRes] = await Promise.all([
         supabase.from('factories').select('id, name, country'),
         supabase.from('emissions_data')
           .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
@@ -372,15 +430,11 @@ export default function OpexReportPage() {
         supabase.from('production_data')
           .select('factory_id, year, category, quantity')
           .eq('category', 'rcn_input'),
-        supabase.from('scope3_transport_data')
-          .select('year,shipped_qty_mts,km_ton_vessel,km_ton_road,em_cashew_kg')
-          .in('year', [2021,2022,2023,2024,2025]),
       ]);
 
       setFactories(facRes.data || []);
       setRawEms([...(rowRes1.data || []), ...(rowRes2.data || [])]);
       setRawProd(prodRes.data || []);
-      setRawS3(s3Res.data || []);
       setLoading(false);
     }
     load();
@@ -423,23 +477,41 @@ export default function OpexReportPage() {
   }, [rawEms, rawProd, factories, selectedFac]);
 
   // ── Scope 3 computed data ──────────────────────────────────
+  // Cat.1 (FLAG — Purchased Goods): ORIGIN_MIX × ORIGIN_EF  →  consistent with Origin Risk panel
+  // Cat.4 (Upstream Transport):     TRANSPORT_STATIC km×ton × vessel/road EF
+  // Cat.3 (WTT):                    computed from fuel activity in rawEms
   const s3Data = useMemo(() => {
     const facDict: Record<string,string> = {};
     factories.forEach(f => facDict[f.id] = f.country);
     const YEARS = [2021,2022,2023,2024,2025];
 
-    // Cat.1 + Cat.4 from scope3_transport_data
-    const byYear: Record<number,{cashew:number;vessel:number;road:number;qty:number}> = {};
-    YEARS.forEach(y => byYear[y] = {cashew:0,vessel:0,road:0,qty:0});
-    for(const r of rawS3) {
-      if(!byYear[r.year]) continue;
-      byYear[r.year].cashew += Number(r.em_cashew_kg)||0; // kg
-      byYear[r.year].vessel += (Number(r.km_ton_vessel)||0)*0.01604; // kg
-      byYear[r.year].road   += (Number(r.km_ton_road)||0)*0.07547;  // kg
-      byYear[r.year].qty    += Number(r.shipped_qty_mts)||0;
-    }
+    // ── Cat.1: sum ORIGIN_MIX × ORIGIN_EF per year ──────────
+    const cat1ByYr: Record<number,number> = {};
+    const qtyByYr:  Record<number,number> = {};
+    YEARS.forEach(yr => {
+      const mix = ORIGIN_MIX[yr] || {};
+      let totalEm = 0, totalQty = 0;
+      for (const [origin, qty] of Object.entries(mix)) {
+        const ef = ORIGIN_EF[origin]?.ef ?? 2.5;  // fallback EF
+        totalEm  += qty * ef;   // tCO2e (qty in MTS, ef in tCO2e/t)
+        totalQty += qty;
+      }
+      cat1ByYr[yr] = Math.round(totalEm);
+      qtyByYr[yr]  = Math.round(totalQty);
+    });
 
-    // Cat.3 WTT: compute from fuel activity in rawEms (which now includes category)
+    // ── Cat.4: TRANSPORT_STATIC km×ton × emission factors ───
+    // Vessel EF: 0.01604 kg/km·ton → ÷1000 = tCO2e / (km·ton)
+    // Road EF:   0.07547 kg/km·ton → ÷1000 = tCO2e / (km·ton)
+    const cat4vByYr: Record<number,number> = {};
+    const cat4rByYr: Record<number,number> = {};
+    YEARS.forEach(yr => {
+      const t = TRANSPORT_STATIC[yr];
+      cat4vByYr[yr] = t ? Math.round(t.vessel * 0.01604 / 1000) : 0;
+      cat4rByYr[yr] = t ? Math.round(t.road   * 0.07547 / 1000) : 0;
+    });
+
+    // ── Cat.3 WTT: compute from fuel activity in rawEms ─────
     const wttByYear: Record<number,number> = {};
     YEARS.forEach(y => wttByYear[y] = 0);
     for(const r of rawEms) {
@@ -448,22 +520,21 @@ export default function OpexReportPage() {
       const act = Number(r.activity_data)||0;
       let wtt = 0;
       const cat = (r.category||'').toLowerCase();
-      if(cat === 'diesel')      wtt = act * (isIN ? WTT_DIESEL_IN : WTT_DIESEL_VN);
-      else if(cat === 'lpg')    wtt = act * WTT_LPG;
+      if(cat === 'diesel')           wtt = act * (isIN ? WTT_DIESEL_IN : WTT_DIESEL_VN);
+      else if(cat === 'lpg')         wtt = act * WTT_LPG;
       else if(cat === 'electricity') wtt = act * (isIN ? WTT_ELEC_IN : WTT_ELEC_VN);
       wttByYear[r.year] = (wttByYear[r.year]||0) + wtt;
     }
 
     return YEARS.map(yr => {
-      const d = byYear[yr];
-      const cat1  = Math.round(d.cashew/1000);
-      const cat4v = Math.round(d.vessel/1000);
-      const cat4r = Math.round(d.road/1000);
-      const cat3  = Math.round(wttByYear[yr]||0);
+      const cat1  = cat1ByYr[yr]  || 0;
+      const cat4v = cat4vByYr[yr] || 0;
+      const cat4r = cat4rByYr[yr] || 0;
+      const cat3  = Math.round(wttByYear[yr] || 0);
       const total = cat1 + cat4v + cat4r + cat3;
-      return { year:yr, cat1, cat4v, cat4r, cat3, total, qty: Math.round(d.qty) };
+      return { year: yr, cat1, cat4v, cat4r, cat3, total, qty: qtyByYr[yr] || 0 };
     });
-  }, [rawS3, rawEms, factories]);
+  }, [rawEms, factories]);
 
   // ── Origin breakdown data ─────────────────────────────────
   const originData = useMemo(() => {
