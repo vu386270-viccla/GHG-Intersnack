@@ -216,16 +216,9 @@ function WaterfallChart({
                   </>
                 )}
 
-                {/* Absolute value below axis for milestones — exclude 'base' to avoid overlap when bar count grows */}
-                {(b.key === 'end' || b.key === '2025') && (
-                  <text x={cx(i)} y={PT + chartH + 15} textAnchor="middle" fontSize="12" fontWeight="700" fill={b.key === 'end' ? C.target : '#222'}>
-                    {fmt(val)}
-                  </text>
-                )}
-
-                {/* Year labels below axis */}
+                {/* Year labels below axis — no absolute value numbers, data is visible in bars */}
                 {b.label.map((l, li) => (
-                  <text key={li} x={cx(i)} y={PT + chartH + ((b.isTotal || b.key === '2025') ? 28 : 15) + li * 13} textAnchor="middle" fontSize="10.5" fill="#555">
+                  <text key={li} x={cx(i)} y={PT + chartH + 15 + li * 13} textAnchor="middle" fontSize="10.5" fill="#555">
                     {l}
                   </text>
                 ))}
