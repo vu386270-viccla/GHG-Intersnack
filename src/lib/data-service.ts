@@ -46,7 +46,8 @@ async function fetchData(year: number) {
   const [factoriesRes, emissionsRes] = await Promise.all([
     supabase.from('factories').select('*'),
     supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e')
-      .eq('year', year),
+      .eq('year', year)
+      .limit(5000),  // Supabase default cap is 1000; 4 plants × 12 months × ~25 categories = ~1200/yr
   ]);
 
   const factories = (factoriesRes.data || []) as Factory[];
@@ -61,7 +62,8 @@ async function fetchPrevYear(year: number) {
   const { data } = await supabase
     .from('emissions_data')
     .select('scope,emissions_tco2e')
-    .eq('year', year - 1);
+    .eq('year', year - 1)
+    .limit(5000);
   return (data || []) as { scope: string; emissions_tco2e: number }[];
 }
 
@@ -233,7 +235,8 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     const { data: base2021 } = await supabase
       .from('emissions_data')
       .select('scope,emissions_tco2e')
-      .eq('year', 2021);
+      .eq('year', 2021)
+      .limit(5000);
     
     if (base2021) {
       for (const e of base2021) {
@@ -333,7 +336,8 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
     .from('emissions_data')
     .select('year,scope,emissions_tco2e')
     .gte('year', fromYear)
-    .lte('year', toYear);
+    .lte('year', toYear)
+    .limit(10000); // multi-year: 6 years × ~300 rows/yr = ~1800; safe ceiling
   const result: Record<number, { s12: number; s3: number }> = {};
   for (const e of data || []) {
     if (!result[e.year]) result[e.year] = { s12: 0, s3: 0 };

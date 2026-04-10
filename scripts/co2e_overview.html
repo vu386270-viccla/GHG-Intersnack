@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>GHG CO2e Overview</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0f1117; color:#e2e8f0; font-family:'Segoe UI',system-ui,sans-serif; padding:24px; }
+  h1 { font-size:22px; font-weight:700; color:#fff; margin-bottom:4px; }
+  .sub { font-size:13px; color:#64748b; margin-bottom:28px; }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .card { background:#1e2130; border-radius:12px; padding:20px; border:1px solid #2d3348; }
+  .card h2 { font-size:13px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:14px; }
+
+  /* Bar chart */
+  .barchart { display:flex; flex-direction:column; gap:8px; }
+  .bar-row { display:flex; align-items:center; gap:10px; }
+  .bar-label { width:48px; font-size:12px; color:#94a3b8; text-align:right; flex-shrink:0; }
+  .bar-track { flex:1; background:#2d3348; border-radius:4px; height:28px; position:relative; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:4px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-size:12px; font-weight:600; color:#fff; transition:width .5s ease; }
+  .bar-total { width:64px; font-size:12px; color:#e2e8f0; text-align:right; flex-shrink:0; }
+
+  /* Stacked bar */
+  .stack-row { display:flex; align-items:center; gap:10px; margin-bottom:7px; }
+  .stack-label { width:36px; font-size:11px; color:#94a3b8; text-align:right; flex-shrink:0; }
+  .stack-track { flex:1; display:flex; border-radius:4px; overflow:hidden; height:24px; }
+  .seg { display:flex; align-items:center; justify-content:center; font-size:10px; color:rgba(255,255,255,.85); font-weight:600; transition:width .5s; }
+  .stack-total { width:56px; font-size:11px; color:#94a3b8; text-align:right; }
+
+  /* Table */
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { color:#64748b; font-weight:600; text-align:right; padding:6px 8px; border-bottom:1px solid #2d3348; }
+  th:first-child { text-align:left; }
+  td { padding:6px 8px; text-align:right; border-bottom:1px solid #1a1f2e; }
+  td:first-child { text-align:left; color:#94a3b8; font-weight:600; }
+  tr:hover td { background:#252840; }
+  .hi { color:#f59e0b; font-weight:700; }
+  .flag { color:#f87171; }
+
+  /* Legend */
+  .legend { display:flex; gap:16px; margin-bottom:12px; flex-wrap:wrap; }
+  .leg { display:flex; align-items:center; gap:6px; font-size:11px; color:#94a3b8; }
+  .dot { width:10px; height:10px; border-radius:2px; }
+
+  .alert { background:#2d1f1f; border:1px solid #7f1d1d; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:12px; color:#fca5a5; }
+  .alert strong { color:#f87171; }
+  .ok-tag { background:#14532d; color:#86efac; border-radius:4px; padding:1px 6px; font-size:10px; }
+  .warn-tag { background:#451a03; color:#fbbf24; border-radius:4px; padding:1px 6px; font-size:10px; }
+</style>
+</head>
+<body>
+<h1>📊 GHG Emissions — Bức tranh tổng quan</h1>
+<p class="sub">Sau khi reconcile 4 nhà máy &nbsp;·&nbsp; Cập nhật 10/04/2026</p>
+
+<div class="alert">
+  ⚠️ <strong>Tuti 2022 chỉ có 1,285 tCO2e</strong> — thấp bất thường so các năm (~2,900 tCO2e). Cần kiểm tra lại data nguồn.<br>
+  ⚠️ <strong>PT & TN 2024</strong> thấp hơn hẳn — có thể thiếu tháng hoặc data chưa đầy đủ.
+</div>
+
+<!-- Group total by year -->
+<div class="grid">
+<div class="card" style="grid-column:1/-1">
+  <h2>Tổng nhóm theo năm (tCO2e)</h2>
+  <div class="legend">
+    <div class="leg"><div class="dot" style="background:#6366f1"></div>Scope 1</div>
+    <div class="leg"><div class="dot" style="background:#38bdf8"></div>Scope 2</div>
+  </div>
+  <div class="barchart" id="group-chart"></div>
+</div>
+</div>
+
+<!-- Per factory stacked -->
+<div class="grid">
+  <div class="card">
+    <h2>🏭 Phan Thiết (PT)</h2>
+    <div class="legend">
+      <div class="leg"><div class="dot" style="background:#6366f1"></div>Scope 1</div>
+      <div class="leg"><div class="dot" style="background:#38bdf8"></div>Scope 2</div>
+    </div>
+    <div id="pt-chart"></div>
+  </div>
+  <div class="card">
+    <h2>🏭 Long An (LA)</h2>
+    <div class="legend">
+      <div class="leg"><div class="dot" style="background:#6366f1"></div>Scope 1</div>
+      <div class="leg"><div class="dot" style="background:#38bdf8"></div>Scope 2</div>
+    </div>
+    <div id="la-chart"></div>
+  </div>
+  <div class="card">
+    <h2>🏭 Tây Ninh (TN)</h2>
+    <div class="legend">
+      <div class="leg"><div class="dot" style="background:#6366f1"></div>Scope 1</div>
+      <div class="leg"><div class="dot" style="background:#38bdf8"></div>Scope 2</div>
+    </div>
+    <div id="tn-chart"></div>
+  </div>
+  <div class="card">
+    <h2>🏭 Tuticorin (Tuti) — India</h2>
+    <div class="legend">
+      <div class="leg"><div class="dot" style="background:#6366f1"></div>Scope 1</div>
+      <div class="leg"><div class="dot" style="background:#38bdf8"></div>Scope 2</div>
+    </div>
+    <div id="tuti-chart"></div>
+  </div>
+</div>
+
+<!-- Detail table -->
+<div class="card">
+  <h2>Chi tiết theo nhà máy × năm (tCO2e)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Factory</th>
+        <th>2021</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th><th>2026*</th>
+      </tr>
+    </thead>
+    <tbody id="detail-tbody"></tbody>
+  </table>
+  <p style="font-size:11px;color:#475569;margin-top:10px">* 2026 chỉ có Jan-Mar. 2024 PT thấp do thiếu nhiều tháng.</p>
+</div>
+
+<script>
+const DATA = {
+  group: {
+    2021:{s1:382.5,s2:7678.5},
+    2022:{s1:333.8,s2:7492.0},
+    2023:{s1:372.4,s2:9513.4},
+    2024:{s1:313.7,s2:6599.5},
+    2025:{s1:283.8,s2:8913.6},
+    2026:{s1:47.7,s2:1890.6},
+  },
+  PT:  {2021:{s1:89.5,s2:2079.3},2022:{s1:74.0,s2:2184.8},2023:{s1:61.3,s2:2615.8},2024:{s1:18.7,s2:431.4},2025:{s1:37.9,s2:2219.8},2026:{s1:9.3,s2:482.9}},
+  LA:  {2021:{s1:56.2,s2:1538.0},2022:{s1:55.5,s2:1597.5},2023:{s1:38.9,s2:1938.8},2024:{s1:40.3,s2:1949.0},2025:{s1:34.0,s2:1839.3},2026:{s1:9.0,s2:520.6}},
+  TN:  {2021:{s1:86.6,s2:1972.3},2022:{s1:116.4,s2:2512.7},2023:{s1:85.2,s2:2077.1},2024:{s1:54.6,s2:1518.7},2025:{s1:77.7,s2:2621.8},2026:{s1:13.2,s2:612.9}},
+  Tuti:{2021:{s1:150.2,s2:2088.9},2022:{s1:87.9,s2:1197.0},2023:{s1:187.0,s2:2881.6},2024:{s1:200.1,s2:2700.4},2025:{s1:134.3,s2:2232.7},2026:{s1:16.2,s2:274.3}},
+};
+
+const YRS = [2021,2022,2023,2024,2025,2026];
+const FACS = ['PT','LA','TN','Tuti'];
+
+// Group chart
+const groupMax = Math.max(...YRS.map(y=>(DATA.group[y].s1+DATA.group[y].s2)));
+const gc = document.getElementById('group-chart');
+YRS.forEach(y=>{
+  const d=DATA.group[y], tot=d.s1+d.s2, pct=(tot/groupMax*100).toFixed(1);
+  const row=document.createElement('div'); row.className='bar-row';
+  row.innerHTML=`
+    <div class="bar-label">${y}</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,#6366f1,#38bdf8)">
+        ${tot.toFixed(0)}
+      </div>
+    </div>
+    <div class="bar-total" style="color:#94a3b8;font-size:11px">S1:${d.s1.toFixed(0)} / S2:${d.s2.toFixed(0)}</div>`;
+  gc.appendChild(row);
+});
+
+// Per-factory stacked charts
+function renderFactory(facId, containerId){
+  const c=document.getElementById(containerId);
+  const maxVal=Math.max(...YRS.map(y=>{const d=DATA[facId][y]||{s1:0,s2:0};return d.s1+d.s2;}));
+  YRS.forEach(y=>{
+    const d=DATA[facId][y]||{s1:0,s2:0};
+    const tot=d.s1+d.s2; if(tot<0.1) return;
+    const s1w=(d.s1/maxVal*100).toFixed(1), s2w=(d.s2/maxVal*100).toFixed(1);
+    const row=document.createElement('div'); row.className='stack-row';
+    row.innerHTML=`
+      <div class="stack-label">${y}</div>
+      <div class="stack-track">
+        <div class="seg" style="width:${s1w}%;background:#6366f1" title="Scope1: ${d.s1.toFixed(1)}">${d.s1>50?d.s1.toFixed(0):''}</div>
+        <div class="seg" style="width:${s2w}%;background:#38bdf8" title="Scope2: ${d.s2.toFixed(1)}">${d.s2.toFixed(0)}</div>
+      </div>
+      <div class="stack-total">${tot.toFixed(0)}</div>`;
+    c.appendChild(row);
+  });
+}
+FACS.forEach(f=>renderFactory(f, f.toLowerCase().replace('.','').replace(' ','')+'-chart'));
+// fix id mismatch
+document.getElementById('tuti-chart') || null; // already correct
+
+// Detail table
+const tbody=document.getElementById('detail-tbody');
+const totals={};
+YRS.forEach(y=>totals[y]=0);
+FACS.forEach(f=>{
+  const tr=document.createElement('tr');
+  let cells=`<td>${f}</td>`;
+  YRS.forEach(y=>{
+    const d=DATA[f][y]||{s1:0,s2:0};
+    const tot=d.s1+d.s2;
+    totals[y]+=tot;
+    const warn=(f==='Tuti'&&y===2022)||(f==='PT'&&y===2024);
+    cells+=`<td class="${warn?'flag':''}">${tot>0?tot.toFixed(0):'—'}</td>`;
+  });
+  tr.innerHTML=cells; tbody.appendChild(tr);
+});
+// total row
+const tr=document.createElement('tr');
+let cells='<td style="color:#f59e0b;font-weight:700">TOTAL</td>';
+YRS.forEach(y=>cells+=`<td class="hi">${totals[y].toFixed(0)}</td>`);
+tr.innerHTML=cells; tbody.appendChild(tr);
+</script>
+</body>
+</html>
