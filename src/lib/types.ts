@@ -157,7 +157,7 @@ export const SCOPE_1_EF_BY_COUNTRY: Scope1RegionalEF[] = [
   { country: 'Vietnam', category: 'fgas_r404a',   ef: 3920,    efUnit: 'kg CO₂e/kg',  source: 'IPCC AR5 GWP' },
   { country: 'Vietnam', category: 'co2_cylinder', ef: 1,       efUnit: 'kg CO₂e/kg',  source: 'GHG Protocol' },
   // ── India ──
-  { country: 'India',   category: 'wood_logs',    ef: 28,      efUnit: 'kg CO₂e/tấn', source: 'BEE India (Biomass)' },
+  { country: 'India',   category: 'wood_logs',    ef: 35,      efUnit: 'kg CO₂e/tấn', source: 'BEE India (Wood pellets)' },
   { country: 'India',   category: 'wastewater',   ef: 0.2013,  efUnit: 'kg CO₂e/m³',  source: 'IPCC Default' },
   { country: 'India',   category: 'lpg',          ef: 2983.00, efUnit: 'kg CO₂e/tấn', source: 'MoEFCC India 2023' },
   { country: 'India',   category: 'diesel',       ef: 2.72,    efUnit: 'kg CO₂e/lít', source: 'MoEFCC India 2023' },

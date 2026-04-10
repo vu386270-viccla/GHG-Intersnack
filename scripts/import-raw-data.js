@@ -13,7 +13,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Emission Factors
 const EF = {
-  wood_logs: { Vietnam: 28, India: 28 },         // 0.028 t CO2e/ton -> 28 kg CO2e/ton
+  wood_logs: { Vietnam: 28, India: 35 },         // VN: Firewood 28 kgCO2e/ton | India: Wood pellets 35 kgCO2e/ton (HSE BEE)
   wastewater: { Vietnam: 0.2013, India: 0.2013 }, // kg CO2e / m3
   // LPG density ~ 0.54 kg/L => 1 ton = 1851.85 L
   lpg: { Vietnam: 1.571 * 1851.85, India: 1.52 * 1851.85 }, // kg CO2e / ton
