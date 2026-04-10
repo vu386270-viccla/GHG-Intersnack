@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { GRID_EMISSION_FACTORS } from '@/lib/types';
@@ -402,6 +402,139 @@ const TRANSPORT_STATIC: Record<number, { vessel: number; road: number; qty: numb
   2024: { vessel:   541_928_701, road: 11_311_107, qty:  54954 },
   2025: { vessel:   806_825_797, road:  6_748_142, qty:  66346 },
 };
+
+// ── OriginDetailTable sub-component ─────────────────────────
+type ScaledRow = { origin: string; ef: number; color: string; qty: number; emS: number; pct: number; volPct: number };
+
+function OriginDetailTable({
+  scaledRows, maxEmS, scaledTotal, scaledHighEf,
+}: { scaledRows: ScaledRow[]; maxEmS: number; scaledTotal: number; scaledHighEf: number }) {
+  const [selected, setSelected] = React.useState<string | null>(null);
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+      <thead>
+        <tr style={{ borderBottom: '1px solid #eee', color: '#666' }}>
+          <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 600, width: 80 }}>Origin</th>
+          <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 600, width: 46 }}>EF</th>
+          <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 600, width: 40 }}>Vol%</th>
+          <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 600, width: 40 }}>Em%</th>
+          <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 600, width: 65 }}>tCO₂e</th>
+          <th style={{ padding: '2px 4px' }}>Risk bar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {scaledRows.map(r => {
+          const emPct = scaledTotal > 0 ? r.emS / scaledTotal * 100 : 0;
+          const diff = emPct - r.volPct;
+          const isEFDriven = diff > 3;
+          const isVolDriven = diff < -3;
+          const isSel = selected === r.origin;
+          return (
+            <React.Fragment key={r.origin}>
+              <tr
+                onClick={() => setSelected(isSel ? null : r.origin)}
+                style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer', background: isSel ? '#fff8f8' : 'transparent' }}
+              >
+                <td style={{ padding: '2px 4px', fontWeight: r.ef > 5 ? 700 : 400, color: r.color }}>{r.origin}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'right', color: r.color, fontWeight: 600 }}>{r.ef.toFixed(2)}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'right', color: '#555' }}>{r.volPct.toFixed(1)}%</td>
+                <td style={{ padding: '2px 4px', textAlign: 'right', color: isEFDriven ? '#C8281A' : isVolDriven ? '#3E7B3E' : '#555', fontWeight: isEFDriven || isVolDriven ? 700 : 400 }}>
+                  {emPct.toFixed(1)}%
+                </td>
+                <td style={{ padding: '2px 4px', textAlign: 'right', fontWeight: r.ef > 5 ? 700 : 400, color: r.color }}>{r.emS.toLocaleString()}</td>
+                <td style={{ padding: '2px 8px 2px 4px' }}>
+                  <div style={{ height: 8, borderRadius: 3, background: '#f0f0f0', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${maxEmS > 0 ? (r.emS / maxEmS * 100) : 0}%`, background: r.color, borderRadius: 3, transition: 'width 0.3s' }} />
+                  </div>
+                </td>
+              </tr>
+              {isSel && (
+                <tr style={{ background: '#fff8f8' }}>
+                  <td colSpan={6} style={{ padding: '4px 8px 6px', fontSize: '10px', color: '#444', borderBottom: '1px solid #fdd' }}>
+                    {isEFDriven
+                      ? <span>⬆️ <strong style={{ color: '#C8281A' }}>EF-driven:</strong> Em% ({emPct.toFixed(1)}%) &gt; Vol% ({r.volPct.toFixed(1)}%) bởi {diff.toFixed(1)}pp — emission cao vì EF cao ({r.ef} kgCO₂e/kg), không phải do mua nhiều. Giảm sourcing từ origin này hoặc tìm supplier có EF thấp hơn.</span>
+                      : isVolDriven
+                      ? <span>📦 <strong style={{ color: '#3E7B3E' }}>Volume-driven:</strong> Em% ({emPct.toFixed(1)}%) &lt; Vol% ({r.volPct.toFixed(1)}%) — EF thấp ({r.ef}), emission share hợp lý với lượng mua. Đây là nguồn an toàn.</span>
+                      : <span>⚖️ <strong>Cân bằng:</strong> Em% ({emPct.toFixed(1)}%) ≈ Vol% ({r.volPct.toFixed(1)}%) — cả volume lẫn EF đều ảnh hưởng tương đương.</span>
+                    }
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+      <tfoot>
+        <tr style={{ borderTop: '1.5px solid #ddd', background: '#f9f9f9' }}>
+          <td style={{ padding: '3px 4px', fontWeight: 700 }} colSpan={2}>TOTAL</td>
+          <td style={{ padding: '3px 4px', textAlign: 'right', fontWeight: 700 }}>100%</td>
+          <td style={{ padding: '3px 4px', textAlign: 'right', fontWeight: 700 }}>100%</td>
+          <td style={{ padding: '3px 4px', textAlign: 'right', fontWeight: 700, color: '#C8281A' }}>{scaledTotal.toLocaleString()}</td>
+          <td style={{ padding: '3px 4px', fontSize: '10px', color: scaledHighEf / scaledTotal > 0.6 ? '#C8281A' : '#3E7B3E' }}>
+            🔴 High-EF: {Math.round(scaledHighEf / scaledTotal * 100)}%
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+// ── OriginDonut sub-component ─────────────────────────────────
+function OriginDonut({ rows, scaledTotal }: { rows: ScaledRow[]; scaledTotal: number }) {
+  const [mode, setMode] = React.useState<'em' | 'vol'>('em');
+  const [hovered, setHovered] = React.useState<string | null>(null);
+  const size = 150;
+  const cx = size / 2, cy = size / 2, outerR = 58, innerR = 34;
+  const total = mode === 'em' ? scaledTotal : rows.reduce((s, row) => s + row.qty, 0);
+  let angle = -Math.PI / 2;
+  const arcs = rows.map(row => {
+    const val  = mode === 'em' ? row.emS : row.qty;
+    const pct  = total > 0 ? val / total : 0;
+    const span = pct * 2 * Math.PI;
+    const a0 = angle;
+    angle += span;
+    const a1 = angle;
+    const x0 = cx + outerR * Math.cos(a0), y0 = cy + outerR * Math.sin(a0);
+    const x1 = cx + outerR * Math.cos(a1), y1 = cy + outerR * Math.sin(a1);
+    const xi0 = cx + innerR * Math.cos(a0), yi0 = cy + innerR * Math.sin(a0);
+    const xi1 = cx + innerR * Math.cos(a1), yi1 = cy + innerR * Math.sin(a1);
+    const lg = span > Math.PI ? 1 : 0;
+    const path = `M ${x0} ${y0} A ${outerR} ${outerR} 0 ${lg} 1 ${x1} ${y1} L ${xi1} ${yi1} A ${innerR} ${innerR} 0 ${lg} 0 ${xi0} ${yi0} Z`;
+    return { ...row, path, pct };
+  });
+  const hovRow = arcs.find(a => a.origin === hovered);
+  return (
+    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {(['em', 'vol'] as const).map(m => (
+          <button key={m} onClick={() => setMode(m)} style={{ padding: '2px 7px', borderRadius: 3, border: `1px solid ${mode === m ? '#C8281A' : '#ddd'}`, background: mode === m ? '#C8281A' : '#f9f9f9', color: mode === m ? '#fff' : '#555', cursor: 'pointer', fontWeight: mode === m ? 700 : 400, fontSize: '9.5px' }}>
+            {m === 'em' ? '📊 Emission' : '⚖️ Volume'}
+          </button>
+        ))}
+      </div>
+      <svg width={size} height={size}>
+        {arcs.map(a => (
+          <path key={a.origin} d={a.path} fill={a.color}
+            opacity={hovered && hovered !== a.origin ? 0.35 : 1}
+            stroke="#fff" strokeWidth={1.5}
+            style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+            onMouseEnter={() => setHovered(a.origin)}
+            onMouseLeave={() => setHovered(null)}
+          />
+        ))}
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={9} fill="#888">
+          {hovRow ? hovRow.origin : (mode === 'em' ? 'Emission' : 'Volume')}
+        </text>
+        <text x={cx} y={cy + 8} textAnchor="middle" fontSize={12} fontWeight={700} fill={hovRow?.color || '#333'}>
+          {hovRow ? `${(hovRow.pct * 100).toFixed(1)}%` : '% share'}
+        </text>
+      </svg>
+      <div style={{ fontSize: '9px', color: '#777', textAlign: 'center' }}>
+        {mode === 'em' ? 'By tCO₂e share' : 'By RCN volume (MTS)'}
+      </div>
+    </div>
+  );
+}
 
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
@@ -1207,7 +1340,7 @@ export default function OpexReportPage() {
                   const actualCat1 = cat1ByYear[selectedOriginYear] || 0;
                   const rawTotal   = selOD.totalEm;
                   const scale      = rawTotal > 0 && actualCat1 > 0 ? actualCat1 / rawTotal : 1;
-                  const scaledRows = selOD.rows.map(r => ({ ...r, emS: Math.round(r.em * scale) }));
+                  const scaledRows = selOD.rows.map(r => ({ ...r, emS: Math.round(r.em * scale), volPct: selOD.totalQty > 0 ? r.qty / selOD.totalQty * 100 : 0 }));
                   const maxEmS     = Math.max(...scaledRows.map(r => r.emS));
                   const scaledTotal = Math.round(selOD.totalEm * scale);
                   const scaledHighEf = Math.round(selOD.highEfEm * scale);
@@ -1254,68 +1387,68 @@ export default function OpexReportPage() {
                           })}
                         </div>
 
-                        {/* Note: scaled to actual DB */}
-                        {scale !== 1 && (
-                          <div style={{ fontSize:'9.5px', color:'#888', marginBottom:5, fontStyle:'italic' }}>
-                            ℹ️ Emissions scaled to match actual Cat.1 DB value ({fmt(actualCat1)} tCO₂e).
-                            Origin % mix estimated from SBTi FLAG sourcing data.
+                        {/* Table + Donut side by side */}
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <OriginDetailTable
+                              scaledRows={scaledRows}
+                              maxEmS={maxEmS}
+                              scaledTotal={scaledTotal}
+                              scaledHighEf={scaledHighEf}
+                            />
                           </div>
-                        )}
+                          <OriginDonut rows={scaledRows} scaledTotal={scaledTotal} />
+                        </div>
 
-                        {/* Table */}
-                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
-                          <thead>
-                            <tr style={{ borderBottom:'1px solid #eee', color:'#666' }}>
-                              <th style={{ textAlign:'left', padding:'2px 4px', fontWeight:600, width:'90px' }}>Origin</th>
-                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'50px' }}>EF</th>
-                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'45px' }}>Mix %</th>
-                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'70px' }}>tCO₂e</th>
-                              <th style={{ padding:'2px 4px', width:'auto' }}>Risk bar</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {scaledRows.map(r => (
-                              <tr key={r.origin} style={{ borderBottom:'1px solid #f5f5f5' }}>
-                                <td style={{ padding:'2px 4px', fontWeight: r.ef > 5 ? 700 : 400, color: r.color }}>{r.origin}</td>
-                                <td style={{ padding:'2px 4px', textAlign:'right', color: r.color, fontWeight:600 }}>{r.ef.toFixed(2)}</td>
-                                <td style={{ padding:'2px 4px', textAlign:'right', color:'#555' }}>{r.pct.toFixed(1)}%</td>
-                                <td style={{ padding:'2px 4px', textAlign:'right', fontWeight: r.ef>5?700:400, color: r.color }}>{fmt(r.emS)}</td>
-                                <td style={{ padding:'2px 8px 2px 4px' }}>
-                                  <div style={{ height:8, borderRadius:3, background:'#f0f0f0', overflow:'hidden' }}>
-                                    <div style={{ height:'100%', width:`${maxEmS>0?(r.emS/maxEmS*100):0}%`,
-                                      background: r.color, borderRadius:3, transition:'width 0.3s' }} />
+                        {/* YoY Decomposition */}
+                        {(() => {
+                          const prevOD = originData.find(d => d.year === selectedOriginYear - 1);
+                          if (!prevOD || selectedOriginYear <= 2021) return null;
+                          const prevActual = cat1ByYear[selectedOriginYear - 1] || 0;
+                          const delta = actualCat1 - prevActual;
+                          const volumeEffect = Math.round((selOD.totalQty - prevOD.totalQty) * prevOD.weightedAvgEF);
+                          const mixEffect = Math.round(delta - volumeEffect);
+                          const absMax = Math.max(Math.abs(volumeEffect), Math.abs(mixEffect), 1);
+                          return (
+                            <div style={{ marginTop: 8, padding: '6px 10px', background: '#fafafa', borderRadius: 5, border: '1px solid #eee' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: '#333', marginBottom: 4 }}>
+                                📊 YoY Decomposition {selectedOriginYear - 1}→{selectedOriginYear}: {delta >= 0 ? '+' : ''}{fmt(delta)} tCO₂e
+                              </div>
+                              {([['📦 Volume effect', volumeEffect], ['🎯 Mix/EF effect', mixEffect]] as [string, number][]).map(([label, val]) => (
+                                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                                  <span style={{ fontSize: '9.5px', width: 100, color: '#555', flexShrink: 0 }}>{label}</span>
+                                  <div style={{ flex: 1, height: 10, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${Math.abs(val) / absMax * 100}%`, background: val > 0 ? '#C8281A' : '#3E7B3E', borderRadius: 3 }} />
                                   </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr style={{ borderTop:'1.5px solid #ddd', background:'#f9f9f9' }}>
-                              <td style={{ padding:'3px 4px', fontWeight:700 }} colSpan={2}>TOTAL</td>
-                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700 }}>100%</td>
-                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700, color:'#C8281A' }}>{fmt(scaledTotal)}</td>
-                              <td style={{ padding:'3px 4px', fontSize:'10px', color: scaledHighEf/scaledTotal > 0.6 ? '#C8281A' : '#3E7B3E' }}>
-                                🔴 High-EF: {fmt(scaledHighEf)} ({Math.round(scaledHighEf/scaledTotal*100)}%)
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                                  <span style={{ fontSize: '9.5px', fontWeight: 700, color: val > 0 ? '#C8281A' : '#3E7B3E', width: 70, textAlign: 'right', flexShrink: 0 }}>
+                                    {val > 0 ? '+' : ''}{fmt(val)} tCO₂e
+                                  </span>
+                                </div>
+                              ))}
+                              <div style={{ marginTop: 3, fontSize: '9px', color: '#777', fontStyle: 'italic' }}>
+                                {Math.abs(mixEffect) > Math.abs(volumeEffect)
+                                  ? '⚠️ Thay đổi chủ yếu do SOURCING MIX (chuyển sang origin EF cao hơn), không phải do mua nhiều hơn.'
+                                  : '📦 Thay đổi chủ yếu do VOLUME (mua nhiều/ít hơn), không phải do thay đổi nguồn.'}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
-                        {/* Trend: avg EF per year */}
-                        <div style={{ marginTop:8, display:'flex', gap:6, flexWrap:'wrap', fontSize:'10px', color:'#555' }}>
-                          <strong style={{ color:'#1a1a1a' }}>Weighted Avg EF trend:</strong>
+                        {/* Avg EF trend */}
+                        <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: '10px', color: '#555' }}>
+                          <strong style={{ color: '#1a1a1a' }}>Weighted Avg EF trend:</strong>
                           {originData.map(od => {
                             const prev = originData.find(d => d.year === od.year - 1);
                             const improving = prev ? od.weightedAvgEF < prev.weightedAvgEF : true;
                             return (
-                              <span key={od.year} style={{ color: improving ? '#3E7B3E' : '#C8281A', fontWeight:600 }}>
+                              <span key={od.year} style={{ color: improving ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>
                                 {od.year}: {od.weightedAvgEF.toFixed(2)}{prev ? (improving ? '▼' : '▲') : ''}
                               </span>
                             );
                           })}
                         </div>
-                        <p style={{ margin:'6px 0 0', fontSize:'10px', color:'#666', fontStyle:'italic' }}>
-                          ⚠️ Data based on SBTi FLAG EF methodology. Origin mix is approximate — connect <code>scope3_origin_data</code> table for real-time breakdown.
+                        <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#666', fontStyle: 'italic' }}>
+                          ⚠️ Data based on SBTi FLAG EF methodology. Click row để xem phân tích EF-driven vs Volume-driven.
                         </p>
                       </div>
                     </div>
