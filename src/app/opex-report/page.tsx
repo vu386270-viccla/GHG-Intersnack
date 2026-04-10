@@ -383,8 +383,9 @@ export default function OpexReportPage() {
   // Formula: from 2025 actual, reduce linearly to reach (base * 0.5) by 2031
   const ultimateTargetYear = 2031;
   const yearsToTarget = ultimateTargetYear - 2025;
-  const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - b1 * 0.5) / yearsToTarget : 0;
-  const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - b2 * 0.5) / yearsToTarget : 0;
+  // Clamp to >= 0 so bars never increase — if 2025 actual already below 50% baseline, stay flat
+  const s1AnnualCut = yearsToTarget > 0 ? Math.max(0, (s1_2025 - b1 * 0.5) / yearsToTarget) : 0;
+  const s2AnnualCut = yearsToTarget > 0 ? Math.max(0, (s2_2025 - b2 * 0.5) / yearsToTarget) : 0;
   const targetProj = (act2025: number, annualCut: number, year: number) =>
     act2025 - annualCut * (year - 2025);
 
