@@ -379,15 +379,22 @@ export default function OpexReportPage() {
   const s1_2025 = get(2025).scope1;
   const s2_2025 = get(2025).scope2;
 
-  // Compute required annual reduction so that we reach exactly 50% of baseline by 2031
-  // Formula: from 2025 actual, reduce linearly to reach (base * 0.5) by 2031
+  // Compute required annual reduction so that we reach exactly 50% of baseline by 2031.
+  // If 2025 actual is ALREADY below 50% baseline (SBTi target met early), we still continue
+  // reducing — targeting an additional 25% from 2025 level by the end year.
+  // This reflects the group strategy: strong-performing factories pull the overall portfolio
+  // further below the 50% floor, creating headroom for peer facilities.
   const ultimateTargetYear = 2031;
   const yearsToTarget = ultimateTargetYear - 2025;
-  // Clamp to >= 0 so bars never increase — if 2025 actual already below 50% baseline, stay flat
-  const s1AnnualCut = yearsToTarget > 0 ? Math.max(0, (s1_2025 - b1 * 0.5) / yearsToTarget) : 0;
-  const s2AnnualCut = yearsToTarget > 0 ? Math.max(0, (s2_2025 - b2 * 0.5) / yearsToTarget) : 0;
+  const s1FinalTarget = s1_2025 <= b1 * 0.5 ? s1_2025 * 0.75 : b1 * 0.5;
+  const s2FinalTarget = s2_2025 <= b2 * 0.5 ? s2_2025 * 0.75 : b2 * 0.5;
+  const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - s1FinalTarget) / yearsToTarget : 0;
+  const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - s2FinalTarget) / yearsToTarget : 0;
   const targetProj = (act2025: number, annualCut: number, year: number) =>
     act2025 - annualCut * (year - 2025);
+  // Flags for contextual commentary
+  const s1BeyondTarget = s1_2025 <= b1 * 0.5;
+  const s2BeyondTarget = s2_2025 <= b2 * 0.5;
 
   const end_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, targetEndYear));
   const end_s2 = Math.round(targetProj(s2_2025, s2AnnualCut, targetEndYear));
@@ -582,9 +589,17 @@ export default function OpexReportPage() {
 
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
+                {/* Contextual header: highlight if already ahead of SBTi 2031 target */}
+                {s1BeyondTarget && (
+                  <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#eaf5ea', borderLeft: '3px solid #3E7B3E', borderRadius: '4px', fontSize: '11.5px' }}>
+                    <strong style={{ color: '#2E6B2E' }}>✅ Scope 1 — SBTi 2031 target already achieved!</strong>{' '}
+                    Tuy nhiên, cần tiếp tục giảm để tạo dư địa cho các nhà máy khác trong nhóm 4 nhà máy cùng chung mục tiêu 50%.
+                    Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.
+                  </p>
+                )}
                 <p style={{ margin: '0 0 5px' }}>
-                  <strong>🏆 Scope 1 SBTi Performance (2025):</strong> Total volume stands at{' '}
-                  <strong style={{ color: '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
+                  <strong>{s1BeyondTarget ? '🏆' : '📋'} Scope 1 SBTi Performance (2025):</strong> Total volume stands at{' '}
+                  <strong style={{ color: s1BeyondTarget ? '#3E7B3E' : '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
                   {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 Base Year).
                   {' '}SBTi Target Variance:{' '}
                   <span style={{ color: pct1_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
@@ -670,9 +685,17 @@ export default function OpexReportPage() {
 
             return (
               <div style={{ fontSize: '11.5px', lineHeight: '1.55', marginTop: '8px', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
+                {/* Contextual header: highlight if already ahead of SBTi 2031 target */}
+                {s2BeyondTarget && (
+                  <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#eaf5ea', borderLeft: '3px solid #3E7B3E', borderRadius: '4px', fontSize: '11.5px' }}>
+                    <strong style={{ color: '#2E6B2E' }}>✅ Scope 2 — SBTi 2031 target already achieved!</strong>{' '}
+                    Tuy nhiên, cần tiếp tục giảm để tạo dư địa cho các nhà máy khác trong nhóm 4 nhà máy cùng chung mục tiêu 50%.
+                    Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.
+                  </p>
+                )}
                 <p style={{ margin: '0 0 5px' }}>
-                  <strong>⚠️ Scope 2 SBTi Performance (2025):</strong> Electricity-driven footprint recorded at{' '}
-                  <strong style={{ color: '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
+                  <strong>{s2BeyondTarget ? '🏆' : '⚠️'} Scope 2 SBTi Performance (2025):</strong> Electricity-driven footprint recorded at{' '}
+                  <strong style={{ color: s2BeyondTarget ? '#3E7B3E' : '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
                   {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 Base Year).
                   {' '}SBTi Target Variance:{' '}
                   <span style={{ color: pct2_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
