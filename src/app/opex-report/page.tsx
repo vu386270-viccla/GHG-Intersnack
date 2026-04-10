@@ -350,7 +350,7 @@ const ORIGIN_MIX: Record<number, Record<string, number>> = {
   },
   2022: {
     'C.Ivory':  32182,  // IVORY COAST: India 21,272 + VN 10,910
-    'Guinea-B': 20902,  // BISSAU: India 15,844 + VN 5,058
+    'Guinea-B': 20903,  // BISSAU: India 15,844.051 + VN 5,058.493 = 20,902.544 → 20903
     'Tanzania': 13735,  // TANZANIA: VN 13,735
     'Ghana':     9917,  // GHANA: VN 9,917
     'Cambodia':  3219,  // CAMBODIA: VN 3,219
