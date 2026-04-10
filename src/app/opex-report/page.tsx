@@ -250,12 +250,11 @@ function WaterfallChart({
 
             return (
               <g key={idx}>
-                {/* LEFT vertical drop to physical bar top */}
+                {/* LEFT vertical drop — no arrow, baseline is the reference start point */}
                 <line
                   x1={fromX} y1={bracketY}
                   x2={fromX} y2={fromBarTopY - 2}
                   stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-                  markerEnd="url(#arwD)"
                 />
 
                 <line x1={fromX} y1={bracketY} x2={midX - ovalRx} y2={bracketY} stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash} />
@@ -481,26 +480,29 @@ export default function OpexReportPage() {
       flexDirection: 'column',
     }}>
 
-      {/* ── Slide Header ─────────────────────────────────── */}
-      <div style={{ padding: '20px 32px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <h1 style={{ fontSize: '26px', fontWeight: 900, margin: 0, lineHeight: 1.25 }}>
+      {/* ── Slide Header (responsive) ────────────────────────────── */}
+      <div style={{ padding: '12px 16px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Title row */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+              <h1 style={{ fontSize: 'clamp(16px, 3vw, 24px)', fontWeight: 900, margin: 0, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
                 <span style={{ color: '#C8281A' }}>Reduce CO₂ emissions (SBTi)</span>{' '}
                 <span style={{
                   background: '#FFD700', color: '#1a1a1a',
-                  padding: '1px 10px', borderRadius: '4px', fontSize: '20px',
+                  padding: '1px 8px', borderRadius: '4px', fontSize: 'clamp(13px, 2.5vw, 18px)',
                 }}>
                   2025 Annual Report
                 </span>
               </h1>
-              
-              <div style={{ display: 'flex', background: '#f5f5f5', borderRadius: '6px', padding: '2px', border: '1px solid #ddd', marginRight: '16px' }}>
+            </div>
+            {/* Controls row — wraps on mobile */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', background: '#f5f5f5', borderRadius: '6px', padding: '2px', border: '1px solid #ddd' }}>
                 <button
                   onClick={() => setTargetEndYear(2028)}
                   style={{
-                    padding: '4px 12px', fontSize: '13px', fontWeight: targetEndYear === 2028 ? 'bold' : 'normal',
+                    padding: '4px 10px', fontSize: '12px', fontWeight: targetEndYear === 2028 ? 'bold' : 'normal',
                     background: targetEndYear === 2028 ? '#fff' : 'transparent',
                     boxShadow: targetEndYear === 2028 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                     border: 'none', borderRadius: '4px', cursor: 'pointer', color: targetEndYear === 2028 ? '#C8281A' : '#666'
@@ -511,7 +513,7 @@ export default function OpexReportPage() {
                 <button
                   onClick={() => setTargetEndYear(2031)}
                   style={{
-                    padding: '4px 12px', fontSize: '13px', fontWeight: targetEndYear === 2031 ? 'bold' : 'normal',
+                    padding: '4px 10px', fontSize: '12px', fontWeight: targetEndYear === 2031 ? 'bold' : 'normal',
                     background: targetEndYear === 2031 ? '#fff' : 'transparent',
                     boxShadow: targetEndYear === 2031 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                     border: 'none', borderRadius: '4px', cursor: 'pointer', color: targetEndYear === 2031 ? '#C8281A' : '#666'
@@ -525,14 +527,15 @@ export default function OpexReportPage() {
                 value={selectedFac}
                 onChange={e => setSelectedFac(e.target.value)}
                 style={{
-                  padding: '4px 12px',
-                  fontSize: '13px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
                   borderRadius: '4px',
                   border: '1px solid #aaa',
                   background: '#fff',
                   cursor: 'pointer',
                   fontWeight: 600,
-                  color: selectedFac === 'ALL' ? '#1a1a1a' : '#C8281A'
+                  color: selectedFac === 'ALL' ? '#1a1a1a' : '#C8281A',
+                  maxWidth: '200px',
                 }}
               >
                 <option value="ALL">Khu vực: Tất cả nhà máy</option>
@@ -541,22 +544,22 @@ export default function OpexReportPage() {
                 ))}
               </select>
             </div>
-            <div style={{ fontSize: '20px', fontWeight: 600, color: '#222', marginTop: '4px' }}>
+            <div style={{ fontSize: 'clamp(13px, 2vw, 18px)', fontWeight: 600, color: '#222' }}>
               50 % CO₂ reductions in Operations
             </div>
           </div>
           <img src="/intersnack-logo.png" alt="Intersnack"
-            style={{ height: '52px', objectFit: 'contain', marginTop: '4px' }} />
+            style={{ height: '44px', objectFit: 'contain', flexShrink: 0 }} />
         </div>
-        <hr style={{ border: 'none', borderTop: '2.5px solid #C8281A', margin: '10px 0 0' }} />
+        <hr style={{ border: 'none', borderTop: '2.5px solid #C8281A', margin: '8px 0 0' }} />
       </div>
 
-      {/* ── Two Charts Side by Side ──────────────────────── */}
+      {/* ── Two Charts — stack vertically on mobile ──────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
         gap: '0',
-        padding: '4px 24px',
+        padding: '4px 12px',
         flex: 1,
       }}>
         {/* ── Scope 1 ── */}
