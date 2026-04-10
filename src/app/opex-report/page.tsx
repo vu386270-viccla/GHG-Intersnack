@@ -352,6 +352,7 @@ export default function OpexReportPage() {
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
   const [selectedScope, setSelectedScope] = useState<'ops' | 'supply'>('ops');
+  const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2025);
 
   const [rawEms, setRawEms] = useState<any[]>([]);
   const [rawProd, setRawProd] = useState<any[]>([]);
@@ -996,6 +997,15 @@ export default function OpexReportPage() {
         const cur2032Gap = s3Cur.total - totalTarget2032;
         const annualCutNeeded = Math.round(cur2032Gap / (S3_TARGET_YEAR - 2025));
 
+        // Actual Cat.1 per year (for scaling Origin breakdown)
+        const cat1ByYear: Record<number, number> = {
+          2021: s3Base.cat1,
+          2022: s3_2022?.cat1 || 0,
+          2023: s3_2023?.cat1 || 0,
+          2024: s3_2024?.cat1 || 0,
+          2025: s3Cur.cat1,
+        };
+
         // Linear plan 2026-targetEndYear
         const totalCur = s3Cur.total;
         const annualCut = (totalCur - totalTarget2032) / (S3_TARGET_YEAR - 2025);
@@ -1117,53 +1127,90 @@ export default function OpexReportPage() {
 
                 {/* ── Origin Risk Analysis Panel ── */}
                 {showOrigin && (() => {
-                  const yr2025 = originData.find(d => d.year === 2025);
-                  const yr2021 = originData.find(d => d.year === 2021);
-                  if(!yr2025) return null;
-                  const maxEm = Math.max(...yr2025.rows.map(r => r.em));
+                  const selOD = originData.find(d => d.year === selectedOriginYear);
+                  const baseOD = originData.find(d => d.year === 2021);
+                  if (!selOD) return null;
+
+                  // Scale emissions to match actual Cat.1 from DB
+                  const actualCat1 = cat1ByYear[selectedOriginYear] || 0;
+                  const rawTotal   = selOD.totalEm;
+                  const scale      = rawTotal > 0 && actualCat1 > 0 ? actualCat1 / rawTotal : 1;
+                  const scaledRows = selOD.rows.map(r => ({ ...r, emS: Math.round(r.em * scale) }));
+                  const maxEmS     = Math.max(...scaledRows.map(r => r.emS));
+                  const scaledTotal = Math.round(selOD.totalEm * scale);
+                  const scaledHighEf = Math.round(selOD.highEfEm * scale);
+
                   return (
                     <div style={{ marginTop:10, border:'1.5px solid #C8281A', borderRadius:6, overflow:'hidden' }}>
-                      <div style={{ background:'#C8281A', color:'white', padding:'5px 10px', fontSize:'11px', fontWeight:700, display:'flex', justifyContent:'space-between' }}>
-                        <span>🌍 Cat.1 Origin Risk Analysis — 2025 Procurement</span>
-                        <span style={{ fontWeight:400, opacity:0.85 }}>Avg EF: {yr2025.weightedAvgEF.toFixed(2)} kgCO₂e/kg {yr2021 ? `(2021: ${yr2021.weightedAvgEF.toFixed(2)})` : ''}</span>
+                      {/* Header */}
+                      <div style={{ background:'#C8281A', color:'white', padding:'5px 10px', fontSize:'11px', fontWeight:700, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <span>🌍 Cat.1 Origin Risk Analysis</span>
+                        <span style={{ fontWeight:400, opacity:0.85, fontSize:'10px' }}>
+                          Avg EF: {selOD.weightedAvgEF.toFixed(2)} tCO₂e/MT
+                          {baseOD ? ` (2021: ${baseOD.weightedAvgEF.toFixed(2)})` : ''}
+                        </span>
                       </div>
+
                       <div style={{ padding:'8px', background:'#fff' }}>
-                        {/* Year selector bar */}
-                        <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+                        {/* Year selector — CLICKABLE */}
+                        <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
                           {[2021,2022,2023,2024,2025].map(oyr => {
                             const od = originData.find(d => d.year === oyr);
-                            if(!od) return null;
-                            const highPct = od.totalEm > 0 ? Math.round(od.highEfEm/od.totalEm*100) : 0;
+                            if (!od) return null;
+                            const actCat1 = cat1ByYear[oyr] || 0;
+                            const sc = od.totalEm > 0 && actCat1 > 0 ? actCat1 / od.totalEm : 1;
+                            const highPct = od.totalEm > 0 ? Math.round(od.highEfEm / od.totalEm * 100) : 0;
+                            const isSel = oyr === selectedOriginYear;
                             return (
-                              <div key={oyr} style={{ fontSize:'10px', padding:'3px 8px', border:'1px solid #ddd', borderRadius:4,
-                                background: oyr===2025 ? '#fff0f0' : '#f9f9f9',
-                                borderColor: oyr===2025 ? '#C8281A' : '#ddd', fontWeight: oyr===2025 ? 700 : 400 }}>
-                                <strong>{oyr}</strong>: 🔴 High-EF {highPct}% of Cat.1
-                              </div>
+                              <button
+                                key={oyr}
+                                onClick={() => setSelectedOriginYear(oyr)}
+                                style={{
+                                  fontSize:'10.5px', padding:'4px 9px',
+                                  border: `1.5px solid ${isSel ? '#C8281A' : '#ddd'}`,
+                                  borderRadius:4, cursor:'pointer',
+                                  background: isSel ? '#C8281A' : '#f9f9f9',
+                                  color: isSel ? '#fff' : '#444',
+                                  fontWeight: isSel ? 700 : 400,
+                                  transition:'all 0.15s',
+                                }}
+                              >
+                                <strong>{oyr}</strong> &nbsp;
+                                🔴 {highPct}% high-EF
+                              </button>
                             );
                           })}
                         </div>
-                        {/* Origin bar chart */}
+
+                        {/* Note: scaled to actual DB */}
+                        {scale !== 1 && (
+                          <div style={{ fontSize:'9.5px', color:'#888', marginBottom:5, fontStyle:'italic' }}>
+                            ℹ️ Emissions scaled to match actual Cat.1 DB value ({fmt(actualCat1)} tCO₂e).
+                            Origin % mix estimated from SBTi FLAG sourcing data.
+                          </div>
+                        )}
+
+                        {/* Table */}
                         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
                           <thead>
                             <tr style={{ borderBottom:'1px solid #eee', color:'#666' }}>
                               <th style={{ textAlign:'left', padding:'2px 4px', fontWeight:600, width:'90px' }}>Origin</th>
-                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'55px' }}>EF</th>
-                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'55px' }}>MTs</th>
-                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'65px' }}>tCO₂e</th>
+                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'50px' }}>EF</th>
+                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'45px' }}>Mix %</th>
+                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'70px' }}>tCO₂e</th>
                               <th style={{ padding:'2px 4px', width:'auto' }}>Risk bar</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {yr2025.rows.map(r => (
+                            {scaledRows.map(r => (
                               <tr key={r.origin} style={{ borderBottom:'1px solid #f5f5f5' }}>
                                 <td style={{ padding:'2px 4px', fontWeight: r.ef > 5 ? 700 : 400, color: r.color }}>{r.origin}</td>
                                 <td style={{ padding:'2px 4px', textAlign:'right', color: r.color, fontWeight:600 }}>{r.ef.toFixed(2)}</td>
-                                <td style={{ padding:'2px 4px', textAlign:'right', color:'#555' }}>{(r.qty/1000).toFixed(1)}K</td>
-                                <td style={{ padding:'2px 4px', textAlign:'right', fontWeight: r.ef>5?700:400, color: r.color }}>{fmt(r.em)}</td>
+                                <td style={{ padding:'2px 4px', textAlign:'right', color:'#555' }}>{r.pct.toFixed(1)}%</td>
+                                <td style={{ padding:'2px 4px', textAlign:'right', fontWeight: r.ef>5?700:400, color: r.color }}>{fmt(r.emS)}</td>
                                 <td style={{ padding:'2px 8px 2px 4px' }}>
                                   <div style={{ height:8, borderRadius:3, background:'#f0f0f0', overflow:'hidden' }}>
-                                    <div style={{ height:'100%', width:`${maxEm>0?(r.em/maxEm*100):0}%`,
+                                    <div style={{ height:'100%', width:`${maxEmS>0?(r.emS/maxEmS*100):0}%`,
                                       background: r.color, borderRadius:3, transition:'width 0.3s' }} />
                                   </div>
                                 </td>
@@ -1173,10 +1220,10 @@ export default function OpexReportPage() {
                           <tfoot>
                             <tr style={{ borderTop:'1.5px solid #ddd', background:'#f9f9f9' }}>
                               <td style={{ padding:'3px 4px', fontWeight:700 }} colSpan={2}>TOTAL</td>
-                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700 }}>{(yr2025.totalQty/1000).toFixed(1)}K</td>
-                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700 }}>{fmt(yr2025.totalEm)}</td>
-                              <td style={{ padding:'3px 4px', fontSize:'10px', color: yr2025.highEfEm/yr2025.totalEm > 0.6 ? '#C8281A' : '#3E7B3E' }}>
-                                🔴 High-EF: {fmt(yr2025.highEfEm)} ({Math.round(yr2025.highEfEm/yr2025.totalEm*100)}%)
+                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700 }}>100%</td>
+                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700, color:'#C8281A' }}>{fmt(scaledTotal)}</td>
+                              <td style={{ padding:'3px 4px', fontSize:'10px', color: scaledHighEf/scaledTotal > 0.6 ? '#C8281A' : '#3E7B3E' }}>
+                                🔴 High-EF: {fmt(scaledHighEf)} ({Math.round(scaledHighEf/scaledTotal*100)}%)
                               </td>
                             </tr>
                           </tfoot>
