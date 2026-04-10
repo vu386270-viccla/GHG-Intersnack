@@ -823,104 +823,143 @@ export default function OpexReportPage() {
       flexDirection: 'column',
     }}>
 
-      {/* ── Slide Header (responsive) ────────────────────────────── */}
-      <div style={{ padding: '12px 16px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Title row */}
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
-              <h1 style={{ fontSize: 'clamp(16px, 3vw, 24px)', fontWeight: 900, margin: 0, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-                <span style={{ color: '#C8281A' }}>Reduce CO₂ emissions (SBTi)</span>{' '}
-                <span style={{
-                  background: '#FFD700', color: '#1a1a1a',
-                  padding: '1px 8px', borderRadius: '4px', fontSize: 'clamp(13px, 2.5vw, 18px)',
-                }}>
-                  2025 Annual Report
-                </span>
-              </h1>
-            </div>
-            {/* Scope selector tabs */}
-            <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: '6px', padding: '2px', border: '1px solid #ddd', width: 'fit-content' }}>
-              <button
-                onClick={() => setSelectedScope('ops')}
-                style={{
-                  padding: '5px 14px', fontSize: '12px', fontWeight: selectedScope==='ops' ? 'bold' : 'normal',
-                  background: selectedScope==='ops' ? '#fff' : 'transparent',
-                  boxShadow: selectedScope==='ops' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                  border: 'none', borderRadius: '4px', cursor: 'pointer',
-                  color: selectedScope==='ops' ? '#C8281A' : '#666',
-                }}
-              >Scope 1 &amp; 2 — Operations</button>
-              <button
-                onClick={() => setSelectedScope('supply')}
-                style={{
-                  padding: '5px 14px', fontSize: '12px', fontWeight: selectedScope==='supply' ? 'bold' : 'normal',
-                  background: selectedScope==='supply' ? '#fff' : 'transparent',
-                  boxShadow: selectedScope==='supply' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                  border: 'none', borderRadius: '4px', cursor: 'pointer',
-                  color: selectedScope==='supply' ? '#2E6B2E' : '#666',
-                }}
-              >Scope 3 — Supply Chain</button>
-            </div>
-            {/* Controls row — wraps on mobile */}
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '4px' }}>
-              <div style={{ display: 'flex', background: '#f5f5f5', borderRadius: '6px', padding: '2px', border: '1px solid #ddd' }}>
-                <button
-                  onClick={() => setTargetEndYear(2028)}
-                  style={{
-                    padding: '4px 10px', fontSize: '12px', fontWeight: targetEndYear === 2028 ? 'bold' : 'normal',
-                    background: targetEndYear === 2028 ? '#fff' : 'transparent',
-                    boxShadow: targetEndYear === 2028 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    border: 'none', borderRadius: '4px', cursor: 'pointer', color: targetEndYear === 2028 ? '#C8281A' : '#666'
-                  }}
-                >
-                  Target 2028
-                </button>
-                <button
-                  onClick={() => setTargetEndYear(2031)}
-                  style={{
-                    padding: '4px 10px', fontSize: '12px', fontWeight: targetEndYear === 2031 ? 'bold' : 'normal',
-                    background: targetEndYear === 2031 ? '#fff' : 'transparent',
-                    boxShadow: targetEndYear === 2031 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    border: 'none', borderRadius: '4px', cursor: 'pointer', color: targetEndYear === 2031 ? '#C8281A' : '#666'
-                  }}
-                >
-                  Target 2031
-                </button>
-              </div>
+      {/* ── CSS Animations ─────────────────────────────────────────── */}
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.96); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        .opex-pill-btn {
+          padding: 5px 13px;
+          font-size: 12px;
+          font-weight: 500;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          background: transparent;
+          color: #666;
+          transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+          white-space: nowrap;
+        }
+        .opex-pill-btn.active-red {
+          background: #fff;
+          color: #C8281A;
+          font-weight: 700;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+        .opex-pill-btn.active-green {
+          background: #fff;
+          color: #2E6B2E;
+          font-weight: 700;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+        .opex-pill-btn:hover:not(.active-red):not(.active-green) {
+          background: rgba(0,0,0,0.05);
+          color: #333;
+        }
+        .opex-select {
+          padding: 5px 10px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid #dde1e7;
+          border-radius: 6px;
+          background: #fff;
+          cursor: pointer;
+          color: #333;
+          appearance: none;
+          -webkit-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          padding-right: 24px;
+          transition: border-color 0.15s;
+        }
+        .opex-select:focus { outline: none; border-color: #C8281A; }
+        .opex-divider { width: 1px; height: 20px; background: #ddd; flex-shrink: 0; }
+      `}</style>
 
-              <select
-                value={selectedFac}
-                onChange={e => setSelectedFac(e.target.value)}
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '12px',
-                  borderRadius: '4px',
-                  border: '1px solid #aaa',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  color: selectedFac === 'ALL' ? '#1a1a1a' : '#C8281A',
-                  maxWidth: '200px',
-                }}
-              >
-                <option value="ALL">Khu vực: Tất cả nhà máy</option>
-                {factories.map(f => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
+      {/* ── Slide Header ────────────────────────────────────────────── */}
+      <div style={{
+        padding: '10px 20px 8px',
+        animation: 'fadeSlideIn 0.35s ease both',
+      }}>
+        {/* Single unified control bar */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: '8px',
+          marginBottom: '8px',
+        }}>
+          {/* LEFT: Title */}
+          <h1 style={{ margin: 0, fontSize: 'clamp(15px, 2.5vw, 22px)', fontWeight: 900, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            <span style={{ color: '#C8281A' }}>Reduce CO₂</span>
+            <span style={{ color: '#444', fontWeight: 500, fontSize: '0.75em', marginLeft: 6 }}>SBTi Annual 2025</span>
+          </h1>
+
+          {/* CENTER: All controls inline */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+
+            {/* Scope tab switcher */}
+            <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: '8px', padding: '3px', border: '1px solid #e2e2e2' }}>
+              <button className={`opex-pill-btn${selectedScope === 'ops' ? ' active-red' : ''}`}
+                onClick={() => setSelectedScope('ops')}>
+                🔥 Operations
+              </button>
+              <button className={`opex-pill-btn${selectedScope === 'supply' ? ' active-green' : ''}`}
+                onClick={() => setSelectedScope('supply')}>
+                🌍 Supply Chain
+              </button>
             </div>
-            <div style={{ fontSize: 'clamp(13px, 2vw, 18px)', fontWeight: 600, color: '#222' }}>
-              {selectedScope === 'ops'
-                ? '50 % CO₂ reductions in Operations'
-                : '30 % CO₂ reductions in Supply Chain (SBTi FLAG −36.4%)'}
+
+            <div className="opex-divider" />
+
+            {/* Target horizon switcher */}
+            <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: '8px', padding: '3px', border: '1px solid #e2e2e2' }}>
+              <button className={`opex-pill-btn${targetEndYear === 2028 ? ' active-red' : ''}`}
+                onClick={() => setTargetEndYear(2028)}>
+                2028
+              </button>
+              <button className={`opex-pill-btn${targetEndYear === 2031 ? ' active-red' : ''}`}
+                onClick={() => setTargetEndYear(2031)}>
+                2031
+              </button>
             </div>
+
+            <div className="opex-divider" />
+
+            {/* Factory selector */}
+            <select
+              value={selectedFac}
+              onChange={e => setSelectedFac(e.target.value)}
+              className="opex-select"
+            >
+              <option value="ALL">🏭 Tất cả nhà máy</option>
+              {factories.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
           </div>
-          <img src="/intersnack-logo.png" alt="Intersnack"
-            style={{ height: '44px', objectFit: 'contain', flexShrink: 0 }} />
         </div>
-        <hr style={{ border: 'none', borderTop: '2.5px solid #C8281A', margin: '8px 0 0' }} />
+
+        {/* Subtitle / context line */}
+        <div style={{
+          fontSize: '12px', color: '#888', fontStyle: 'italic',
+          animation: 'fadeSlideIn 0.45s 0.1s ease both',
+        }}>
+          {selectedScope === 'ops'
+            ? '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)'
+            : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)'}
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
       </div>
+
+
+
 
       {/* ── Two Charts — stack vertically on mobile ──────────────────── */}
       <div style={{

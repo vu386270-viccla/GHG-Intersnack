@@ -11,7 +11,7 @@ const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
   '/factories': { title: 'Nhà máy', accent: 'So sánh' },
   '/input': { title: 'Nhập dữ liệu', accent: 'Emissions Data' },
   '/targets': { title: 'Mục tiêu', accent: 'SBTi Progress' },
-  '/opex-report': { title: 'Opex Report', accent: 'SBTi Annual Slide' },
+  '/opex-report': { title: 'Opex Report', accent: 'SBTi Annual' },
 };
 
 function HeaderInner() {
@@ -19,16 +19,14 @@ function HeaderInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pageInfo = PAGE_TITLES[pathname] || PAGE_TITLES['/'];
-  const currentYear = new Date().getFullYear();
 
   const isOpex = pathname === '/opex-report';
   const showIntensity = searchParams.get('intensity') === '1';
-  const showOrigin = searchParams.get('origin') === '1';
+  const showOrigin    = searchParams.get('origin')    === '1';
 
   const toggle = (key: string, current: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (current) params.delete(key);
-    else params.set(key, '1');
+    if (current) params.delete(key); else params.set(key, '1');
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
@@ -38,62 +36,64 @@ function HeaderInner() {
         {pageInfo.title}
         {pageInfo.accent && <> &mdash; <span>{pageInfo.accent}</span></>}
       </div>
-      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-        {/* ── Opex-only toggles ── */}
-        {isOpex && (
-          <>
-            <button
-              onClick={() => toggle('intensity', showIntensity)}
-              title="Toggle: CO₂e absolute vs CO₂e/RCN intensity"
-              style={{
-                padding: '4px 11px', fontSize: '11.5px', fontWeight: 600,
-                border: `1.5px solid ${showIntensity ? '#2E6B2E' : '#aaa'}`,
-                borderRadius: '6px', cursor: 'pointer',
-                background: showIntensity ? '#eaf5ea' : '#fff',
-                color: showIntensity ? '#2E6B2E' : '#666',
-                display: 'flex', alignItems: 'center', gap: '4px',
-                transition: 'all 0.18s',
-                lineHeight: 1.3,
-              }}
-            >
-              <span>&#128202;</span>
-              {showIntensity ? 'tCO\u2082e/RCN' : 'Absolute tCO\u2082e'}
-            </button>
-            <button
-              onClick={() => toggle('origin', showOrigin)}
-              title="Phan tich Cat.1 theo nguon goc xuat xu"
-              style={{
-                padding: '4px 11px', fontSize: '11.5px', fontWeight: 600,
-                border: `1.5px solid ${showOrigin ? '#C8281A' : '#aaa'}`,
-                borderRadius: '6px', cursor: 'pointer',
-                background: showOrigin ? '#fff0f0' : '#fff',
-                color: showOrigin ? '#C8281A' : '#666',
-                display: 'flex', alignItems: 'center', gap: '4px',
-                transition: 'all 0.18s',
-                lineHeight: 1.3,
-              }}
-            >
-              <span>&#127757;</span> Origin Risk
-            </button>
-          </>
-        )}
 
-        <img
-          src="/intersnack-logo.png"
-          alt="Intersnack"
-          style={{ height: '36px', width: 'auto', objectFit: 'contain', marginRight: '4px' }}
-        />
-        <div className="header-badge">
-          &#128197; {currentYear}
-        </div>
-        <div className="header-badge sbti">
-          &#127919; SBTi Near-term
-        </div>
-        <div className="header-badge">
-          &#127981; 4 Nh&#224; m&#225;y
-        </div>
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {isOpex && (
+          /* ── Pill-style toggle group ── */
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            background: '#f4f4f4', border: '1px solid #e0e0e0',
+            borderRadius: '8px', padding: '3px',
+          }}>
+            <ToggleChip
+              active={showIntensity}
+              onClick={() => toggle('intensity', showIntensity)}
+              label={showIntensity ? 'tCO₂e/RCN' : 'Absolute'}
+              icon="📊"
+              activeColor="#2E6B2E"
+              activeBg="#eaf5ea"
+            />
+            <div style={{ width: 1, height: 16, background: '#ddd', margin: '0 1px' }} />
+            <ToggleChip
+              active={showOrigin}
+              onClick={() => toggle('origin', showOrigin)}
+              label="Origin Risk"
+              icon="🌍"
+              activeColor="#C8281A"
+              activeBg="#fff0f0"
+            />
+          </div>
+        )}
       </div>
     </header>
+  );
+}
+
+function ToggleChip({
+  active, onClick, label, icon, activeColor, activeBg
+}: {
+  active: boolean; onClick: () => void; label: string; icon: string;
+  activeColor: string; activeBg: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '5px',
+        padding: '4px 10px',
+        fontSize: '11.5px', fontWeight: active ? 700 : 500,
+        border: 'none', borderRadius: '6px', cursor: 'pointer',
+        background: active ? activeBg : 'transparent',
+        color: active ? activeColor : '#666',
+        transition: 'all 0.2s ease',
+        outline: active ? `1.5px solid ${activeColor}40` : 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ fontSize: '13px', lineHeight: 1 }}>{icon}</span>
+      {label}
+    </button>
   );
 }
 
