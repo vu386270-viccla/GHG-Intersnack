@@ -198,10 +198,14 @@ function WaterfallChart({
                   </>
                 ) : (
                   <>
-                    <rect x={bx(i)} y={boxY} width={bw} height={boxH} fill={color} />
-                    {isTargetMarker && (
-                      <rect x={bx(i) - 2} y={boxY - 2} width={bw + 4} height={boxH + 4} fill="none" stroke={C.target} strokeWidth="1.5" rx="2" />
-                    )}
+                    <rect x={bx(i)} y={boxY} width={bw} height={boxH} fill={color}
+                      stroke={
+                        color === C.actual   ? '#8B1A10' :
+                        color === C.target   ? '#2E6B2E' :
+                        '#555555'
+                      }
+                      strokeWidth="1.5" rx="2"
+                    />
 
                     {/* text delta — alternate above/below to avoid overlap on small bars */}
                     {boxH > 20 ? (
