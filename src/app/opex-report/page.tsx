@@ -317,21 +317,22 @@ const FLAG_TGT_PCT   = 36.4;
 const NONFLAG_TGT_PCT = 30.0;
 const S3_TARGET_YEAR = 2032;
 
-// ── Cashew Origin EFs (kgCO2e / kg RCN, Cat.1, FLAG) ─────────
-// Source: SBTi FLAG methodology, FAOSTAT land-use data 2023
+// ── Cashew Origin EFs (kg CO₂e / kg RCN, Cat.1, FLAG) ────────
+// Source: confirmed by user — SBTi FLAG / FAOSTAT land-use data
+// Unit: kg CO₂e per kg RCN → qty(MTS) × ef = tCO₂e  [MTS×1000kg÷1000 cancels]
 const ORIGIN_EF: Record<string, { ef: number; flag: boolean; color: string }> = {
-  'Indonesia':  { ef: 24.74, flag: true,  color: '#C8281A' },  // very high – deforestation risk
-  'Vietnam':    { ef: 3.82,  flag: true,  color: '#E8960E' },  // moderate
-  'India':      { ef: 2.18,  flag: true,  color: '#E8960E' },  // moderate
-  'Cambodia':   { ef: 2.70,  flag: true,  color: '#E8960E' },  // moderate
-  'Tanzania':   { ef: 1.98,  flag: true,  color: '#3E7B3E' },  // low
-  'Nigeria':    { ef: 1.56,  flag: true,  color: '#3E7B3E' },  // low
-  'Benin':      { ef: 2.13,  flag: true,  color: '#3E7B3E' },  // low
-  'C.Ivory':    { ef: 1.92,  flag: true,  color: '#3E7B3E' },  // low – Ivory Coast
-  'Guinea-B':   { ef: 1.74,  flag: true,  color: '#3E7B3E' },  // low – Guinea-Bissau
-  'Ghana':      { ef: 1.65,  flag: true,  color: '#3E7B3E' },  // low
-  'Senegal':    { ef: 1.60,  flag: true,  color: '#3E7B3E' },  // low
-  'Guinea':     { ef: 1.70,  flag: true,  color: '#3E7B3E' },  // low – Conakry/Guinea
+  'Indonesia':  { ef: 24.74,    flag: true, color: '#C8281A' },  // 🔴 highest – severe deforestation
+  'Tanzania':   { ef: 14.96,    flag: true, color: '#C8281A' },  // 🔴 very high
+  'C.Ivory':    { ef: 11.2396,  flag: true, color: '#E8960E' },  // 🟠 high – Ivory Coast
+  'Vietnam':    { ef: 11.2396,  flag: true, color: '#E8960E' },  // 🟠 high (⚠️ may not apply)
+  'Guinea-B':   { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic proxy
+  'Senegal':    { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic proxy
+  'Guinea':     { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic proxy
+  'India':      { ef:  4.24971, flag: true, color: '#E8960E' },  // 🟡 medium
+  'Cambodia':   { ef:  2.7,     flag: true, color: '#3E7B3E' },  // 🟢 lower
+  'Ghana':      { ef:  2.2,     flag: true, color: '#3E7B3E' },  // 🟢 lower
+  'Benin':      { ef:  2.13,    flag: true, color: '#3E7B3E' },  // 🟢 lower
+  'Nigeria':    { ef:  1.56,    flag: true, color: '#3E7B3E' },  // 🟢 lowest
 };
 
 // Origin procurement mix per year (MTs shipped — ACTUAL from raw data CSV)
