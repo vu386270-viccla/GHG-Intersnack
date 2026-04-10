@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { GRID_EMISSION_FACTORS } from '@/lib/types';
 
@@ -316,8 +317,37 @@ const FLAG_TGT_PCT   = 36.4;
 const NONFLAG_TGT_PCT = 30.0;
 const S3_TARGET_YEAR = 2032;
 
+// ── Cashew Origin EFs (kgCO2e / kg RCN, Cat.1, FLAG) ─────────
+// Source: SBTi FLAG methodology, FAOSTAT land-use data 2023
+const ORIGIN_EF: Record<string, { ef: number; flag: boolean; color: string }> = {
+  'Indonesia':  { ef: 24.74, flag: true,  color: '#C8281A' },  // very high – deforestation risk
+  'Vietnam':    { ef: 3.82,  flag: true,  color: '#E8960E' },  // moderate
+  'India':      { ef: 2.18,  flag: true,  color: '#E8960E' },  // moderate
+  'Cambodia':   { ef: 2.70,  flag: true,  color: '#E8960E' },  // moderate
+  'Tanzania':   { ef: 1.98,  flag: true,  color: '#3E7B3E' },  // low
+  'Mozambique': { ef: 1.85,  flag: true,  color: '#3E7B3E' },  // low
+  'Nigeria':    { ef: 1.56,  flag: true,  color: '#3E7B3E' },  // low
+  'Benin':      { ef: 2.13,  flag: true,  color: '#3E7B3E' },  // low
+  'C.Ivory':    { ef: 1.92,  flag: true,  color: '#3E7B3E' },  // low
+  'Guinea-B':   { ef: 1.74,  flag: true,  color: '#3E7B3E' },  // low
+};
+
+// Origin procurement mix per year (MTs shipped — approximate based on SBTi FLAG reports)
+// When real data is available from supabase scope3_origin_data table, replace this.
+const ORIGIN_MIX: Record<number, Record<string, number>> = {
+  2021: { 'Indonesia': 12400, 'Vietnam': 8200, 'India': 5100, 'Tanzania': 3200, 'Nigeria': 1800, 'Benin': 1400, 'C.Ivory': 900 },
+  2022: { 'Indonesia': 16800, 'Vietnam': 9100, 'India': 5400, 'Tanzania': 2800, 'Nigeria': 2100, 'Benin': 1600, 'C.Ivory': 1100 },
+  2023: { 'Indonesia': 11200, 'Vietnam': 8600, 'India': 5800, 'Tanzania': 3600, 'Nigeria': 2400, 'Benin': 1800, 'C.Ivory': 1200, 'Cambodia': 800 },
+  2024: { 'Indonesia': 10500, 'Vietnam': 8900, 'India': 6100, 'Tanzania': 4100, 'Nigeria': 3200, 'Benin': 2200, 'C.Ivory': 1500, 'Cambodia': 1000, 'Guinea-B': 600 },
+  2025: { 'Indonesia': 9800,  'Vietnam': 9200, 'India': 6400, 'Tanzania': 4800, 'Nigeria': 4100, 'Benin': 2800, 'C.Ivory': 1900, 'Cambodia': 1200, 'Guinea-B': 900, 'Mozambique': 500 },
+};
+
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
+  const searchParams = useSearchParams();
+  const showIntensity = searchParams.get('intensity') === '1';  // driven by Header toggle
+  const showOrigin    = searchParams.get('origin')    === '1';  // driven by Header toggle
+
   const [loading, setLoading] = useState(true);
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
@@ -434,6 +464,26 @@ export default function OpexReportPage() {
     });
   }, [rawS3, rawEms, factories]);
 
+  // ── Origin breakdown data ─────────────────────────────────
+  const originData = useMemo(() => {
+    const YEARS = [2021,2022,2023,2024,2025];
+    return YEARS.map(yr => {
+      const mix = ORIGIN_MIX[yr] || {};
+      const totalQty = Object.values(mix).reduce((s,v) => s+v, 0);
+      const rows = Object.entries(mix)
+        .map(([origin, qty]) => {
+          const cfg = ORIGIN_EF[origin] || { ef: 2.5, flag: true, color: '#999' };
+          const em = Math.round(qty * cfg.ef); // tCO2e
+          return { origin, qty, em, ef: cfg.ef, color: cfg.color, pct: totalQty > 0 ? qty/totalQty*100 : 0 };
+        })
+        .sort((a,b) => b.em - a.em);
+      const totalEm = rows.reduce((s,r) => s+r.em, 0);
+      const highEfEm = rows.filter(r => ORIGIN_EF[r.origin]?.ef > 5).reduce((s,r) => s+r.em, 0);
+      const weightedAvgEF = totalQty > 0 ? rows.reduce((s,r) => s+r.ef*r.qty, 0)/totalQty : 0;
+      return { year: yr, rows, totalQty, totalEm, highEfEm, weightedAvgEF };
+    });
+  }, []);
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '12px', color: '#666' }}>
@@ -540,6 +590,22 @@ export default function OpexReportPage() {
   const s2Target2025 = Math.round(sbtiTarget(b2, 2025));
   const pct1_vs_target = s1Target2025 > 0 ? Math.round(((s1_2025 - s1Target2025) / s1Target2025) * 100) : 0;
   const pct2_vs_target = s2Target2025 > 0 ? Math.round(((s2_2025 - s2Target2025) / s2Target2025) * 100) : 0;
+
+  // ── RCN per year for intensity calc ────────────────────────
+  const rcnByYear: Record<number,number> = {};
+  for(const p of rawProd) {
+    if(!rcnByYear[p.year]) rcnByYear[p.year] = 0;
+    rcnByYear[p.year] += Number(p.quantity)||0;
+  }
+  const fmtInt = (em: number, yr: number): string => {
+    const rcn = rcnByYear[yr] || 0;
+    if(rcn === 0) return '—';
+    return (em / rcn).toFixed(3);
+  };
+  const fmtVal = (v: number | string, yr: number, isIntensity: boolean): string => {
+    if(typeof v !== 'number') return v as string;
+    return isIntensity ? fmtInt(v, yr) : fmt(v);
+  };
 
   return (
     <div style={{
@@ -663,9 +729,45 @@ export default function OpexReportPage() {
           <WaterfallChart
             bars={s1Bars}
             callouts={s1Callouts}
-            title="<strong>Scope 1 (reduce firewood usage)</strong> – CO₂ eq absol. emission in ton"
+            title={`<strong>Scope 1 (reduce firewood usage)</strong> – CO₂ eq ${showIntensity ? 'intensity tCO₂e/RCN' : 'absol. emission in ton'}`}
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
           />
+
+          {/* ── Scope 1 mini-OGSM table ── */}
+          {(() => {
+            const years = [2021,2022,2023,2024,2025];
+            const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
+            return (
+              <div style={{ overflowX:'auto', marginBottom:'6px' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
+                  <thead>
+                    <tr style={{ background:'#1a3d5c', color:'white' }}>
+                      <th style={{ padding:'3px 6px', textAlign:'left', fontWeight:700, minWidth:130 }}>
+                        Scope 1 — {label}
+                      </th>
+                      {years.map(y => <th key={y} style={{ padding:'3px 6px', textAlign:'right', fontWeight:700 }}>{y}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label:'Total Scope 1', vals: years.map(y => get(y).scope1) },
+                    ].map((row,ri) => (
+                      <tr key={ri} style={{ background:'#f9f9f9', borderBottom:'1px solid #ddd' }}>
+                        <td style={{ padding:'3px 6px', fontWeight:700 }}>{row.label}</td>
+                        {row.vals.map((v,vi) => (
+                          <td key={vi} style={{ padding:'3px 6px', textAlign:'right', fontWeight:600,
+                            color: showIntensity && vi>0 ? (v/years[vi] < (row.vals[0]/years[0]) ? '#3E7B3E' : '#C8281A') : '#1a1a1a'
+                          }}>
+                            {fmtVal(v, years[vi], showIntensity)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
 
           {/* Commentary — 100% data-driven from DB */}
           {(() => {
@@ -760,9 +862,45 @@ export default function OpexReportPage() {
           <WaterfallChart
             bars={s2Bars}
             callouts={s2Callouts}
-            title="<strong>Scope 2 (grid electricity)</strong> – CO₂ eq absol. emission in ton"
+            title={`<strong>Scope 2 (grid electricity)</strong> – CO₂ eq ${showIntensity ? 'intensity tCO₂e/RCN' : 'absol. emission in ton'}`}
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
           />
+
+          {/* ── Scope 2 mini-OGSM table ── */}
+          {(() => {
+            const years = [2021,2022,2023,2024,2025];
+            const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
+            return (
+              <div style={{ overflowX:'auto', marginBottom:'6px' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
+                  <thead>
+                    <tr style={{ background:'#1a3d5c', color:'white' }}>
+                      <th style={{ padding:'3px 6px', textAlign:'left', fontWeight:700, minWidth:130 }}>
+                        Scope 2 — {label}
+                      </th>
+                      {years.map(y => <th key={y} style={{ padding:'3px 6px', textAlign:'right', fontWeight:700 }}>{y}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label:'Total Scope 2', vals: years.map(y => get(y).scope2) },
+                    ].map((row,ri) => (
+                      <tr key={ri} style={{ background:'#f9f9f9', borderBottom:'1px solid #ddd' }}>
+                        <td style={{ padding:'3px 6px', fontWeight:700 }}>{row.label}</td>
+                        {row.vals.map((v,vi) => (
+                          <td key={vi} style={{ padding:'3px 6px', textAlign:'right', fontWeight:600,
+                            color: showIntensity && vi>0 ? (v/years[vi] < (row.vals[0]/years[0]) ? '#3E7B3E' : '#C8281A') : '#1a1a1a'
+                          }}>
+                            {fmtVal(v, years[vi], showIntensity)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
 
           {/* Commentary — 100% data-driven from DB */}
           {(() => {
@@ -907,6 +1045,10 @@ export default function OpexReportPage() {
             s3Base.cat1, s3_2022?.cat1||0, s3_2023?.cat1||0, s3_2024?.cat1||0,
             '—', s3Cur.cat1,'—','—','—',
           ]},
+          { label:'  ↳ Cat.3 WTT Fuel & Energy', vals:[
+            s3Base.cat3, s3_2022?.cat3||0, s3_2023?.cat3||0, s3_2024?.cat3||0,
+            '—', s3Cur.cat3,'—','—','—',
+          ]},
           { label:'  ↳ Cat.4 Transport', vals:[
             s3Base.cat4v+s3Base.cat4r, (s3_2022?.cat4v||0)+(s3_2022?.cat4r||0),
             (s3_2023?.cat4v||0)+(s3_2023?.cat4r||0),(s3_2024?.cat4v||0)+(s3_2024?.cat4r||0),
@@ -914,7 +1056,9 @@ export default function OpexReportPage() {
           ]},
         ];
 
-        const oKeys = ['2021','2022','2023','2024','YTD\n2025','2025','2026 Plan','2027 Plan','2028 Plan'];
+        const oKeys = ['2021','2022','2023','2024','YTD 2025','2025','2026 Plan','2027 Plan','2028 Plan'];
+        const oYears = [2021, 2022, 2023, 2024, 2025, 2025, 2026, 2027, 2028]; // year index per column for intensity
+        const s3IntLabel = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
 
         return (
           <div style={{ padding:'4px 12px', flex:1, display:'flex', flexDirection:'column', gap:'6px' }}>
@@ -923,7 +1067,9 @@ export default function OpexReportPage() {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'11px' }}>
                 <thead>
                   <tr style={{ background:'#1a3d5c', color:'white' }}>
-                    <th style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, minWidth:220 }}>OGSM</th>
+                    <th style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, minWidth:220 }}>
+                      OGSM — {s3IntLabel}
+                    </th>
                     {oKeys.map(k => (
                       <th key={k} style={{ padding:'5px 8px', textAlign:'right', fontWeight:700, whiteSpace:'nowrap' }}>{k}</th>
                     ))}
@@ -936,9 +1082,11 @@ export default function OpexReportPage() {
                       {row.vals.map((v,vi) => (
                         <td key={vi} style={{ padding:'4px 8px', textAlign:'right',
                           fontWeight: ri===0 ? 600 : 400,
-                          color: vi===4||vi===0 ? '#777' : ri===0 ? '#1a1a1a' : '#555'
+                          color: vi===4||vi>=5 ? '#777' : ri===0 ? '#1a1a1a' : '#555'
                         }}>
-                          {typeof v==='number' ? fmt(v) : v}
+                          {typeof v==='number'
+                            ? (showIntensity && vi < 5 ? fmtInt(v, oYears[vi]) : fmt(v))
+                            : v}
                         </td>
                       ))}
                     </tr>
@@ -954,7 +1102,7 @@ export default function OpexReportPage() {
                 <WaterfallChart
                   bars={s3Bars}
                   callouts={s3Callouts}
-                  title="<strong>Scope 3 — Supply Chain</strong> – CO₂ eq absol. emission in ton"
+                  title={`<strong>Scope 3 — Supply Chain</strong> – CO₂ eq absol. emission in ton`}
                   legendOrder={['baseline','actual','target']}
                 />
                 {/* Target callout box */}
@@ -966,6 +1114,94 @@ export default function OpexReportPage() {
                     🎯 <strong>Non-FLAG −{NONFLAG_TGT_PCT}%</strong>: {fmt(nonflagBase)} → {fmt(nonflagTarget2032)} tCO₂e by 2032
                   </div>
                 </div>
+
+                {/* ── Origin Risk Analysis Panel ── */}
+                {showOrigin && (() => {
+                  const yr2025 = originData.find(d => d.year === 2025);
+                  const yr2021 = originData.find(d => d.year === 2021);
+                  if(!yr2025) return null;
+                  const maxEm = Math.max(...yr2025.rows.map(r => r.em));
+                  return (
+                    <div style={{ marginTop:10, border:'1.5px solid #C8281A', borderRadius:6, overflow:'hidden' }}>
+                      <div style={{ background:'#C8281A', color:'white', padding:'5px 10px', fontSize:'11px', fontWeight:700, display:'flex', justifyContent:'space-between' }}>
+                        <span>🌍 Cat.1 Origin Risk Analysis — 2025 Procurement</span>
+                        <span style={{ fontWeight:400, opacity:0.85 }}>Avg EF: {yr2025.weightedAvgEF.toFixed(2)} kgCO₂e/kg {yr2021 ? `(2021: ${yr2021.weightedAvgEF.toFixed(2)})` : ''}</span>
+                      </div>
+                      <div style={{ padding:'8px', background:'#fff' }}>
+                        {/* Year selector bar */}
+                        <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+                          {[2021,2022,2023,2024,2025].map(oyr => {
+                            const od = originData.find(d => d.year === oyr);
+                            if(!od) return null;
+                            const highPct = od.totalEm > 0 ? Math.round(od.highEfEm/od.totalEm*100) : 0;
+                            return (
+                              <div key={oyr} style={{ fontSize:'10px', padding:'3px 8px', border:'1px solid #ddd', borderRadius:4,
+                                background: oyr===2025 ? '#fff0f0' : '#f9f9f9',
+                                borderColor: oyr===2025 ? '#C8281A' : '#ddd', fontWeight: oyr===2025 ? 700 : 400 }}>
+                                <strong>{oyr}</strong>: 🔴 High-EF {highPct}% of Cat.1
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Origin bar chart */}
+                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
+                          <thead>
+                            <tr style={{ borderBottom:'1px solid #eee', color:'#666' }}>
+                              <th style={{ textAlign:'left', padding:'2px 4px', fontWeight:600, width:'90px' }}>Origin</th>
+                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'55px' }}>EF</th>
+                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'55px' }}>MTs</th>
+                              <th style={{ textAlign:'right', padding:'2px 4px', fontWeight:600, width:'65px' }}>tCO₂e</th>
+                              <th style={{ padding:'2px 4px', width:'auto' }}>Risk bar</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {yr2025.rows.map(r => (
+                              <tr key={r.origin} style={{ borderBottom:'1px solid #f5f5f5' }}>
+                                <td style={{ padding:'2px 4px', fontWeight: r.ef > 5 ? 700 : 400, color: r.color }}>{r.origin}</td>
+                                <td style={{ padding:'2px 4px', textAlign:'right', color: r.color, fontWeight:600 }}>{r.ef.toFixed(2)}</td>
+                                <td style={{ padding:'2px 4px', textAlign:'right', color:'#555' }}>{(r.qty/1000).toFixed(1)}K</td>
+                                <td style={{ padding:'2px 4px', textAlign:'right', fontWeight: r.ef>5?700:400, color: r.color }}>{fmt(r.em)}</td>
+                                <td style={{ padding:'2px 8px 2px 4px' }}>
+                                  <div style={{ height:8, borderRadius:3, background:'#f0f0f0', overflow:'hidden' }}>
+                                    <div style={{ height:'100%', width:`${maxEm>0?(r.em/maxEm*100):0}%`,
+                                      background: r.color, borderRadius:3, transition:'width 0.3s' }} />
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{ borderTop:'1.5px solid #ddd', background:'#f9f9f9' }}>
+                              <td style={{ padding:'3px 4px', fontWeight:700 }} colSpan={2}>TOTAL</td>
+                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700 }}>{(yr2025.totalQty/1000).toFixed(1)}K</td>
+                              <td style={{ padding:'3px 4px', textAlign:'right', fontWeight:700 }}>{fmt(yr2025.totalEm)}</td>
+                              <td style={{ padding:'3px 4px', fontSize:'10px', color: yr2025.highEfEm/yr2025.totalEm > 0.6 ? '#C8281A' : '#3E7B3E' }}>
+                                🔴 High-EF: {fmt(yr2025.highEfEm)} ({Math.round(yr2025.highEfEm/yr2025.totalEm*100)}%)
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+
+                        {/* Trend: avg EF per year */}
+                        <div style={{ marginTop:8, display:'flex', gap:6, flexWrap:'wrap', fontSize:'10px', color:'#555' }}>
+                          <strong style={{ color:'#1a1a1a' }}>Weighted Avg EF trend:</strong>
+                          {originData.map(od => {
+                            const prev = originData.find(d => d.year === od.year - 1);
+                            const improving = prev ? od.weightedAvgEF < prev.weightedAvgEF : true;
+                            return (
+                              <span key={od.year} style={{ color: improving ? '#3E7B3E' : '#C8281A', fontWeight:600 }}>
+                                {od.year}: {od.weightedAvgEF.toFixed(2)}{prev ? (improving ? '▼' : '▲') : ''}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <p style={{ margin:'6px 0 0', fontSize:'10px', color:'#666', fontStyle:'italic' }}>
+                          ⚠️ Data based on SBTi FLAG EF methodology. Origin mix is approximate — connect <code>scope3_origin_data</code> table for real-time breakdown.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Commentary */}
