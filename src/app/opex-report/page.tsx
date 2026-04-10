@@ -35,6 +35,15 @@ function fmt(n: number): string {
   return Math.round(n).toString();
 }
 
+// Short format for INSIDE bars (avoids overflow in narrow bars)
+function fmtBar(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 100000) return Math.round(n / 1000) + 'K';
+  if (abs >= 10000)  return (n / 1000).toFixed(1) + 'K';
+  if (abs >= 1000)   return n.toLocaleString('de-DE');
+  return Math.round(n).toString();
+}
+
 function pctStr(val: number, base: number): string {
   const p = Math.round(((val - base) / base) * 100);
   return (p >= 0 ? '+' : '') + p + '%';
@@ -70,11 +79,11 @@ function WaterfallChart({
   title: string;
   legendOrder?: ('baseline' | 'actual' | 'estimated' | 'target')[];
 }) {
-  // SVG dimensions — large top pad to hold bracket callouts above bars
-  const W = 550, H = 320;
-  const PL = 8, PR = 8, PT = 95, PB = 44;
+  // SVG dimensions — tall chart with generous top pad for callout brackets
+  const W = 560, H = 400;
+  const PL = 8, PR = 8, PT = 130, PB = 46;
   const cw = (W - PL - PR) / bars.length;
-  const bw = Math.min(34, cw * 0.62);
+  const bw = Math.min(40, cw * 0.65);
   const chartH = H - PT - PB;
 
   // Y scale
@@ -175,6 +184,9 @@ function WaterfallChart({
             const rawDelta = val - prevVal;
             const absDeltaStr = fmt(Math.abs(rawDelta));
             const deltaStr = isFloating ? (rawDelta > 0 ? `+${absDeltaStr}` : `-${absDeltaStr}`) : fmt(val);
+            // Short version for INSIDE narrow bars
+            const absDeltaShort = fmtBar(Math.abs(rawDelta));
+            const deltaStrShort = isFloating ? (rawDelta > 0 ? `+${absDeltaShort}` : `-${absDeltaShort}`) : fmtBar(val);
 
             prevVal = val;
 
@@ -207,13 +219,15 @@ function WaterfallChart({
                       strokeWidth="1.5" rx="2"
                     />
 
-                    {/* text delta — alternate above/below to avoid overlap on small bars */}
-                    {boxH > 20 ? (
-                      <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="white">
-                        {deltaStr}
+                    {/* text delta: short format INSIDE bars, full format OUTSIDE */}
+                    {boxH > 22 ? (
+                      // Inside tall bar — use short K-format so text fits within bar width
+                      <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11" fontWeight="700" fill="white">
+                        {deltaStrShort}
                       </text>
                     ) : (
-                      <text x={cx(i)} y={i % 2 === 0 ? boxY - 8 : boxTop + boxH + 18} textAnchor="middle" fontSize="11.5" fontWeight="700" fill={color}>
+                      // Outside small bar — always above bar, full format
+                      <text x={cx(i)} y={boxY - 7} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={color}>
                         {deltaStr}
                       </text>
                     )}
@@ -236,8 +250,10 @@ function WaterfallChart({
             const fromBarTopY = boxTops[cal.fromCol];     // Absolute physical top edge!
             const toBarTopY   = boxTops[cal.toCol];       // Absolute physical top edge!
 
-            // Bracket horizontal level - push high enough to avoid delta text which spans above bars!
-            const bracketY = Math.min(fromBarTopY, toBarTopY) - 40 - ((cal.level || 0) * 30);
+            // Bracket always sits ABOVE the chart area (y < PT) so it never overlaps bars
+            const ovalRyLocal = 13;
+            const computed = Math.min(fromBarTopY, toBarTopY) - 52 - ((cal.level || 0) * 36);
+            const bracketY = Math.min(computed, PT - ovalRyLocal - 6);
 
             // Oval label center
             const midX = (fromX + toX) / 2;
