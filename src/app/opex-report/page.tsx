@@ -736,9 +736,11 @@ export default function OpexReportPage() {
 
   // ── PT Solar impact on Scope 2 target ────────────────────────
   // From 2027, PT solar offsets ~1,064 tCO₂e/yr from Scope 2 (all-factory or PT-specific view)
-  // isSolarFactory: true when viewing ALL VN factories or PT specifically
+  // isSolarFactory: true ONLY when viewing ALL factories or Phan Thiet specifically
+  const selectedFactory = factories.find(f => f.id === selectedFac);
   const isSolarFactory = selectedFac === 'ALL' ||
-    factories.find(f => f.id === selectedFac)?.country === 'Vietnam';
+    selectedFactory?.name?.toLowerCase().includes('phan thiet') ||
+    selectedFactory?.name?.toLowerCase().includes('pt');
   // Total solar savings accumulated from 2025 to a given year (sum 2027..year)
   const cumulativeSolarSavingByYear = (year: number): number => {
     if (!isSolarFactory) return 0;
@@ -1261,24 +1263,26 @@ export default function OpexReportPage() {
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
-                  {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'Vietnam') && (
-                    <>
-                      <li>
-                        {/* PT Solar — commissioned end-2026, first full savings year 2027 */}
-                        <strong>🌞 PT Rooftop Solar (Scope 2 — từ 2027):</strong> Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm
-                        tại nhà máy PT dự kiến vận hành cuối năm 2026.{' '}
-                        Tiết kiệm ước tính <strong style={{ color: '#3E7B3E' }}>~{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong>{' '}
-                        (năm đầu, 2027) theo EF lưới VN {PT_SOLAR_EF_VN} tCO₂/kWh.{' '}
-                        Lũy kế đến {targetEndYear}:{' '}
-                        <strong style={{ color: '#3E7B3E' }}>~{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong> tích lũy,
-                        góp phần đưa Scope 2 xuống <strong>{fmt(end_s2)} tCO₂e</strong> vào năm {targetEndYear}.
-                      </li>
-                      <li>
-                        <strong>VICC RE Transition</strong>: Tiếp tục mở rộng điện mặt trời sang các nhà máy VN khác và khai thác REC để bù phần lưới còn lại.
-                      </li>
-                    </>
+                  {/* PT Solar — chỉ hiện khi ALL hoặc Phan Thiet */}
+                  {isSolarFactory && (
+                    <li>
+                      {/* PT Solar — commissioned end-2026, first full savings year 2027 */}
+                      <strong>🌞 PT Rooftop Solar (Scope 2 — từ 2027):</strong> Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm
+                      tại nhà máy PT dự kiến vận hành cuối năm 2026.{' '}
+                      Tiết kiệm ước tính <strong style={{ color: '#3E7B3E' }}>~{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong>{' '}
+                      (năm đầu, 2027) theo EF lưới VN {PT_SOLAR_EF_VN} tCO₂/kWh.{' '}
+                      Lũy kế đến {targetEndYear}:{' '}
+                      <strong style={{ color: '#3E7B3E' }}>~{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong> tích lũy,
+                      góp phần đưa Scope 2 xuống <strong>{fmt(end_s2)} tCO₂e</strong> vào năm {targetEndYear}.
+                    </li>
                   )}
-                  {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'India') && (
+                  {/* VICC RE Transition — cho tất cả VN factories */}
+                  {(selectedFac === 'ALL' || selectedFactory?.country === 'Vietnam') && (
+                    <li>
+                      <strong>VICC RE Transition</strong>: Tiếp tục mở rộng các giải pháp năng lượng tái tạo và khai thác REC để bù phần lưới còn lại.
+                    </li>
+                  )}
+                  {(selectedFac === 'ALL' || selectedFactory?.country === 'India') && (
                     <li>
                       <strong>India Operations</strong>: Enforce ISO 50001 energy standards to flatten peak-load grid dependency and transition to solar infrastructure.
                     </li>
