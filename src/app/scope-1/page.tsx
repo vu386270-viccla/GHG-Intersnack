@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { getDashboardData, formatTCO2e } from '@/lib/data-service';
+import { getDashboardData, getAnnualScopeBreakdown, formatTCO2e } from '@/lib/data-service';
+import type { AnnualScopeRow } from '@/lib/data-service';
 import { SCOPE_1_CATEGORIES, SCOPE_COLORS } from '@/lib/types';
 import { getFactoryColor, getFactoryBg } from '@/lib/factory-colors';
 import type { ScopeSummary, FactorySummary } from '@/lib/types';
 import TrendLine from '@/components/charts/TrendLine';
 import FactoryBarChart from '@/components/charts/FactoryBarChart';
 import DualAxisChart from '@/components/charts/DualAxisChart';
+import BarChart from '@/components/charts/BarChart';
 
 // Palette for source categories
 const CAT_COLORS = [
@@ -23,13 +25,14 @@ type MonthlyByCat = {
   totalCost?: number;
 };
 
-type ViewMode = 'overview' | 'by-source' | 'compare' | 'vs-rcn';
+type ViewMode = 'overview' | 'by-source' | 'compare' | 'vs-rcn' | 'multi-year';
 
 const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
-  { key: 'overview',   label: 'Tổng quan',     icon: '📊' },
-  { key: 'by-source',  label: 'Theo nguồn',    icon: '🔍' },
-  { key: 'compare',    label: 'So sánh NM',    icon: '🏭' },
-  { key: 'vs-rcn',     label: 'vs RCN',        icon: '⚖️' },
+  { key: 'overview',    label: 'Tổng quan',   icon: '📊' },
+  { key: 'by-source',   label: 'Theo nguồn',  icon: '🔍' },
+  { key: 'compare',     label: 'So sánh NM',  icon: '🏭' },
+  { key: 'vs-rcn',      label: 'vs RCN',      icon: '⚖️' },
+  { key: 'multi-year',  label: 'Nhiều năm',   icon: '📅' },
 ];
 
 function StatBox({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
@@ -55,6 +58,7 @@ export default function Scope1Page() {
   const [totalRCN, setTotalRCN]   = useState(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [viewMode, setViewMode]   = useState<ViewMode>('overview');
+  const [annualRows, setAnnualRows] = useState<AnnualScopeRow[]>([]);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   
   // Toggles
@@ -82,6 +86,13 @@ export default function Scope1Page() {
       })
       .catch(err => { setError(String(err)); setLoading(false); });
   }, [selectedYear]);
+
+  // Fetch multi-year data once on mount
+  useEffect(() => {
+    getAnnualScopeBreakdown(2018, new Date().getFullYear())
+      .then(rows => setAnnualRows(rows))
+      .catch(() => {/* silently skip */});
+  }, []);
 
   const allCats = useMemo(() => {
     const keys = new Set(s1Monthly.flatMap(m => m.categories.map(c => c.key)));
@@ -592,6 +603,70 @@ export default function Scope1Page() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ── View: Nhiều năm ── */}
+      {viewMode === 'multi-year' && (
+        <div>
+          <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+              📅 Xu hướng Scope 1 — tổng phát thải theo năm (tCO₂e)
+            </div>
+            {annualRows.length > 0 ? (
+              <BarChart
+                data={annualRows.map(r => ({
+                  label: String(r.year),
+                  values: [{ key: 's1', value: r.s1, color: SCOPE_COLORS.scope_1 }],
+                }))}
+                legendLabels={{ s1: 'Scope 1 (tCO₂e)' }}
+                height={280}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>
+                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />Đang tải dữ liệu nhiều năm...
+              </div>
+            )}
+          </div>
+
+          {annualRows.length > 0 && (
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+                    {['Năm', 'Scope 1 (tCO₂e)', 'vs Năm trước', 'Tỷ lệ so baseline 2021'].map(h => (
+                      <th key={h} style={{ padding: '7px 14px', textAlign: h === 'Năm' ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {annualRows.map((r, i) => {
+                    const prev = annualRows[i - 1];
+                    const base = annualRows.find(x => x.year === 2021);
+                    const change = prev?.s1 ? Math.round(((r.s1 - prev.s1) / prev.s1) * 100) : null;
+                    const vsBase = base?.s1 ? Math.round(((r.s1 - base.s1) / base.s1) * 100) : null;
+                    const isSelected = r.year === selectedYear;
+                    return (
+                      <tr key={r.year} style={{ borderBottom: '1px solid var(--color-border-light)', background: isSelected ? `${SCOPE_COLORS.scope_1}08` : undefined }}>
+                        <td style={{ padding: '8px 14px', fontWeight: isSelected ? 800 : 500 }}>
+                          {r.year}{isSelected && <span style={{ marginLeft: 6, fontSize: 10, color: SCOPE_COLORS.scope_1, background: `${SCOPE_COLORS.scope_1}18`, padding: '1px 6px', borderRadius: 8 }}>Đang xem</span>}
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: SCOPE_COLORS.scope_1 }}>
+                          {formatTCO2e(r.s1)}
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: change === null ? 'var(--color-text-muted)' : change < 0 ? '#10B981' : '#EF4444' }}>
+                          {change === null ? '—' : (change >= 0 ? '+' : '') + change + '%'}
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: vsBase === null ? 'var(--color-text-muted)' : vsBase < 0 ? '#10B981' : vsBase > 0 ? '#EF4444' : 'var(--color-text)' }}>
+                          {vsBase === null ? '—' : (vsBase >= 0 ? '+' : '') + vsBase + '%'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

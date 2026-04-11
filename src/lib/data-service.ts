@@ -473,6 +473,39 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   };
 }
 
+// ── Annual breakdown per scope (S1 / S2 separately) — used by multi-year tabs ──
+export interface AnnualScopeRow {
+  year: number;
+  s1: number;
+  s2: number;
+  s3: number;
+}
+
+export async function getAnnualScopeBreakdown(
+  fromYear = 2018,
+  toYear = new Date().getFullYear(),
+): Promise<AnnualScopeRow[]> {
+  const { data } = await supabase
+    .from('emissions_data')
+    .select('year,scope,emissions_tco2e')
+    .gte('year', fromYear)
+    .lte('year', toYear)
+    .in('scope', ['scope_1', 'scope_2'])
+    .limit(10000);
+
+  const map: Record<number, { s1: number; s2: number }> = {};
+  for (const e of data || []) {
+    if (!map[e.year]) map[e.year] = { s1: 0, s2: 0 };
+    const v = Number(e.emissions_tco2e);
+    if (e.scope === 'scope_1') map[e.year].s1 += v;
+    else if (e.scope === 'scope_2') map[e.year].s2 += v;
+  }
+
+  return Object.entries(map)
+    .map(([yr, v]) => ({ year: Number(yr), s1: Math.round(v.s1), s2: Math.round(v.s2), s3: 0 }))
+    .sort((a, b) => a.year - b.year);
+}
+
 // ── Annual totals by scope — used by Targets page chart ──
 export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s12: number; s3: number }>> {
   // Fetch S1+S2 from emissions_data, S3 from scope3_transport_data

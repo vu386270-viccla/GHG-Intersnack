@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { getDashboardData, formatTCO2e } from '@/lib/data-service';
+import { getDashboardData, getAnnualScopeBreakdown, formatTCO2e } from '@/lib/data-service';
+import type { AnnualScopeRow } from '@/lib/data-service';
 import { SCOPE_COLORS, GRID_EMISSION_FACTORS } from '@/lib/types';
 import { getFactoryColor, getFactoryBg } from '@/lib/factory-colors';
 import type { ScopeSummary, FactorySummary } from '@/lib/types';
 import TrendLine from '@/components/charts/TrendLine';
 import FactoryBarChart from '@/components/charts/FactoryBarChart';
 import DualAxisChart from '@/components/charts/DualAxisChart';
+import BarChart from '@/components/charts/BarChart';
 
 type MonthlyByCat = {
   month: number; label: string;
@@ -15,13 +17,14 @@ type MonthlyByCat = {
   total: number;
 };
 
-type ViewMode = 'overview' | 'compare' | 'vs-rcn' | 'ef-ref';
+type ViewMode = 'overview' | 'compare' | 'vs-rcn' | 'ef-ref' | 'multi-year';
 
 const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
-  { key: 'overview', label: 'Tổng quan',   icon: '📊' },
-  { key: 'compare',  label: 'So sánh NM',  icon: '🏭' },
-  { key: 'vs-rcn',   label: 'vs RCN',      icon: '⚖️' },
-  { key: 'ef-ref',   label: 'Hệ số điện',  icon: '⚡' },
+  { key: 'overview',   label: 'Tổng quan',   icon: '📊' },
+  { key: 'compare',    label: 'So sánh NM',  icon: '🏭' },
+  { key: 'vs-rcn',     label: 'vs RCN',      icon: '⚖️' },
+  { key: 'ef-ref',     label: 'Hệ số điện',  icon: '⚡' },
+  { key: 'multi-year', label: 'Nhiều năm',   icon: '📅' },
 ];
 
 function StatBox({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
@@ -48,6 +51,7 @@ export default function Scope2Page() {
   const [useUSD, setUseUSD]       = useState(false);
   const [totalKwh, setTotalKwh]   = useState(0);
   const [kwhByFactory, setKwhByFactory] = useState<Record<string, number>>({});
+  const [annualRows, setAnnualRows] = useState<AnnualScopeRow[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -64,6 +68,13 @@ export default function Scope2Page() {
       })
       .catch(err => { setError(String(err)); setLoading(false); });
   }, [selectedYear]);
+
+  // Fetch multi-year data once on mount
+  useEffect(() => {
+    getAnnualScopeBreakdown(2018, new Date().getFullYear())
+      .then(rows => setAnnualRows(rows))
+      .catch(() => {/* silently skip */});
+  }, []);
 
   const scopeColor = useUSD ? '#E8960E' : SCOPE_COLORS.scope_2;
   const vnEFs = GRID_EMISSION_FACTORS.filter(ef => ef.country === 'Vietnam');
@@ -382,6 +393,76 @@ export default function Scope2Page() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── View: Nhiều năm ── */}
+      {viewMode === 'multi-year' && (
+        <div>
+          <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+              📅 Xu hướng Scope 2 — tổng phát thải theo năm (tCO₂e)
+            </div>
+            {annualRows.length > 0 ? (
+              <BarChart
+                data={annualRows.map(r => ({
+                  label: String(r.year),
+                  values: [{ key: 's2', value: r.s2, color: SCOPE_COLORS.scope_2 }],
+                }))}
+                legendLabels={{ s2: 'Scope 2 (tCO₂e)' }}
+                height={280}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>
+                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />Đang tải dữ liệu nhiều năm...
+              </div>
+            )}
+          </div>
+
+          {annualRows.length > 0 && (
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+                    {['Năm', 'Scope 2 (tCO₂e)', 'EF Điện VN', 'vs Năm trước', 'vs Baseline 2021'].map(h => (
+                      <th key={h} style={{ padding: '7px 14px', textAlign: h === 'Năm' ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {annualRows.map((r, i) => {
+                    const prev = annualRows[i - 1];
+                    const base = annualRows.find(x => x.year === 2021);
+                    const change = prev?.s2 ? Math.round(((r.s2 - prev.s2) / prev.s2) * 100) : null;
+                    const vsBase = base?.s2 ? Math.round(((r.s2 - base.s2) / base.s2) * 100) : null;
+                    const ef = GRID_EMISSION_FACTORS.find(e => e.country === 'Vietnam' && e.year === r.year)?.factor;
+                    const isSelected = r.year === selectedYear;
+                    return (
+                      <tr key={r.year} style={{ borderBottom: '1px solid var(--color-border-light)', background: isSelected ? `${SCOPE_COLORS.scope_2}08` : undefined }}>
+                        <td style={{ padding: '8px 14px', fontWeight: isSelected ? 800 : 500 }}>
+                          {r.year}{isSelected && <span style={{ marginLeft: 6, fontSize: 10, color: SCOPE_COLORS.scope_2, background: `${SCOPE_COLORS.scope_2}20`, padding: '1px 6px', borderRadius: 8 }}>Đang xem</span>}
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: SCOPE_COLORS.scope_2 }}>
+                          {formatTCO2e(r.s2)}
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right' }}>
+                          <code style={{ fontSize: 11, background: isSelected ? `${SCOPE_COLORS.scope_2}15` : 'var(--color-bg-secondary)', padding: '1px 6px', borderRadius: 3, fontWeight: isSelected ? 700 : 400 }}>
+                            {ef ? ef.toFixed(4) : '—'}
+                          </code>
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: change === null ? 'var(--color-text-muted)' : change < 0 ? '#10B981' : '#EF4444' }}>
+                          {change === null ? '—' : (change >= 0 ? '+' : '') + change + '%'}
+                        </td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: vsBase === null ? 'var(--color-text-muted)' : vsBase < 0 ? '#10B981' : vsBase > 0 ? '#EF4444' : 'var(--color-text)' }}>
+                          {vsBase === null ? '—' : (vsBase >= 0 ? '+' : '') + vsBase + '%'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
