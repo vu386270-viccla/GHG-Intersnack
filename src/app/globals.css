@@ -27,6 +27,7 @@
   --color-bg-secondary: #F2F1ED;
   --color-bg-hover: #E8E7E3;
   --color-card: #F2F1ED;
+  --color-card-bg: #F2F1ED;
   --color-card-hover: #EBEAE5;
   --color-border: #E0DFDB;
   --color-border-light: #EFEFEB;
@@ -698,6 +699,7 @@ button {
 
 .form-input,
 .form-select {
+  width: 100%;
   padding: var(--space-sm) var(--space-md);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);

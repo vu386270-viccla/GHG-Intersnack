@@ -563,7 +563,7 @@ export default function DashboardPage() {
           { href: '/scope-3', icon: '🌍', label: 'Scope 3 Detail', color: S_COLOR.scope_3 },
           { href: '/targets', icon: '🎯', label: 'SBTi Targets', color: '#6366f1' },
           { href: '/factories', icon: '🏭', label: 'Factory Compare', color: '#0ea5e9' },
-          { href: '/opex', icon: '📋', label: 'OpEx Report', color: '#8b5cf6' },
+          { href: '/opex-report', icon: '📋', label: 'OpEx Report', color: '#8b5cf6' },
           { href: '/reference', icon: '📖', label: 'Reference & EF', color: '#6b7280' },
         ].map(link => (
           <Link key={link.href} href={link.href} style={{ textDecoration: 'none' }}>

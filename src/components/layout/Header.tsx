@@ -12,6 +12,8 @@ const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
   '/input': { title: 'Nhập dữ liệu', accent: 'Emissions Data' },
   '/targets': { title: 'Mục tiêu', accent: 'SBTi Progress' },
   '/opex-report': { title: 'Opex Report', accent: 'SBTi Annual' },
+  '/reference': { title: 'Reference', accent: 'Emission Factors' },
+  '/overview': { title: 'Overview', accent: 'PPT Slide' },
 };
 
 function HeaderInner() {
