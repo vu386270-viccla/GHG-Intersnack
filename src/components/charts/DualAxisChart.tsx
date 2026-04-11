@@ -10,6 +10,7 @@ interface DualAxisChartProps {
   emissionColor?: string;
   rcnColor?: string;
   height?: number;
+  currency?: boolean;
 }
 
 function niceMax(max: number) {
@@ -33,6 +34,7 @@ export default function DualAxisChart({
   emissionColor = '#E32314',
   rcnColor = '#6366F1',
   height = 220,
+  currency = false,
 }: DualAxisChartProps) {
   if (!labels.length) return null;
 
@@ -68,7 +70,7 @@ export default function DualAxisChart({
               <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y}
                 stroke="#E0DFDB" strokeWidth={0.8} strokeDasharray="3,3" />
               <text x={PAD.left - 5} y={y + 4} textAnchor="end"
-                fontSize={9} fill="#888" fontFamily="Inter, sans-serif">{fmt(t)}</text>
+                fontSize={9} fill="#888" fontFamily="Inter, sans-serif">{currency ? '$'+fmt(t) : fmt(t)}</text>
             </g>
           );
         })}
@@ -110,7 +112,7 @@ export default function DualAxisChart({
         {emissionValues.map((v, i) => (
           <circle key={i} cx={getX(i)} cy={getEmY(v)} r={3.5}
             fill="white" stroke={emissionColor} strokeWidth={2}>
-            <title>{`${labels[i]} phát thải: ${fmt(v)} tCO₂e`}</title>
+            <title>{`${labels[i]} ${currency ? 'chi phí' : 'phát thải'}: ${currency ? '$' + fmt(v) : fmt(v) + ' tCO₂e'}`}</title>
           </circle>
         ))}
 
@@ -125,7 +127,7 @@ export default function DualAxisChart({
       <div style={{ display: 'flex', gap: 16, marginTop: 4, paddingLeft: 48, fontSize: 11 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ width: 20, height: 3, background: emissionColor, display: 'inline-block', borderRadius: 2 }} />
-          <span style={{ color: 'var(--color-text-secondary)' }}>Phát thải (tCO₂e)</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{currency ? 'Chi phí (USD)' : 'Phát thải (tCO₂e)'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ width: 12, height: 10, background: rcnColor, opacity: 0.4, display: 'inline-block', borderRadius: 2 }} />

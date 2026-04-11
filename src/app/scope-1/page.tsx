@@ -18,8 +18,9 @@ const CAT_COLORS = [
 
 type MonthlyByCat = {
   month: number; label: string;
-  categories: { key: string; value: number }[];
+  categories: { key: string; value: number; cost?: number }[];
   total: number;
+  totalCost?: number;
 };
 
 type ViewMode = 'overview' | 'by-source' | 'compare' | 'vs-rcn';
@@ -31,7 +32,6 @@ const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
   { key: 'vs-rcn',     label: 'vs RCN',        icon: '⚖️' },
 ];
 
-// small stat box
 function StatBox({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
     <div style={{
@@ -56,7 +56,14 @@ export default function Scope1Page() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [viewMode, setViewMode]   = useState<ViewMode>('overview');
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
+  
+  // Toggles
   const [useIntensity, setUseIntensity] = useState(false);
+  const [useUSD, setUseUSD] = useState(false);
+
+  // Helper functions for Dynamic Mode
+  const formatVal = (v: number) => useUSD ? '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : formatTCO2e(v);
+  const unitStr = useUSD ? 'USD' : 'tCO₂e';
 
   useEffect(() => {
     setLoading(true);
@@ -84,53 +91,53 @@ export default function Scope1Page() {
   const toggleCat = (key: string) =>
     setSelectedCats(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
-  // Trend data for by-source view
   const sourceTrendData = useMemo(() => s1Monthly
     .map(m => {
       const rcn = monthlyRCN[m.month - 1] || 0;
       const values = allCats.filter(c => selectedCats.has(c.key)).map((cat, idx) => {
-        const raw = m.categories.find(c => c.key === cat.key)?.value || 0;
+        const cData = m.categories.find(c => c.key === cat.key);
+        const raw = useUSD ? (cData?.cost || 0) : (cData?.value || 0);
         const val = useIntensity ? (rcn > 0 ? raw / rcn : 0) : raw;
         return { key: cat.key, value: val, color: CAT_COLORS[idx % CAT_COLORS.length] };
       });
       return { label: m.label, values };
-    }).filter(m => m.values.some(v => v.value > 0)), [s1Monthly, allCats, selectedCats, monthlyRCN, useIntensity]);
+    }).filter(m => m.values.some(v => v.value > 0)), [s1Monthly, allCats, selectedCats, monthlyRCN, useIntensity, useUSD]);
 
-  // Overview trend: all factories combined (monthly scope1 totals)
   const overviewTrendData = useMemo(() => {
     if (!factories.length) return [];
     return Array.from({ length: 12 }, (_, i) => ({
       label: factories[0]?.monthlyTrend[i].label || `T${i+1}`,
-      values: factories.map((fs, fi) => ({
-        key: fs.factory.code,
-        value: useIntensity
-          ? (monthlyRCN[i] > 0 ? fs.monthlyTrend[i].scope1 / monthlyRCN[i] : 0)
-          : fs.monthlyTrend[i].scope1,
-        color: getFactoryColor(fs.factory.code, fi),
-      })),
+      values: factories.map((fs, fi) => {
+        const mVal = useUSD ? (fs.monthlyTrend[i].costScope1 || 0) : fs.monthlyTrend[i].scope1;
+        return {
+          key: fs.factory.code,
+          value: useIntensity ? (monthlyRCN[i] > 0 ? mVal / monthlyRCN[i] : 0) : mVal,
+          color: getFactoryColor(fs.factory.code, fi),
+        }
+      }),
     })).filter(m => m.values.some(v => v.value > 0));
-  }, [factories, monthlyRCN, useIntensity]);
+  }, [factories, monthlyRCN, useIntensity, useUSD]);
 
-  // Factory comparison series for FactoryBarChart
   const compareFactorySeries = useMemo(() =>
     factories.map((fs, fi) => ({
       key: fs.factory.code,
       label: fs.factory.name,
       color: getFactoryColor(fs.factory.code, fi),
       values: Array.from({ length: 12 }, (_, i) => {
-        const v = fs.monthlyTrend[i].scope1;
+        const v = useUSD ? (fs.monthlyTrend[i].costScope1 || 0) : fs.monthlyTrend[i].scope1;
         return useIntensity ? (monthlyRCN[i] > 0 ? v / monthlyRCN[i] : 0) : v;
       }),
-    })), [factories, monthlyRCN, useIntensity]);
+    })), [factories, monthlyRCN, useIntensity, useUSD]);
 
-  // Monthly totals for dual-axis chart
   const monthlyTotals = useMemo(() =>
     Array.from({ length: 12 }, (_, i) =>
-      factories.reduce((sum, fs) => sum + fs.monthlyTrend[i].scope1, 0)
-    ), [factories]);
+      factories.reduce((sum, fs) => sum + (useUSD ? (fs.monthlyTrend[i].costScope1 || 0) : fs.monthlyTrend[i].scope1), 0)
+    ), [factories, useUSD]);
 
-  const scopeColor = SCOPE_COLORS.scope_1;
-  const intensity = totalRCN > 0 && scopeData ? (scopeData.totalEmissions / totalRCN) : 0;
+  const scopeColor = useUSD ? '#E8960E' : SCOPE_COLORS.scope_1; // Orange if USD
+
+  const totalMetric = scopeData ? (useUSD ? (scopeData.totalCost || 0) : scopeData.totalEmissions) : 0;
+  const intensity = totalRCN > 0 && totalMetric > 0 ? (totalMetric / totalRCN) : 0;
 
   if (loading || !scopeData) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
@@ -148,11 +155,26 @@ export default function Scope1Page() {
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ color: scopeColor }}>🔥</span>
-            Scope 1
+            Scope 1 
             <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>Phát thải trực tiếp</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          
+          {/* USD Toggle */}
+          <button
+            onClick={() => { setUseUSD(v => !v); setUseIntensity(false); }}
+            style={{
+              padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              border: `1.5px solid ${useUSD ? '#E8960E' : 'var(--color-border)'}`,
+              background: useUSD ? '#fffbeb' : 'transparent',
+              color: useUSD ? '#b45309' : 'var(--color-text-muted)',
+              transition: 'all 0.15s',
+            }}
+          >
+            {useUSD ? '💰 Đang phân tích Chi phí' : '💰 Quy đổi Chi phí USD'}
+          </button>
+
           {/* Intensity toggle */}
           <button
             onClick={() => setUseIntensity(v => !v)}
@@ -164,7 +186,7 @@ export default function Scope1Page() {
               transition: 'all 0.15s',
             }}
           >
-            {useIntensity ? '📊 tCO₂e/MT RCN' : '📊 tCO₂e'}
+            {useIntensity ? `📊 ${unitStr}/MT RCN` : `📊 ${unitStr}`}
           </button>
           <select
             value={selectedYear}
@@ -178,7 +200,7 @@ export default function Scope1Page() {
 
       {/* ── KPI strip — compact 5 stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
-        <StatBox label="Tổng Scope 1 (YTD)" value={formatTCO2e(scopeData.totalEmissions)} color={scopeColor} sub="tCO₂e" />
+        <StatBox label={`Tổng Scope 1 (${useUSD ? 'Chi phí' : 'YTD'})`} value={formatVal(totalMetric)} color={scopeColor} sub={unitStr} />
         <StatBox label="Tỷ trọng" value={`${scopeData.percentOfTotal}%`} color={scopeColor} sub="trong tổng phát thải" />
         <StatBox
           label="vs Năm trước"
@@ -186,7 +208,7 @@ export default function Scope1Page() {
           color={scopeData.changePercent < 0 ? '#10B981' : '#EF4444'}
           sub={scopeData.changePercent < 0 ? '▼ Giảm' : '▲ Tăng'}
         />
-        <StatBox label="Cường độ" value={intensity > 0 ? intensity.toFixed(3) : '—'} color="#6366F1" sub="tCO₂e / MT RCN" />
+        <StatBox label="Cường độ" value={intensity > 0 ? intensity.toFixed(useUSD ? 2 : 3) : '—'} color="#6366F1" sub={`${unitStr} / MT RCN`} />
         <StatBox label="Nguồn chính" value={scopeData.categories[0]?.percentOfScope + '%'} color={scopeColor} sub={scopeData.categories[0]?.label?.slice(0, 14) || '—'} />
       </div>
 
@@ -214,7 +236,7 @@ export default function Scope1Page() {
           {/* Trend tổng */}
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              📈 Xu hướng theo nhà máy — {selectedYear}
+              📈 Xu hướng {useUSD ? 'chi phí' : ''} theo nhà máy — {selectedYear}
             </div>
             <TrendLine
               data={overviewTrendData}
@@ -224,6 +246,7 @@ export default function Scope1Page() {
                 fs.factory.code,
                 `${fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} ${fs.factory.name}`,
               ]))}
+              currency={useUSD}
             />
           </div>
 
@@ -232,9 +255,10 @@ export default function Scope1Page() {
             {factories.map((fs, fi) => {
               const col = getFactoryColor(fs.factory.code, fi);
               const bg = getFactoryBg(fs.factory.code, fi, '12');
-              const pct = scopeData.totalEmissions > 0
-                ? Math.round((fs.scope1 / scopeData.totalEmissions) * 100) : 0;
-              const intens = totalRCN > 0 && fs.scope1 > 0 ? (fs.scope1 / totalRCN).toFixed(3) : '—';
+              const fTotal = useUSD ? (fs.scope1Cost || 0) : fs.scope1;
+              const pct = totalMetric > 0
+                ? Math.round((fTotal / totalMetric) * 100) : 0;
+              const intens = totalRCN > 0 && fTotal > 0 ? (fTotal / totalRCN).toFixed(useUSD ? 2 : 3) : '—';
               return (
                 <div key={fs.factory.id} className="card" style={{ padding: '10px 14px', borderLeft: `3px solid ${col}`, background: bg }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -243,20 +267,20 @@ export default function Scope1Page() {
                         {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name}
                       </div>
                       <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--color-text)', marginTop: 2 }}>
-                        {formatTCO2e(fs.scope1)}
-                        <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: 3 }}>tCO₂e</span>
+                        {formatVal(fTotal)}
+                        <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: 3 }}>{unitStr}</span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 18, fontWeight: 800, color: col }}>{pct}%</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>của Scope 1</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>của {useUSD ? 'tổng tiền S1' : 'Scope 1'}</div>
                     </div>
                   </div>
                   {/* Mini bar */}
                   <div style={{ marginTop: 8, height: 4, background: 'var(--color-border-light)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: col, borderRadius: 2 }} />
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>Cường độ: {intens} tCO₂e/MT RCN</div>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>Cường độ: {intens} {unitStr}/MT RCN</div>
                 </div>
               );
             })}
@@ -271,19 +295,21 @@ export default function Scope1Page() {
               <tbody>
                 {scopeData.categories.map((cat, ci) => {
                   const catDef = SCOPE_1_CATEGORIES.find(c => c.key === cat.category);
+                  const cVal = useUSD ? (cat.cost || 0) : cat.emissions;
+                  const pct = totalMetric > 0 ? Math.round((cVal / totalMetric) * 100) : 0;
                   return (
                     <tr key={cat.category} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
                       <td style={{ padding: '6px 14px', width: 24 }}><span style={{ fontSize: 14 }}>{catDef?.icon || '📊'}</span></td>
                       <td style={{ padding: '6px 4px', fontWeight: 600, color: 'var(--color-text)' }}>{catDef?.label || cat.label}</td>
                       <td style={{ padding: '6px 14px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: scopeColor, whiteSpace: 'nowrap' }}>
-                        {formatTCO2e(cat.emissions)}
+                        {formatVal(cVal)}
                       </td>
                       <td style={{ padding: '6px 14px', width: 100 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <div style={{ flex: 1, height: 5, background: 'var(--color-border-light)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ width: `${cat.percentOfScope}%`, height: '100%', background: CAT_COLORS[ci % CAT_COLORS.length], borderRadius: 3 }} />
+                            <div style={{ width: `${pct}%`, height: '100%', background: CAT_COLORS[ci % CAT_COLORS.length], borderRadius: 3 }} />
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 600, width: 28, textAlign: 'right' }}>{cat.percentOfScope}%</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, width: 28, textAlign: 'right' }}>{pct}%</span>
                         </div>
                       </td>
                     </tr>
@@ -317,26 +343,18 @@ export default function Scope1Page() {
                   </button>
                 );
               })}
-              <button onClick={() => setSelectedCats(new Set(allCats.map(c => c.key)))}
-                style={{ marginLeft: 'auto', padding: '3px 8px', fontSize: 11, borderRadius: 4, border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                Tất cả
-              </button>
-              <button onClick={() => setSelectedCats(new Set())}
-                style={{ padding: '3px 8px', fontSize: 11, borderRadius: 4, border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                Bỏ chọn
-              </button>
             </div>
           </div>
 
           <div className="card" style={{ padding: '12px 16px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-              Xu hướng theo nguồn — {useIntensity ? 'tCO₂e / MT RCN' : 'tCO₂e'}
+              Xu hướng theo nguồn — {useIntensity ? `${unitStr} / MT RCN` : unitStr}
             </div>
             {selectedCats.size === 0
               ? <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>☝️ Chọn ít nhất một nguồn</div>
               : <TrendLine data={sourceTrendData}
                   legendLabels={Object.fromEntries(allCats.filter(c => selectedCats.has(c.key)).map((c, i) => [c.key, `${c.icon} ${c.label}`]))}
-                  height={230} showArea={false} />
+                  height={230} showArea={false} currency={useUSD} />
             }
           </div>
 
@@ -347,7 +365,7 @@ export default function Scope1Page() {
                 <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
                   <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>Nguồn</th>
                   <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>EF</th>
-                  <th style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>tCO₂e</th>
+                  <th style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>{unitStr}</th>
                   <th style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>%</th>
                 </tr>
               </thead>
@@ -355,6 +373,8 @@ export default function Scope1Page() {
                 {scopeData.categories.map((cat, ci) => {
                   const catDef = SCOPE_1_CATEGORIES.find(c => c.key === cat.category);
                   const col = CAT_COLORS[ci % CAT_COLORS.length];
+                  const cVal = useUSD ? (cat.cost || 0) : cat.emissions;
+                  const pct = totalMetric > 0 ? Math.round((cVal / totalMetric) * 100) : 0;
                   return (
                     <tr key={cat.category} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
                       <td style={{ padding: '7px 14px' }}>
@@ -372,9 +392,9 @@ export default function Scope1Page() {
                         </code>
                       </td>
                       <td style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 15, color: col }}>
-                        {formatTCO2e(cat.emissions)}
+                        {formatVal(cVal)}
                       </td>
-                      <td style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600 }}>{cat.percentOfScope}%</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600 }}>{pct}%</td>
                     </tr>
                   );
                 })}
@@ -389,10 +409,11 @@ export default function Scope1Page() {
         <div>
           {/* Ranking cards */}
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(factories.length, 4)}, 1fr)`, gap: 8, marginBottom: 10 }}>
-            {[...factories].sort((a, b) => b.scope1 - a.scope1).map((fs, rank) => {
+            {[...factories].sort((a, b) => (useUSD?b.scope1Cost||0:b.scope1) - (useUSD?a.scope1Cost||0:a.scope1)).map((fs, rank) => {
+              const fVal = useUSD ? (fs.scope1Cost || 0) : fs.scope1;
               const fi = factories.findIndex(f => f.factory.id === fs.factory.id);
               const col = getFactoryColor(fs.factory.code, fi);
-              const pct = scopeData.totalEmissions > 0 ? Math.round((fs.scope1 / scopeData.totalEmissions) * 100) : 0;
+              const pct = totalMetric > 0 ? Math.round((fVal / totalMetric) * 100) : 0;
               return (
                 <div key={fs.factory.id} className="card" style={{
                   padding: '10px 12px', borderTop: `3px solid ${col}`,
@@ -402,49 +423,49 @@ export default function Scope1Page() {
                     #{rank + 1} {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name}
                   </div>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: col }}>
-                    {formatTCO2e(fs.scope1)}
-                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: 2 }}>tCO₂e</span>
+                    {formatVal(fVal)}
+                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: 2 }}>{unitStr}</span>
                   </div>
                   <div style={{ height: 3, background: 'var(--color-border-light)', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: col }} />
                   </div>
-                  <div style={{ fontSize: 10, color: col, fontWeight: 700, marginTop: 3 }}>{pct}% tổng S1</div>
+                  <div style={{ fontSize: 10, color: col, fontWeight: 700, marginTop: 3 }}>{pct}% {useUSD ? 'tổng tiền' : 'tổng S1'}</div>
                 </div>
               );
             })}
           </div>
 
-          {/* Grouped bar chart */}
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              Grouped bar — {useIntensity ? 'tCO₂e / MT RCN' : 'tCO₂e / tháng'}
+              Grouped bar — {useIntensity ? `${unitStr} / MT RCN` : `${unitStr} / tháng`}
             </div>
             <FactoryBarChart
               labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i].label || `T${i+1}`)}
               series={compareFactorySeries}
               height={200}
-              yLabel={useIntensity ? 'tCO₂e/MTRCN' : 'tCO₂e'}
+              yLabel={useIntensity ? `${unitStr}/MTRCN` : unitStr}
+              currency={useUSD}
             />
           </div>
 
-          {/* Detail table */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                  {['Nhà máy', 'Scope 1 (tCO₂e)', 'Cường độ (tCO₂e/MT)', 'Tháng cao nhất', '% tổng S1'].map(h => (
-                    <th key={h} style={{ padding: '7px 12px', textAlign: h.includes('tCO') || h.includes('%') ? 'right' : 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                  {['Nhà máy', `${unitStr}`, `Cường độ (${unitStr}/MT)`, 'Tháng cao nhất', `% tổng`].map(h => (
+                    <th key={h} style={{ padding: '7px 12px', textAlign: h.includes('Cường độ') || h.includes('%') || h.includes('USD') || h.includes('tCO₂e') ? 'right' : 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...factories].sort((a, b) => b.scope1 - a.scope1).map((fs, rank) => {
+                {[...factories].sort((a, b) => (useUSD?b.scope1Cost||0:b.scope1) - (useUSD?a.scope1Cost||0:a.scope1)).map((fs, rank) => {
+                  const fVal = useUSD ? (fs.scope1Cost || 0) : fs.scope1;
                   const fi = factories.findIndex(f => f.factory.id === fs.factory.id);
                   const col = getFactoryColor(fs.factory.code, fi);
-                  const pct = scopeData.totalEmissions > 0 ? Math.round((fs.scope1 / scopeData.totalEmissions) * 100) : 0;
+                  const pct = totalMetric > 0 ? Math.round((fVal / totalMetric) * 100) : 0;
                   const fRCN = Array.from({ length: 12 }, (_, i) => monthlyRCN[i] || 0).reduce((s, v) => s + v, 0);
-                  const intens = fRCN > 0 ? (fs.scope1 / fRCN).toFixed(3) : '—';
-                  const maxMonth = fs.monthlyTrend.reduce((max, m) => m.scope1 > max.scope1 ? m : max, fs.monthlyTrend[0]);
+                  const intens = fRCN > 0 ? (fVal / fRCN).toFixed(useUSD ? 2 : 3) : '—';
+                  const maxMonth = fs.monthlyTrend.reduce((max, m) => (useUSD?m.costScope1||0:m.scope1) > (useUSD?max.costScope1||0:max.scope1) ? m : max, fs.monthlyTrend[0]);
                   return (
                     <tr key={fs.factory.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
                       <td style={{ padding: '8px 12px' }}>
@@ -456,10 +477,10 @@ export default function Scope1Page() {
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: col }}>{formatTCO2e(fs.scope1)}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: col }}>{formatVal(fVal)}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{intens}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        {maxMonth.label} ({formatTCO2e(maxMonth.scope1)})
+                        {maxMonth.label} ({formatVal(useUSD ? (maxMonth.costScope1||0) : maxMonth.scope1)})
                       </td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: col }}>{pct}%</td>
                     </tr>
@@ -474,15 +495,14 @@ export default function Scope1Page() {
       {/* ── View: vs RCN ── */}
       {viewMode === 'vs-rcn' && (
         <div>
-          {/* Dual axis chart — total scope1 vs RCN */}
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                Phát thải Scope 1 vs RCN nhập — tương quan hàng tháng
+                {useUSD ? 'Chi phí' : 'Phát thải'} Scope 1 vs RCN nhập — tương quan hàng tháng
               </div>
               <div style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'flex', gap: 12 }}>
                 <span>Tổng RCN: <strong>{totalRCN.toLocaleString()} MT</strong></span>
-                <span>Cường độ TB: <strong>{intensity.toFixed(3)} tCO₂e/MT</strong></span>
+                <span>Cường độ TB: <strong>{intensity.toFixed(useUSD ? 2 : 3)} {unitStr}/MT</strong></span>
               </div>
             </div>
             <DualAxisChart
@@ -492,14 +512,15 @@ export default function Scope1Page() {
               emissionColor={scopeColor}
               rcnColor="#6366F1"
               height={220}
+              currency={useUSD}
             />
           </div>
 
-          {/* Per-factory dual axis — 2 columns */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
             {factories.map((fs, fi) => {
+              const fVal = useUSD ? (fs.scope1Cost || 0) : fs.scope1;
               const col = getFactoryColor(fs.factory.code, fi);
-              const fsMonthlyEm = Array.from({ length: 12 }, (_, i) => fs.monthlyTrend[i].scope1);
+              const fsMonthlyEm = Array.from({ length: 12 }, (_, i) => useUSD ? (fs.monthlyTrend[i].costScope1 || 0) : fs.monthlyTrend[i].scope1);
               const intensValues = monthlyRCN.map((rcn, i) => rcn > 0 ? fsMonthlyEm[i] / rcn : 0);
               const avgIntens = monthlyRCN.filter(v => v > 0).length > 0
                 ? intensValues.filter((_, i) => monthlyRCN[i] > 0).reduce((s, v) => s + v, 0) / monthlyRCN.filter(v => v > 0).length
@@ -511,8 +532,8 @@ export default function Scope1Page() {
                       {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name}
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: col }}>{formatTCO2e(fs.scope1)} tCO₂e</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Cường độ TB: {avgIntens.toFixed(3)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: col }}>{formatVal(fVal)} {unitStr}</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Cường độ: {avgIntens.toFixed(useUSD ? 2 : 3)}</div>
                     </div>
                   </div>
                   <DualAxisChart
@@ -522,29 +543,29 @@ export default function Scope1Page() {
                     emissionColor={col}
                     rcnColor="#6366F1"
                     height={160}
+                    currency={useUSD}
                   />
                 </div>
               );
             })}
           </div>
 
-          {/* Intensity ranking */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 10 }}>
             <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border)', fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-              Xếp hạng cường độ phát thải Scope 1
+              Xếp hạng cường độ {useUSD ? 'chi phí' : 'phát thải'} Scope 1
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <tbody>
                 {[...factories]
                   .map((fs, fi) => ({
                     fs, fi,
-                    intens: totalRCN > 0 ? fs.scope1 / totalRCN : 0,
+                    intens: totalRCN > 0 ? (useUSD ? (fs.scope1Cost || 0) : fs.scope1) / totalRCN : 0,
                   }))
                   .sort((a, b) => a.intens - b.intens)
                   .map(({ fs, fi, intens }, rank) => {
                     const col = getFactoryColor(fs.factory.code, fi);
                     const maxIntens = totalRCN > 0
-                      ? Math.max(...factories.map(f => f.scope1 / totalRCN)) : 1;
+                      ? Math.max(...factories.map(f => (useUSD ? (f.scope1Cost || 0) : f.scope1) / totalRCN)) : 1;
                     return (
                       <tr key={fs.factory.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
                         <td style={{ padding: '7px 14px', width: 24, fontWeight: 800, color: 'var(--color-text-muted)', fontSize: 14 }}>#{rank + 1}</td>
@@ -560,9 +581,9 @@ export default function Scope1Page() {
                               <div style={{ width: `${maxIntens > 0 ? (intens / maxIntens) * 100 : 0}%`, height: '100%', background: col, borderRadius: 3 }} />
                             </div>
                             <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: col }}>
-                              {intens.toFixed(4)}
+                              {useUSD ? '$' + intens.toFixed(2) : intens.toFixed(4)}
                             </span>
-                            <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>tCO₂e/MT RCN</span>
+                            <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{unitStr}/MT RCN</span>
                           </div>
                         </td>
                       </tr>

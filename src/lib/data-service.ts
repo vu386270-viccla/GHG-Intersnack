@@ -26,6 +26,7 @@ interface RawEmission {
   category: string;
   activity_data: number;
   emissions_tco2e: number;
+  cost_usd?: number;
 }
 
 // ── In-memory cache ──
@@ -49,7 +50,7 @@ async function fetchData(year: number) {
 
   const [factoriesRes, emissionsRes] = await Promise.all([
     supabase.from('factories').select('*'),
-    supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e')
+    supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e,cost_usd')
       .eq('year', year)
       .limit(5000),  // Supabase default cap is 1000; 4 plants × 12 months × ~25 categories = ~1200/yr
   ]);
@@ -85,17 +86,26 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
 
   // Group emissions by scope
   const byScope: Record<string, number> = {};
+  const byScopeCost: Record<string, number> = {};
   const byScopeCategory: Record<string, Record<string, number>> = {};
+  const byScopeCategoryCost: Record<string, Record<string, number>> = {};
   
   for (const e of emissions) {
     byScope[e.scope] = (byScope[e.scope] || 0) + Number(e.emissions_tco2e);
+    byScopeCost[e.scope] = (byScopeCost[e.scope] || 0) + Number(e.cost_usd || 0);
+    
     if (!byScopeCategory[e.scope]) byScopeCategory[e.scope] = {};
     byScopeCategory[e.scope][e.category] = (byScopeCategory[e.scope][e.category] || 0) + Number(e.emissions_tco2e);
+    
+    if (!byScopeCategoryCost[e.scope]) byScopeCategoryCost[e.scope] = {};
+    byScopeCategoryCost[e.scope][e.category] = (byScopeCategoryCost[e.scope][e.category] || 0) + Number(e.cost_usd || 0);
   }
 
   const totalS1 = byScope['scope_1'] || 0;
   const totalS2 = byScope['scope_2'] || 0;
   const totalS3 = byScope['scope_3'] || 0;
+  const totalS1Cost = byScopeCost['scope_1'] || 0;
+  const totalS2Cost = byScopeCost['scope_2'] || 0;
   const grandTotal = totalS1 + totalS2 + totalS3;
 
   // Previous year totals
@@ -113,19 +123,30 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
       const s1 = monthData.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
       const s2 = monthData.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
       const s3 = monthData.filter(e => e.scope === 'scope_3').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
-      return { month: i + 1, label: MONTHS_VI[i], scope1: Math.round(s1), scope2: Math.round(s2), scope3: Math.round(s3), total: Math.round(s1 + s2 + s3) };
+      const c1 = monthData.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
+      const c2 = monthData.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
+      return { 
+        month: i + 1, label: MONTHS_VI[i], 
+        scope1: Math.round(s1), scope2: Math.round(s2), scope3: Math.round(s3), total: Math.round(s1 + s2 + s3),
+        costScope1: Math.round(c1), costScope2: Math.round(c2)
+      };
     });
 
     const scope1 = fEmissions.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
     const scope2 = fEmissions.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
     const scope3 = fEmissions.filter(e => e.scope === 'scope_3').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
+    const scope1Cost = fEmissions.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
+    const scope2Cost = fEmissions.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
 
     return {
       factory,
       totalEmissions: Math.round(scope1 + scope2 + scope3),
+      totalCost: Math.round(scope1Cost + scope2Cost),
       scope1: Math.round(scope1),
       scope2: Math.round(scope2),
       scope3: Math.round(scope3),
+      scope1Cost: Math.round(scope1Cost),
+      scope2Cost: Math.round(scope2Cost),
       monthlyTrend,
     };
   }).sort((a, b) => b.totalEmissions - a.totalEmissions);
@@ -141,15 +162,18 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     {
       scope: 'scope_1' as const,
       totalEmissions: Math.round(totalS1),
+      totalCost: Math.round(totalS1Cost),
       previousYearEmissions: Math.round(prevByScope['scope_1'] || 0),
       percentOfTotal: grandTotal > 0 ? Math.round((totalS1 / grandTotal) * 100) : 0,
       changePercent: calcChange('scope_1', totalS1),
       categories: SCOPE_1_CATEGORIES.map(cat => {
         const catEmissions = byScopeCategory['scope_1']?.[cat.key] || 0;
+        const catCost = byScopeCategoryCost['scope_1']?.[cat.key] || 0;
         return {
           category: cat.key,
           label: cat.label,
           emissions: Math.round(catEmissions),
+          cost: Math.round(catCost),
           percentOfScope: totalS1 > 0 ? Math.round((catEmissions / totalS1) * 100) : 0,
           unit: cat.unit,
         };
@@ -158,11 +182,12 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     {
       scope: 'scope_2' as const,
       totalEmissions: Math.round(totalS2),
+      totalCost: Math.round(totalS2Cost),
       previousYearEmissions: Math.round(prevByScope['scope_2'] || 0),
       percentOfTotal: grandTotal > 0 ? Math.round((totalS2 / grandTotal) * 100) : 0,
       changePercent: calcChange('scope_2', totalS2),
       categories: [
-        { category: 'electricity', label: 'Điện lưới', emissions: Math.round(totalS2), percentOfScope: 100, unit: 'kWh' },
+        { category: 'electricity', label: 'Điện lưới', emissions: Math.round(totalS2), cost: Math.round(totalS2Cost), percentOfScope: 100, unit: 'kWh' },
       ],
     },
     {
@@ -195,32 +220,40 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   // ── Scope 1 Monthly by Category ──
   const scope1Monthly = Array.from({ length: 12 }, (_, i) => {
     const monthEmissions = emissions.filter(e => e.scope === 'scope_1' && e.month === i + 1);
-    const catMap: Record<string, number> = {};
+    const catMap: Record<string, { em: number, cost: number }> = {};
     for (const e of monthEmissions) {
-      catMap[e.category] = (catMap[e.category] || 0) + Number(e.emissions_tco2e);
+      if (!catMap[e.category]) catMap[e.category] = { em: 0, cost: 0 };
+      catMap[e.category].em += Number(e.emissions_tco2e);
+      catMap[e.category].cost += Number(e.cost_usd || 0);
     }
-    const total = Object.values(catMap).reduce((s, v) => s + v, 0);
+    const total = Object.values(catMap).reduce((s, v) => s + v.em, 0);
+    const totalCost = Object.values(catMap).reduce((s, v) => s + v.cost, 0);
     return {
       month: i + 1,
       label: MONTHS_VI[i],
-      categories: Object.entries(catMap).map(([key, value]) => ({ key, value: Math.round(value) })),
+      categories: Object.entries(catMap).map(([key, value]) => ({ key, value: Math.round(value.em), cost: Math.round(value.cost) })),
       total: Math.round(total),
+      totalCost: Math.round(totalCost),
     };
   });
 
   // ── Scope 2 Monthly by Category ──
   const scope2Monthly = Array.from({ length: 12 }, (_, i) => {
     const monthEmissions = emissions.filter(e => e.scope === 'scope_2' && e.month === i + 1);
-    const catMap: Record<string, number> = {};
+    const catMap: Record<string, { em: number, cost: number }> = {};
     for (const e of monthEmissions) {
-      catMap[e.category] = (catMap[e.category] || 0) + Number(e.emissions_tco2e);
+      if (!catMap[e.category]) catMap[e.category] = { em: 0, cost: 0 };
+      catMap[e.category].em += Number(e.emissions_tco2e);
+      catMap[e.category].cost += Number(e.cost_usd || 0);
     }
-    const total = Object.values(catMap).reduce((s, v) => s + v, 0);
+    const total = Object.values(catMap).reduce((s, v) => s + v.em, 0);
+    const totalCost = Object.values(catMap).reduce((s, v) => s + v.cost, 0);
     return {
       month: i + 1,
       label: MONTHS_VI[i],
-      categories: Object.entries(catMap).map(([key, value]) => ({ key, value: Math.round(value) })),
+      categories: Object.entries(catMap).map(([key, value]) => ({ key, value: Math.round(value.em), cost: Math.round(value.cost) })),
       total: Math.round(total),
+      totalCost: Math.round(totalCost),
     };
   });
 

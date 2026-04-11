@@ -57,6 +57,7 @@ export interface SBTiTarget {
 export interface ScopeSummary {
   scope: ScopeType;
   totalEmissions: number;
+  totalCost?: number;
   previousYearEmissions: number;
   percentOfTotal: number;
   changePercent: number;
@@ -67,6 +68,7 @@ export interface CategorySummary {
   category: string;
   label: string;
   emissions: number;
+  cost?: number;
   percentOfScope: number;
   unit: string;
 }
@@ -74,9 +76,12 @@ export interface CategorySummary {
 export interface FactorySummary {
   factory: Factory;
   totalEmissions: number;
+  totalCost?: number;
   scope1: number;
   scope2: number;
   scope3: number;
+  scope1Cost?: number;
+  scope2Cost?: number;
   monthlyTrend: MonthlyData[];
 }
 
@@ -86,6 +91,8 @@ export interface MonthlyData {
   scope1: number;
   scope2: number;
   scope3: number;
+  costScope1?: number;
+  costScope2?: number;
   total: number;
 }
 

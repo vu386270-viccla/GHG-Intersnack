@@ -9,6 +9,7 @@ interface TrendLineProps {
   showLegend?: boolean;
   legendLabels?: Record<string, string>;
   showArea?: boolean;
+  currency?: boolean;
 }
 
 export default function TrendLine({
@@ -17,6 +18,7 @@ export default function TrendLine({
   showLegend = true,
   legendLabels = {},
   showArea = true,
+  currency = false,
 }: TrendLineProps) {
   if (!data.length) return null;
 
@@ -75,7 +77,7 @@ export default function TrendLine({
               />
               <text x={padding.left - 8} y={y + 4} textAnchor="end"
                 fill="#999" fontSize="11" fontFamily="Inter, sans-serif">
-                {formatNumber(tick)}
+                {currency ? '$'+formatNumber(tick) : formatNumber(tick)}
               </text>
             </g>
           );
@@ -150,7 +152,7 @@ export default function TrendLine({
                     animationDelay: `${ki * 200 + i * 50}ms`,
                   }}
                 >
-                  <title>{`${d.label}: ${formatNumber(d.values[ki].value)} tCO₂e`}</title>
+                  <title>{`${d.label}: ${currency ? '$' + formatNumber(d.values[ki].value) : formatNumber(d.values[ki].value) + ' tCO₂e'}`}</title>
                 </circle>
               ))}
             </g>

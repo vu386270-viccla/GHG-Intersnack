@@ -16,6 +16,7 @@ interface FactoryBarChartProps {
   height?: number;
   yLabel?: string;
   formatVal?: (v: number) => string;
+  currency?: boolean;
 }
 
 function niceMax(max: number) {
@@ -38,6 +39,7 @@ export default function FactoryBarChart({
   height = 220,
   yLabel = 'tCO₂e',
   formatVal = fmtNum,
+  currency = false,
 }: FactoryBarChartProps) {
   if (!labels.length || !series.length) return null;
 
@@ -74,7 +76,7 @@ export default function FactoryBarChart({
                 stroke="#E0DFDB" strokeWidth={0.8} strokeDasharray="3,3" />
               <text x={PAD.left - 5} y={y + 4} textAnchor="end"
                 fontSize={9} fill="#888" fontFamily="Inter, sans-serif">
-                {formatVal(t)}
+                {currency ? '$'+formatVal(t) : formatVal(t)}
               </text>
             </g>
           );
@@ -90,7 +92,7 @@ export default function FactoryBarChart({
             return (
               <rect key={`${si}-${gi}`} x={x} y={y} width={barW} height={bh}
                 fill={s.color} rx={2} opacity={0.9}>
-                <title>{`${s.label} — ${labels[gi]}: ${formatVal(v)} ${yLabel}`}</title>
+                <title>{`${s.label} — ${labels[gi]}: ${currency ? '$' + formatVal(v) : formatVal(v) + ' ' + yLabel}`}</title>
               </rect>
             );
           })
