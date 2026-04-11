@@ -435,8 +435,9 @@ export default function OverviewPage() {
         </button>
       </div>
 
-      {/* Slide */}
-      <div className="overview-slide" style={{ transform: `scale(${slideScale})`, transformOrigin: 'center center' }}>
+      {/* Slide — wrapper sized to visual dimensions so overflow-x clipping doesn't cut the slide */}
+      <div style={{ width: `${slideScale * 1536}px`, height: `${slideScale * 864}px`, flexShrink: 0, position: 'relative' }}>
+      <div className="overview-slide" style={{ transform: `scale(${slideScale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0 }}>
         <div className="ov-topbar">
           <div className="ov-logo">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -1415,6 +1416,7 @@ export default function OverviewPage() {
           <span>SBTi Near-term · Base 2021: {fmt(data.baseS1S2)} tCO₂e · Target 2032: {fmt(data.targetS1S2)} tCO₂e (-50%)</span>
           <span>EF: {useCommonEF ? `${COMMON_EF}` : 'Country'} kg CO₂e/kWh</span>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -978,8 +978,7 @@ button {
   gap: 8px;
   padding: 10px 12px;
   font-family: 'Inter', -apple-system, sans-serif;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
 }
 
 .overview-controls {
