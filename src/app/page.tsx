@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getDashboardData, formatTCO2e, formatNumber, getScope3SummaryData } from '@/lib/data-service';
 import { SCOPE_COLORS, MONTHS_VI } from '@/lib/types';
 import type { ScopeSummary, FactorySummary, MonthlyData, TargetProgress } from '@/lib/types';
@@ -75,8 +75,8 @@ function ScopeDonut({ s1, s2, s3, size = 100 }: { s1: number; s2: number; s3: nu
 }
 
 /* ── SBTi Target Card ── */
-function SBTiCard({ label, icon, targetPct, current, base, color, breakdown }:
-  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; breakdown?: { name: string; value: number; pct: number }[] }
+function SBTiCard({ label, icon, targetPct, current, base, color, breakdown, footer }:
+  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; breakdown?: { name: string; value: number; pct: number }[]; footer?: React.ReactNode }
 ) {
   const reducedPct = base > 0 ? Math.max(0, (base - current) / base * 100) : 0;
   const targetVal  = Math.round(base * (1 - targetPct / 100));
@@ -163,21 +163,23 @@ function SBTiCard({ label, icon, targetPct, current, base, color, breakdown }:
           ))}
         </div>
       )}
+      {footer && <div style={{ marginTop: 4 }}>{footer}</div>}
     </div>
   );
 }
 
 // ── Factory abbreviation map ──
-const FACTORY_SHORT: Record<string, string> = {}; // populated from factory names
 function factoryAbbr(name: string, country: string): string {
+  if (country === 'India') return 'Tuti';
   const n = name.toLowerCase();
-  if (n.includes('ninh')) return 'TN';
-  if (n.includes('an')) return 'LA';
-  if (n.includes('thiết') || n.includes('thiet')) return 'PT';
-  if (n.includes('tuti') || n.includes('india') || country === 'India') return 'Tuti';
+  // order matters — more specific first
+  if (n.includes('tây ninh') || (n.includes('ninh') && !n.includes('khánh'))) return 'TN';
+  if (n.includes('phan thiết') || n.includes('phan thiet') || n.includes('thiết') || n.includes('thiet')) return 'PT';
+  if (n.includes('long an')) return 'LA';
+  if (n.includes('dĩ') || n.includes('di an') || n.includes('dỹ')) return 'DA';
   if (n.includes('nam m')) return 'NM';
-  if (n.includes('dỹ an') || n.includes('di an')) return 'DA';
-  // fallback: initials of last word
+  if (n.includes('tuti')) return 'Tuti';
+  // fallback: capitalised last word
   return name.split(' ').pop() ?? name;
 }
 
@@ -416,14 +418,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ══ SBTi TARGETS ROW ── 2 clean cards ══ */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '1px' }}>SBTi #40003759</div>
-            <Link href="/targets" style={{ fontSize: 10, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}>Chi tiết →</Link>
-          </div>
-        </div>
+      {/* ══ SBTi TARGETS ROW ── 2-col grid ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {sbtiS12 && (
           <SBTiCard
             label="Scope 1+2 — Vận hành"
@@ -432,6 +428,7 @@ export default function DashboardPage() {
             current={sbtiS12.currentEmissions}
             base={sbtiS12.baseYearEmissions}
             color="#E32314"
+            footer={<Link href="/targets" style={{ fontSize: 9, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}>SBTi #40003759 →</Link>}
           />
         )}
         {sbtiS3 && (
@@ -443,6 +440,7 @@ export default function DashboardPage() {
             base={sbtiS3.baseYearEmissions}
             color="#8CB92D"
             breakdown={s3Cats.map(c => ({ name: c.label.split('—').pop()?.trim() ?? c.label, value: c.emissions, pct: c.percentOfScope }))}
+            footer={s3IsEstimated ? <span style={{ fontSize: 9, color: '#aaa' }}>Dữ liệu năm gần nhất — S3 annual</span> : undefined}
           />
         )}
       </div>
