@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { getDashboardData, formatTCO2e, formatNumber } from '@/lib/data-service';
+import { getDashboardData, formatTCO2e, formatNumber, getScope3SummaryData } from '@/lib/data-service';
 import { SCOPE_COLORS, MONTHS_VI } from '@/lib/types';
 import type { ScopeSummary, FactorySummary, MonthlyData, TargetProgress } from '@/lib/types';
 import Link from 'next/link';
@@ -159,6 +159,20 @@ function SBTiGauge({
   );
 }
 
+// ── Factory abbreviation map ──
+const FACTORY_SHORT: Record<string, string> = {}; // populated from factory names
+function factoryAbbr(name: string, country: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('ninh')) return 'TN';
+  if (n.includes('an')) return 'LA';
+  if (n.includes('thiết') || n.includes('thiet')) return 'PT';
+  if (n.includes('tuti') || n.includes('india') || country === 'India') return 'Tuti';
+  if (n.includes('nam m')) return 'NM';
+  if (n.includes('dỹ an') || n.includes('di an')) return 'DA';
+  // fallback: initials of last word
+  return name.split(' ').pop() ?? name;
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [grandTotal, setGrandTotal] = useState(0);
@@ -167,14 +181,18 @@ export default function DashboardPage() {
   const [monthlyTotals, setMonthlyTotals] = useState<MonthlyData[]>([]);
   const [targets, setTargets] = useState<TargetProgress[]>([]);
   const [rcnData, setRcnData] = useState<{ totalRCN: number; totalCK: number; intensity: number; monthlyIntensity: number[] } | null>(null);
-  const [rcnByFactory, setRcnByFactory] = useState<Record<string, { totalRCN: number; totalCK: number; monthlyRCN: number[] }>>({});
+  const [rcnByFactory, setRcnByFactory] = useState<Record<string, { totalRCN: number; totalCK: number; monthlyRCN: number[] }>>({}); 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFactory, setSelectedFactory] = useState<string>('ALL');
+  const [s3Annual, setS3Annual] = useState<{ year: number; total: number; cat1: number; cat3: number; cat4: number } | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setSelectedFactory('ALL');
-    getDashboardData(selectedYear).then(data => {
+    Promise.all([
+      getDashboardData(selectedYear),
+      getScope3SummaryData(),
+    ]).then(([data, s3Data]) => {
       setGrandTotal(data.grandTotal);
       setScopeSummaries(data.scopeSummaries);
       setFactorySummaries(data.factorySummaries);
@@ -182,6 +200,12 @@ export default function DashboardPage() {
       setTargets(data.targets);
       setRcnData(data.rcnData);
       setRcnByFactory(data.rcnByFactory);
+      // Pick S3 for selected year, fallback to most recent year with data
+      const s3Row = s3Data.rows.find(r => r.year === selectedYear)
+        ?? s3Data.rows[s3Data.rows.length - 1];
+      if (s3Row) {
+        setS3Annual({ year: s3Row.year, total: s3Row.total, cat1: s3Row.cat1_cashew, cat3: s3Row.cat3_wtt, cat4: s3Row.cat4_vessel + s3Row.cat4_road });
+      }
       setLoading(false);
     });
   }, [selectedYear]);
@@ -224,13 +248,17 @@ export default function DashboardPage() {
   // per-factory RCN
   const allRCN = selectedFactory === 'ALL' ? (rcnData?.totalRCN ?? 0) : (rcnByFactory[selectedFactory]?.totalRCN ?? 0);
   const intensity = allRCN > 0 ? totals.total / allRCN : 0;
-  // S3 display: use previous year value if current year = 0 (S3 data is annual)
-  const s3Display = totals.s3 > 0 ? totals.s3 : (scopeSummaries.find(s => s.scope === 'scope_3')?.previousYearEmissions ?? 0);
-  const s3IsEstimated = totals.s3 === 0 && s3Display > 0;
+  // S3: use real annual data from scope3_transport_data
+  const s3Display = s3Annual?.total ?? 0;
+  const s3IsEstimated = s3Annual != null && s3Annual.year !== selectedYear;
+  const s3Cats = s3Annual ? [
+    { category: 'cat1', label: 'Cat.1 — Cashew', emissions: s3Annual.cat1, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat1 / s3Annual.total * 100) : 0 },
+    { category: 'cat3', label: 'Cat.3 — WTT', emissions: s3Annual.cat3, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat3 / s3Annual.total * 100) : 0 },
+    { category: 'cat4', label: 'Cat.4 — Vận chuyển', emissions: s3Annual.cat4, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat4 / s3Annual.total * 100) : 0 },
+  ].filter(c => c.emissions > 0) : [];
   // Max total across factories (for bar scaling)
   const maxFacTotal = Math.max(...factorySummaries.map(fs => fs.totalEmissions), 1);
-  // S3 categories from scope summaries
-  const s3Cats = scopeSummaries.find(s => s.scope === 'scope_3')?.categories ?? [];
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -272,7 +300,7 @@ export default function DashboardPage() {
                   color: selectedFactory === fs.factory.id ? '#fff' : 'var(--color-text-muted)',
                   whiteSpace: 'nowrap',
                 }}>
-                {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name.split(' ').slice(-1)[0]}
+                {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {factoryAbbr(fs.factory.name, fs.factory.country)}
               </button>
             ))}
           </div>
@@ -537,7 +565,7 @@ export default function DashboardPage() {
                     <td style={{ padding: '5px 6px', fontWeight: 700, color: isSelected ? 'var(--color-primary)' : 'var(--color-text)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ width: 6, height: 22, background: fs.totalEmissions > 0 ? 'var(--color-primary)' : '#eee', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                        <span>{fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name.split(' ').slice(-2).join(' ')}</span>
+                        <span>{fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {factoryAbbr(fs.factory.name, fs.factory.country)}</span>
                       </div>
                     </td>
                     <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_1, fontWeight: 600 }}>{formatNumber(fs.scope1)}</td>
@@ -583,7 +611,7 @@ export default function DashboardPage() {
                 style={{ cursor: 'pointer', opacity: selectedFactory !== 'ALL' && !isSelected ? 0.35 : 1, transition: 'opacity 0.2s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 80, fontSize: 11, fontWeight: 700, color: isSelected ? 'var(--color-primary)' : 'var(--color-text)', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name.split(' ').slice(-1)[0]}
+                    {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {factoryAbbr(fs.factory.name, fs.factory.country)}
                   </div>
                   <div style={{ flex: 1, height: 18, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
                     <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${s1Pct}%`, background: S_COLOR.scope_1, transition: 'width 0.5s' }} />
