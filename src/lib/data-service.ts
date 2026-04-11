@@ -38,6 +38,10 @@ let _cache: {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+export function invalidateCache() {
+  _cache = null;
+}
+
 async function fetchData(year: number) {
   if (_cache && _cache.year === year && Date.now() - _cache.timestamp < CACHE_TTL) {
     return _cache;
@@ -254,16 +258,27 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   if (baseS1S2 === 0) baseS1S2 = (totalS1 + totalS2) * 1.25;
   if (baseS3 === 0) baseS3 = totalS3 * 1.12;
 
+  // SBTi: −50% Scope 1+2 và −30% Scope 3 by 2032 vs baseline 2021
+  const BASE_YEAR = 2021;
+  const TARGET_YEAR = 2032;
+  const yearsElapsed = Math.max(0, year - BASE_YEAR);
+  const totalYears = TARGET_YEAR - BASE_YEAR; // 11
+
+  // Linear on-track threshold: expected reduction at current year
+  const s12LinearThreshold = baseS1S2 * (1 - 0.50 * (yearsElapsed / totalYears));
+  const s3LinearThreshold  = baseS3  * (1 - 0.30 * (yearsElapsed / totalYears));
+
+  const currentS12 = totalS1 + totalS2;
   const targets: TargetProgress[] = [
     {
       scope: 'Scope 1 + 2',
       label: 'Phát thải vận hành',
       baseYearEmissions: Math.round(baseS1S2),
-      currentEmissions: Math.round(totalS1 + totalS2),
-      targetEmissions: Math.round(baseS1S2 * 0.5),
+      currentEmissions: Math.round(currentS12),
+      targetEmissions: Math.round(baseS1S2 * 0.50), // −50% by 2032
       reductionTargetPct: 50,
-      actualReductionPct: baseS1S2 > 0 ? Math.round(((baseS1S2 - (totalS1 + totalS2)) / baseS1S2) * 100) : 0,
-      onTrack: (totalS1 + totalS2) <= baseS1S2 * 0.75,
+      actualReductionPct: baseS1S2 > 0 ? Math.round(((baseS1S2 - currentS12) / baseS1S2) * 100) : 0,
+      onTrack: currentS12 <= s12LinearThreshold,
       targetYear: 2032,
       baseYear: 2021,
     },
@@ -272,10 +287,10 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
       label: 'Chuỗi giá trị',
       baseYearEmissions: Math.round(baseS3),
       currentEmissions: Math.round(totalS3),
-      targetEmissions: Math.round(baseS3 * 0.7),
+      targetEmissions: Math.round(baseS3 * 0.70), // −30% by 2032
       reductionTargetPct: 30,
       actualReductionPct: baseS3 > 0 ? Math.round(((baseS3 - totalS3) / baseS3) * 100) : 0,
-      onTrack: totalS3 <= baseS3 * 0.85,
+      onTrack: totalS3 <= s3LinearThreshold,
       targetYear: 2032,
       baseYear: 2021,
     },

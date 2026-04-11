@@ -52,8 +52,8 @@ export default function Scope2Page() {
       .then(data => {
         setScopeData(data.scopeSummaries.find(s => s.scope === 'scope_2') || null);
         setFactories(data.factorySummaries);
-        setS2Monthly((data as any).scope2Monthly as MonthlyByCat[] || []);
-        setMonthlyRCN((data as any).monthlyRCN || []);
+        setS2Monthly(data.scope2Monthly as MonthlyByCat[] || []);
+        setMonthlyRCN(data.monthlyRCN || []);
         setTotalRCN(data.rcnData?.totalRCN || 0);
         setLoading(false);
       })

@@ -124,7 +124,7 @@ export default function TargetsPage() {
             const progress = i / totalYears;
             const s12Base = targets[0]?.baseYearEmissions || 0;
             const s3Base = targets[1]?.baseYearEmissions || 0;
-            const s12Target = Math.round(s12Base * (1 - 0.5 * progress));
+            const s12Target = Math.round(s12Base * (1 - 0.50 * progress));
             const s3Target = Math.round(s3Base * (1 - 0.3 * progress));
             const actual = annualTotals[year];
             const hasActual = !!actual && (actual.s12 > 0 || actual.s3 > 0);

@@ -424,7 +424,7 @@ export default function DashboardPage() {
           <SBTiCard
             label="Scope 1+2 — Vận hành"
             icon="🏭"
-            targetPct={42}
+            targetPct={50}
             current={sbtiS12.currentEmissions}
             base={sbtiS12.baseYearEmissions}
             color="#E32314"

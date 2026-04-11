@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getDashboardData } from '@/lib/data-service';
+import { getDashboardData, invalidateCache } from '@/lib/data-service';
 import { supabase } from '@/lib/supabase';
 import {
   SCOPE_1_CATEGORIES, SCOPE_1_EF_BY_COUNTRY, SCOPE_2_CATEGORIES, SCOPE_3_CATEGORIES,
@@ -162,6 +162,7 @@ export default function InputPage() {
       if (error) {
         alert('Lỗi khi lưu: ' + error.message);
       } else {
+        invalidateCache();
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }

@@ -167,8 +167,8 @@ export default function OverviewPage() {
       const s2Total = calcS2(yrRows, yr);
       const s3Total = calcS3(yrRows);
       const actual = s1Total + s2Total + s3Total;
-      // Linear SBTi target: from base → -42% by 2032 (SBTi commitment #40003759)
-      const target = baseTotalSelFull * (1 - 0.42 * ((yr - 2021) / 11));
+      // Linear SBTi target: from base → -50% by 2032 vs baseline 2021
+      const target = baseTotalSelFull * (1 - 0.50 * ((yr - 2021) / 11));
       const monthsActive = new Set(yrRows.map(e => e.month)).size;
 
       // Per-factory breakdown (only selected)
@@ -342,7 +342,7 @@ export default function OverviewPage() {
     const monthsWithData = new Set(emissions.map(e => e.month)).size;
     const baseRows = allEmissions.filter(e => e.year === 2021);
     const baseS1S2 = calcS1(baseRows) + calcS2(baseRows, 2021);
-    const targetS1S2 = baseS1S2 * 0.5;
+    const targetS1S2 = baseS1S2 * 0.50; // −50% by 2032
     const currentPct = baseS1S2 > 0 ? ((baseS1S2 - allTotal) / baseS1S2 * 100) : 0;
     const expectedPct = ((selectedYear - 2021) / 11) * 50;
     const factoryBlocks = factories.map(f => buildFactoryBlock(f, emissions));
@@ -819,7 +819,7 @@ export default function OverviewPage() {
                 <span><span className="ov-legend-dot" style={{ background: '#8CB92D' }} />🌍 Scope 3</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                   <span style={{ borderBottom: '2px dashed #8CB92D', width: 14, display: 'inline-block', verticalAlign: 'middle' }} />
-                  SBTi −42% by 2032
+                  SBTi −50% by 2032
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
                   <span style={{ width: 10, height: 8, background: '#a5b4fc', borderRadius: 2, display: 'inline-block' }} />
