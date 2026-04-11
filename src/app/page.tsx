@@ -74,87 +74,95 @@ function ScopeDonut({ s1, s2, s3, size = 100 }: { s1: number; s2: number; s3: nu
   );
 }
 
-/* ── SBTi Circular Gauge ── */
-function SBTiGauge({
-  label, icon, reductionPct, current, base, targetYear, color, note
-}: {
-  label: string; icon: string; reductionPct: number;
-  current: number; base: number; targetYear: number; color: string; note?: string;
-}) {
-  const size = 130;
-  const cx = size / 2, cy = size / 2;
-  const R = 50, thick = 11;
-  const circ = 2 * Math.PI * R;
-  // How much has been reduced from baseline
-  const reducedPct = base > 0 ? Math.max(0, Math.min(100, (base - current) / base * 100)) : 0;
-  const targetPct = reductionPct; // e.g. 42 or 30
-  const onTrack = reducedPct >= (targetPct * (new Date().getFullYear() - 2021) / (targetYear - 2021));
-  // Track: grey full circle
-  // Actual reduction arc: colored
-  // Target marker at targetPct position on the arc
-  const angleOffset = -225; // start at bottom-left, sweep 270 degrees
-  const sweepDeg = 270;
-  const actualDash = (reducedPct / 100) * sweepDeg / 360 * circ;
-  const trackDash = sweepDeg / 360 * circ;
-  const targetDash = (targetPct / 100) * sweepDeg / 360 * circ;
-  // SVG arc path for partial circle (270 deg)
-  function arcPath(pct: number) {
-    const deg = angleOffset + (pct / 100) * sweepDeg;
-    const rad = (deg * Math.PI) / 180;
-    return { x: cx + R * Math.cos(rad), y: cy + R * Math.sin(rad) };
+/* ── SBTi Target Card ── */
+function SBTiCard({ label, icon, targetPct, current, base, color, breakdown }:
+  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; breakdown?: { name: string; value: number; pct: number }[] }
+) {
+  const reducedPct = base > 0 ? Math.max(0, (base - current) / base * 100) : 0;
+  const targetVal  = Math.round(base * (1 - targetPct / 100));
+  const onTrack    = reducedPct >= (targetPct * (new Date().getFullYear() - 2021) / (2032 - 2021));
+  // Half-donut SVG (180° arc, left to right)
+  const W = 160, H = 85, cx = W / 2, cy = H - 8, R = 68, thick = 14;
+  function halfArc(pct: number) {
+    const clamp = Math.min(Math.max(pct, 0), 100);
+    const endAngle = Math.PI * (clamp / 100); // 0..PI = left..right
+    const ex = cx - R * Math.cos(endAngle);   // mirror: left=0% right=100%
+    const ey = cy - R * Math.sin(endAngle);
+    const large = clamp > 50 ? 1 : 0;
+    if (clamp <= 0) return '';
+    if (clamp >= 100) return `M ${cx - R} ${cy} A ${R} ${R} 0 1 1 ${cx + R} ${cy}`;
+    return `M ${cx - R} ${cy} A ${R} ${R} 0 ${large} 1 ${ex} ${ey}`;
   }
-  const startPt = arcPath(0);
-  const endPt = arcPath(100);
-  const actualPt = arcPath(reducedPct > 0 ? reducedPct : 0.01);
-  const targetPt = arcPath(targetPct);
-  function partialArc(pct: number, total = 100) {
-    if (pct <= 0) return '';
-    pct = Math.min(pct, total);
-    const start = { x: cx + R * Math.cos((angleOffset * Math.PI) / 180), y: cy + R * Math.sin((angleOffset * Math.PI) / 180) };
-    const endDeg = angleOffset + (pct / 100) * sweepDeg;
-    const end = { x: cx + R * Math.cos((endDeg * Math.PI) / 180), y: cy + R * Math.sin((endDeg * Math.PI) / 180) };
-    const large = (pct / 100) * sweepDeg > 180 ? 1 : 0;
-    return `M ${start.x} ${start.y} A ${R} ${R} 0 ${large} 1 ${end.x} ${end.y}`;
-  }
+  const targetAngle = Math.PI * (targetPct / 100);
+  const tx = cx - R * Math.cos(targetAngle), ty = cy - R * Math.sin(targetAngle);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {/* Track */}
-        <path d={partialArc(100)} fill="none" stroke="#f0f0f0" strokeWidth={thick} strokeLinecap="round" />
-        {/* Actual reduction */}
-        {reducedPct > 0 && (
-          <path d={partialArc(reducedPct)} fill="none" stroke={onTrack ? color : '#ef4444'} strokeWidth={thick} strokeLinecap="round" opacity={0.9} />
-        )}
-        {/* Target marker */}
-        {(() => {
-          const deg = angleOffset + (targetPct / 100) * sweepDeg;
-          const rad = (deg * Math.PI) / 180;
-          const px = cx + R * Math.cos(rad), py = cy + R * Math.sin(rad);
-          return <circle cx={px} cy={py} r={5} fill={color} stroke="#fff" strokeWidth={2} />;
-        })()}
-        {/* Center text */}
-        <text x={cx} y={cy - 14} textAnchor="middle" fontSize={9} fontWeight={700} fill="#888">{icon} {label}</text>
-        <text x={cx} y={cy + 4} textAnchor="middle" fontSize={22} fontWeight={900} fill={onTrack ? color : '#ef4444'}>
-          {reducedPct.toFixed(1)}%
-        </text>
-        <text x={cx} y={cy + 17} textAnchor="middle" fontSize={8} fill="#aaa">reduced</text>
-        <text x={cx} y={cy + 28} textAnchor="middle" fontSize={8} fontWeight={700} fill={color}>target: {targetPct}%</text>
-      </svg>
-      <div style={{ textAlign: 'center', lineHeight: 1.4 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: onTrack ? '#166534' : '#991b1b', background: onTrack ? '#dcfce7' : '#fee2e2', borderRadius: 6, padding: '2px 8px', display: 'inline-block' }}>
+    <div style={{ flex: 1, background: 'var(--color-card-bg)', border: `1.5px solid ${color}22`, borderRadius: 14, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: '0.5px' }}>{icon} {label}</div>
+          <div style={{ fontSize: 10, color: '#aaa', marginTop: 1 }}>Target 2032: −{targetPct}% vs 2021</div>
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+          background: onTrack ? '#dcfce7' : '#fee2e2',
+          color: onTrack ? '#166534' : '#991b1b' }}>
           {onTrack ? '✓ On track' : '✗ Behind'}
         </div>
-        <div style={{ fontSize: 9, color: '#888', marginTop: 3 }}>
-          Current: <strong>{formatTCO2e(current)}</strong> t
-        </div>
-        <div style={{ fontSize: 9, color: '#888' }}>
-          Base 2021: {formatTCO2e(base)} t
-        </div>
-        <div style={{ fontSize: 9, color: color, fontWeight: 700 }}>
-          Target {targetYear}: {formatTCO2e(Math.round(base * (1 - targetPct / 100)))} t
-        </div>
-        {note && <div style={{ fontSize: 8, color: '#bbb', marginTop: 2 }}>{note}</div>}
       </div>
+      {/* Half-donut arc */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ flexShrink: 0, overflow: 'visible' }}>
+          {/* Track */}
+          <path d={halfArc(100)} fill="none" stroke="#f0f0f0" strokeWidth={thick} strokeLinecap="round" />
+          {/* Actual */}
+          {reducedPct > 0 && <path d={halfArc(reducedPct)} fill="none" stroke={onTrack ? color : '#ef4444'} strokeWidth={thick} strokeLinecap="round" opacity={0.85} />}
+          {/* Target marker */}
+          <circle cx={tx} cy={ty} r={6} fill={color} stroke="#fff" strokeWidth={2.5} />
+          {/* Center labels */}
+          <text x={cx} y={cy - R - 6} textAnchor="middle" fontSize={22} fontWeight={900} fill={onTrack ? color : '#ef4444'}>{reducedPct.toFixed(1)}%</text>
+          <text x={cx} y={cy - R + 8} textAnchor="middle" fontSize={8} fill="#bbb">reduced so far</text>
+          <text x={cx - R - 2} y={cy + 14} textAnchor="middle" fontSize={8} fill="#aaa">0%</text>
+          <text x={cx + R + 2} y={cy + 14} textAnchor="middle" fontSize={8} fill="#aaa">100%</text>
+          <text x={tx} y={ty - 10} textAnchor="middle" fontSize={8} fontWeight={700} fill={color}>T</text>
+        </svg>
+        {/* Key numbers */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase' }}>Baseline 2021</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#555' }}>{formatTCO2e(base)}</span>
+          </div>
+          <div style={{ height: 1, background: '#f0f0f0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase' }}>Hiện tại</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: onTrack ? color : '#ef4444' }}>{formatTCO2e(current)}</span>
+          </div>
+          <div style={{ height: 1, background: '#f0f0f0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: 9, color: color, textTransform: 'uppercase', fontWeight: 700 }}>Target 2032</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color }}>{formatTCO2e(targetVal)}</span>
+          </div>
+          {/* thin progress bar */}
+          <div style={{ position: 'relative', height: 6, background: '#f3f4f6', borderRadius: 4, overflow: 'visible', marginTop: 2 }}>
+            <div style={{ height: '100%', width: `${reducedPct}%`, background: onTrack ? color : '#ef4444', borderRadius: 4, transition: 'width 0.5s' }} />
+            <div style={{ position: 'absolute', left: `${targetPct}%`, top: -2, width: 2, height: 10, background: color, borderRadius: 1 }} />
+          </div>
+          <div style={{ fontSize: 8, color: '#bbb' }}>|——— target {targetPct}%</div>
+        </div>
+      </div>
+      {/* Breakdown rows */}
+      {breakdown && breakdown.length > 0 && (
+        <div style={{ borderTop: '1px solid #f5f5f5', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {breakdown.map(b => (
+            <div key={b.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9 }}>
+              <span style={{ color: '#aaa', width: 100, flexShrink: 0 }}>{b.name}</span>
+              <div style={{ flex: 1, height: 4, background: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${b.pct}%`, background: color, opacity: 0.6, borderRadius: 2 }} />
+              </div>
+              <span style={{ color, fontWeight: 700, width: 38, textAlign: 'right', flexShrink: 0 }}>{formatNumber(b.value)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -408,117 +416,35 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ══ SBTi TARGETS ROW — 2 circular gauges ══ */}
-      <div className="card" style={{ padding: '14px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      {/* ══ SBTi TARGETS ROW ── 2 clean cards ══ */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>🎯 Mục tiêu SBTi — Commitment #40003759</div>
-            <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>Giảm phát thải so với năm gốc 2021 · Target year: 2032</div>
-          </div>
-          <Link href="/targets" style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none', padding: '5px 12px', border: '1.5px solid var(--color-primary)', borderRadius: 8 }}>Chi tiết →</Link>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
-
-          {/* Gauge: Scope 1+2 */}
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            {sbtiS12 && (
-              <SBTiGauge
-                label="Scope 1+2" icon="🏭"
-                reductionPct={42}
-                current={sbtiS12.currentEmissions}
-                base={sbtiS12.baseYearEmissions}
-                targetYear={2032}
-                color="#E32314"
-                note="Phát thải vận hành trực tiếp"
-              />
-            )}
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 8 }}>Scope 1 — Đốt nhiên liệu trực tiếp</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <div style={{ flex: 1, background: '#fff7f7', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px' }}>
-                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Năm gốc 2021</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#E32314' }}>{formatTCO2e(sbtiS12?.baseYearEmissions ?? 0)}</div>
-                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e</div>
-                </div>
-                <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px' }}>
-                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Target 2032</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{formatTCO2e(sbtiS12 ? Math.round(sbtiS12.baseYearEmissions * 0.58) : 0)}</div>
-                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e (−42%)</div>
-                </div>
-                <div style={{ flex: 1, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px' }}>
-                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Hiện tại</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#F5A623' }}>{formatTCO2e(sbtiS12?.currentEmissions ?? 0)}</div>
-                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e</div>
-                </div>
-              </div>
-              {/* Progress bar */}
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>Tiến độ giảm phát thải</div>
-              <div style={{ position: 'relative', height: 16, background: '#f3f4f6', borderRadius: 8, overflow: 'hidden' }}>
-                {sbtiS12 && (() => {
-                  const reducedPct = sbtiS12.baseYearEmissions > 0 ? Math.max(0, (sbtiS12.baseYearEmissions - sbtiS12.currentEmissions) / sbtiS12.baseYearEmissions * 100) : 0;
-                  return <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${reducedPct}%`, background: reducedPct >= 0 ? '#22c55e' : '#ef4444', borderRadius: 8 }} />;
-                })()}
-                <div style={{ position: 'absolute', left: '42%', top: 0, width: 2, height: '100%', background: '#E32314' }} />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: 6, fontSize: 9, fontWeight: 700, color: '#555' }}>
-                  {sbtiS12 ? `${((sbtiS12.baseYearEmissions - sbtiS12.currentEmissions) / sbtiS12.baseYearEmissions * 100).toFixed(1)}% giảm / target 42%` : ''}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', borderLeft: '1px solid #f0f0f0', paddingLeft: 20 }}>
-            {sbtiS3 && (
-              <SBTiGauge
-                label="Scope 3" icon="🌍"
-                reductionPct={30}
-                current={sbtiS3.currentEmissions > 0 ? sbtiS3.currentEmissions : (s3Display)}
-                base={sbtiS3.baseYearEmissions}
-                targetYear={2032}
-                color="#8CB92D"
-                note="Chuỗi giá trị: Cat.1+3+4"
-              />
-            )}
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 8 }}>Scope 3 — Phát thải chuỗi giá trị</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px' }}>
-                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Năm gốc 2021</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#8CB92D' }}>{formatTCO2e(sbtiS3?.baseYearEmissions ?? 0)}</div>
-                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e</div>
-                </div>
-                <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px' }}>
-                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Target 2032</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{formatTCO2e(sbtiS3 ? Math.round(sbtiS3.baseYearEmissions * 0.7) : 0)}</div>
-                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e (−30%)</div>
-                </div>
-                <div style={{ flex: 1, background: '#f8fce8', border: '1px solid #d9f99d', borderRadius: 8, padding: '6px 10px' }}>
-                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Gần nhất</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#8CB92D' }}>{formatTCO2e(s3Display)}</div>
-                  <div style={{ fontSize: 9, color: '#aaa' }}>{s3IsEstimated ? 'năm trước' : 'tCO₂e'}</div>
-                </div>
-              </div>
-              {/* S3 category breakdown */}
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>Phân bổ theo category</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {s3Cats.length > 0 ? s3Cats.map(cat => (
-                  <div key={cat.category} style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 9 }}>
-                    <div style={{ width: `${cat.percentOfScope}%`, minWidth: 4, height: 4, background: '#8CB92D', borderRadius: 2, opacity: 0.7 }} />
-                    <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.label.split('—').pop()?.trim()}</span>
-                    <span style={{ color: '#8CB92D', fontWeight: 700, marginLeft: 'auto', flexShrink: 0 }}>{cat.percentOfScope}%</span>
-                  </div>
-                )) : (
-                  ['Cat.1 — Nguyên liệu cashew', 'Cat.3 — WTT nhiên liệu', 'Cat.4 — Vận chuyển'].map(c => (
-                    <div key={c} style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 9, color: '#bbb' }}>
-                      <div style={{ width: 20, height: 3, background: '#e5e7eb', borderRadius: 2 }} />
-                      <span>{c}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '1px' }}>SBTi #40003759</div>
+            <Link href="/targets" style={{ fontSize: 10, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}>Chi tiết →</Link>
           </div>
         </div>
+        {sbtiS12 && (
+          <SBTiCard
+            label="Scope 1+2 — Vận hành"
+            icon="🏭"
+            targetPct={42}
+            current={sbtiS12.currentEmissions}
+            base={sbtiS12.baseYearEmissions}
+            color="#E32314"
+          />
+        )}
+        {sbtiS3 && (
+          <SBTiCard
+            label="Scope 3 — Chuỗi giá trị"
+            icon="🌍"
+            targetPct={30}
+            current={s3Display > 0 ? s3Display : sbtiS3.currentEmissions}
+            base={sbtiS3.baseYearEmissions}
+            color="#8CB92D"
+            breakdown={s3Cats.map(c => ({ name: c.label.split('—').pop()?.trim() ?? c.label, value: c.emissions, pct: c.percentOfScope }))}
+          />
+        )}
       </div>
 
       {/* ══ ROW 2: Monthly Chart + Factory Table ══ */}
