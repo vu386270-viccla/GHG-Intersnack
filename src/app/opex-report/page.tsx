@@ -317,6 +317,25 @@ const FLAG_TGT_PCT   = 36.4;
 const NONFLAG_TGT_PCT = 30.0;
 const S3_TARGET_YEAR = 2032;
 
+// ── PT Solar Rooftop Project ─────────────────────────────────
+// Source: Solar system feasibility report (Cân bằng phát thải CO₂ — hệ thống điện mặt trời)
+// Operational: end-2026 (first full year of savings = 2027)
+// System output: 1,614 MWh/year | Degradation: 1%/year
+// EF used: 0.6592 tCO₂/kWh (national grid EF per solar report)
+// Net annual CO₂ saving (Scope 2, year 1): 1,614 × 0.6592 ≈ 1,064 tCO₂e/year
+// Applied only to Scope 2 target from 2027 onward for PT factory view AND all-VN view
+const PT_SOLAR_ANNUAL_MWH  = 1614;           // MWh/year (year-1 output)
+const PT_SOLAR_EF_VN       = 0.6592;         // tCO₂/kWh (per solar report)
+const PT_SOLAR_DEGRADATION = 0.01;           // 1%/year panel degradation
+const PT_SOLAR_ONLINE_YEAR = 2027;           // first full year of savings
+/** tCO₂e saved by PT solar in a given year (0 before 2027) */
+function ptSolarSaving(year: number): number {
+  if (year < PT_SOLAR_ONLINE_YEAR) return 0;
+  const age = year - PT_SOLAR_ONLINE_YEAR; // 0 in first full year
+  const mwh = PT_SOLAR_ANNUAL_MWH * Math.pow(1 - PT_SOLAR_DEGRADATION, age);
+  return Math.round(mwh * PT_SOLAR_EF_VN);
+}
+
 // ── Cashew Origin EFs (kg CO₂e / kg RCN, Cat.1, FLAG) ────────
 // Source: confirmed by user — SBTi FLAG / FAOSTAT land-use data
 // Unit: kg CO₂e per kg RCN → qty(MTS) × ef = tCO₂e  [MTS×1000kg÷1000 cancels]
@@ -713,9 +732,35 @@ export default function OpexReportPage() {
   const ultimateTargetYear = 2031;
   const yearsToTarget = ultimateTargetYear - 2025;
   const s1FinalTarget = s1_2025 <= b1 * 0.5 ? s1_2025 * 0.75 : b1 * 0.5;
-  const s2FinalTarget = s2_2025 <= b2 * 0.5 ? s2_2025 * 0.75 : b2 * 0.5;
+
+  // ── PT Solar impact on Scope 2 target ────────────────────────
+  // From 2027, PT solar offsets ~1,064 tCO₂e/yr from Scope 2 (all-factory or PT-specific view)
+  // isSolarFactory: true when viewing ALL VN factories or PT specifically
+  const isSolarFactory = selectedFac === 'ALL' ||
+    factories.find(f => f.id === selectedFac)?.country === 'Vietnam';
+  // Total solar savings accumulated from 2025 to a given year (sum 2027..year)
+  const cumulativeSolarSavingByYear = (year: number): number => {
+    if (!isSolarFactory) return 0;
+    let total = 0;
+    for (let y = PT_SOLAR_ONLINE_YEAR; y <= year; y++) total += ptSolarSaving(y);
+    return total;
+  };
+  // Additional s2 reduction already "baked-in" from solar at ultimateTargetYear
+  const solarSavingAtTarget = isSolarFactory
+    ? ptSolarSaving(ultimateTargetYear)  // annual rate in 2031
+    : 0;
+  // Adjusted final target: baseline requirement minus what solar contributes
+  const s2FinalTargetBase = s2_2025 <= b2 * 0.5 ? s2_2025 * 0.75 : b2 * 0.5;
+  const s2FinalTarget = Math.max(s2FinalTargetBase - solarSavingAtTarget, s2FinalTargetBase * 0.7);
   const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - s1FinalTarget) / yearsToTarget : 0;
   const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - s2FinalTarget) / yearsToTarget : 0;
+
+  // Scope 2 projection: baseline reduction trajectory + solar offset from 2027
+  const s2Proj = (year: number): number => {
+    const baseline = s2_2025 - s2AnnualCut * (year - 2025);
+    const solar = isSolarFactory ? ptSolarSaving(year) : 0;
+    return Math.round(Math.max(baseline - solar, 0));
+  };
   const targetProj = (act2025: number, annualCut: number, year: number) =>
     act2025 - annualCut * (year - 2025);
   // Flags for contextual commentary
@@ -723,13 +768,13 @@ export default function OpexReportPage() {
   const s2BeyondTarget = s2_2025 <= b2 * 0.5;
 
   const end_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, targetEndYear));
-  const end_s2 = Math.round(targetProj(s2_2025, s2AnnualCut, targetEndYear));
+  const end_s2 = s2Proj(targetEndYear);
 
   const targetBarsS1: BarPoint[] = [];
   const targetBarsS2: BarPoint[] = [];
   for (let y = 2026; y <= targetEndYear; y++) {
     targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s1_2025, s1AnnualCut, y)) });
-    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s2_2025, s2AnnualCut, y)) });
+    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: s2Proj(y) });
   }
 
   // ── Scope 1 bars ──────────────────────────────────────────
@@ -1175,6 +1220,15 @@ export default function OpexReportPage() {
                     Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.
                   </p>
                 )}
+                {/* PT Solar announcement banner */}
+                {isSolarFactory && (
+                  <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#f0fdf4', borderLeft: '3px solid #22c55e', borderRadius: '4px', fontSize: '11px' }}>
+                    <strong style={{ color: '#166534' }}>🌞 Planned: PT Rooftop Solar (vận hành cuối 2026)</strong> —{' '}
+                    Tiết kiệm dự kiến <strong style={{ color: '#166534' }}>{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong> (2027){' '}
+                    | {ptSolarSaving(2028).toLocaleString()} tCO₂e (2028) | {ptSolarSaving(2029).toLocaleString()} tCO₂e (2029).{' '}
+                    Đã tích hợp vào kế hoạch giảm Scope 2 phía dưới.
+                  </p>
+                )}
                 <p style={{ margin: '0 0 5px' }}>
                   <strong>{s2BeyondTarget ? '🏆' : '⚠️'} Scope 2 SBTi Performance (2025):</strong> Electricity-driven footprint recorded at{' '}
                   <strong style={{ color: s2BeyondTarget ? '#3E7B3E' : '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
@@ -1207,9 +1261,21 @@ export default function OpexReportPage() {
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'Vietnam') && (
-                    <li>
-                      <strong>VICC RE Transition</strong>: Accelerate rooftop solar deployment across tier-1 facilities and secure REC pathways for grid shortfall.
-                    </li>
+                    <>
+                      <li>
+                        {/* PT Solar — commissioned end-2026, first full savings year 2027 */}
+                        <strong>🌞 PT Rooftop Solar (Scope 2 — từ 2027):</strong> Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm
+                        tại nhà máy PT dự kiến vận hành cuối năm 2026.{' '}
+                        Tiết kiệm ước tính <strong style={{ color: '#3E7B3E' }}>~{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong>{' '}
+                        (năm đầu, 2027) theo EF lưới VN {PT_SOLAR_EF_VN} tCO₂/kWh.{' '}
+                        Lũy kế đến {targetEndYear}:{' '}
+                        <strong style={{ color: '#3E7B3E' }}>~{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong> tích lũy,
+                        góp phần đưa Scope 2 xuống <strong>{fmt(end_s2)} tCO₂e</strong> vào năm {targetEndYear}.
+                      </li>
+                      <li>
+                        <strong>VICC RE Transition</strong>: Tiếp tục mở rộng điện mặt trời sang các nhà máy VN khác và khai thác REC để bù phần lưới còn lại.
+                      </li>
+                    </>
                   )}
                   {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'India') && (
                     <li>
