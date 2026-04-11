@@ -238,8 +238,8 @@ export default function FinancialsPage() {
 
       const [facRes, emsAll, rcnAll] = await Promise.all([
         supabase.from('factories').select('id, name, code, country'),
-        fetchPaged('emissions_data', 'id,factory_id,year,month,category,cost_usd,activity_data,emissions_tco2e,notes', q => q.gte('year', 2021)),
-        fetchPaged('production_data', 'id,factory_id,year,quantity,category', q => q.eq('category', 'rcn_input').gte('year', 2021)),
+        fetchPaged('emissions_data', 'id,factory_id,year,month,category,cost_usd,activity_data,emissions_tco2e,notes', q => q.gte('year', 2018)),
+        fetchPaged('production_data', 'id,factory_id,year,quantity,category', q => q.eq('category', 'rcn_input').gte('year', 2018)),
       ]);
 
       const factories: Factory[] = facRes.data || [];

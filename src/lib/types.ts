@@ -189,6 +189,8 @@ export interface GridEF {
 }
 
 export const GRID_EMISSION_FACTORS: GridEF[] = [
+  { country: 'Vietnam', year: 2018, factor: 0.8800, source: 'MONRE Vietnam (est.)' },
+  { country: 'Vietnam', year: 2019, factor: 0.8549, source: 'MONRE Vietnam (est.)' },
   { country: 'Vietnam', year: 2020, factor: 0.8041, source: 'MONRE Vietnam' },
   { country: 'Vietnam', year: 2021, factor: 0.7221, source: 'MONRE Vietnam' },
   { country: 'Vietnam', year: 2022, factor: 0.6766, source: 'MONRE Vietnam' },
@@ -196,6 +198,8 @@ export const GRID_EMISSION_FACTORS: GridEF[] = [
   { country: 'Vietnam', year: 2024, factor: 0.6592, source: 'MONRE Vietnam' },
   { country: 'Vietnam', year: 2025, factor: 0.6592, source: 'MONRE Vietnam' },
   { country: 'Vietnam', year: 2026, factor: 0.6592, source: 'MONRE Vietnam' },
+  { country: 'India', year: 2018, factor: 0.7420, source: 'CEA India (est.)' },
+  { country: 'India', year: 2019, factor: 0.7280, source: 'CEA India (est.)' },
   { country: 'India', year: 2020, factor: 0.7130, source: 'CEA India' },
   { country: 'India', year: 2021, factor: 0.7030, source: 'CEA India' },
   { country: 'India', year: 2022, factor: 0.7150, source: 'CEA India' },

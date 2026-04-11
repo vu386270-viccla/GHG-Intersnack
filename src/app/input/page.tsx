@@ -293,7 +293,7 @@ export default function InputPage() {
           <div className="form-group" style={{ minWidth: '120px' }}>
             <label className="form-label">Năm</label>
             <select className="form-select" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
-              {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (<option key={y} value={y}>{y}</option>))}
+              {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map(y => (<option key={y} value={y}>{y}</option>))}
             </select>
           </div>
           <div className="form-group" style={{ minWidth: '140px' }}>

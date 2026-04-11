@@ -538,7 +538,10 @@ export async function getScope3SummaryData(): Promise<{
   rows: Scope3YearRow[];
   baseline2021: Scope3YearRow | undefined;
 }> {
-  const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+  const START_YEAR = 2018;
+  const END_YEAR   = new Date().getFullYear() + 1; // include next year if data exists
+  const YEARS: number[] = [];
+  for (let y = START_YEAR; y <= END_YEAR; y++) YEARS.push(y);
 
   // 1. Fetch Cat.1 + Cat.4 from scope3_transport_data (annual, VN+India combined)
   const { data: s3raw } = await supabase
