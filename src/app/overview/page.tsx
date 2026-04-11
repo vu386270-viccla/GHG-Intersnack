@@ -551,12 +551,13 @@ export default function OverviewPage() {
 
           {/* RIGHT */}
           <div className="ov-right">
-            {/* ── SBTi ROADMAP — Full multi-year chart (MOVED TO TOP) ── */}
+            {/* ── SBTi ROADMAP — Redesigned: clean bars + separate intensity panel ── */}
             <div className="ov-roadmap-full">
+              {/* Chart Title */}
               <div className="ov-chart-title">
                 🎯 SBTi Roadmap — Scope 1+2 · 2021 → 2032
                 {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
-                  <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
+<span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
                     {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
                   </span>
                 )}
@@ -566,139 +567,223 @@ export default function OverviewPage() {
                   </span>
                 )}
               </div>
-              <svg viewBox={`0 0 ${rmW} ${rmH}`} width="100%" height={rmH} style={{overflow:'visible'}}>
-                {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
-                  <g key={`rg${i}`}>
-                    <line x1={rmPadL} y1={rmPadT + rmPlotH*(1-p)} x2={rmW-rmPadR} y2={rmPadT + rmPlotH*(1-p)} stroke="#f0f0f0" strokeWidth={0.6}/>
-                    <text x={rmPadL-4} y={rmPadT + rmPlotH*(1-p)+3} textAnchor="end" fontSize="9" fill="#bbb" fontWeight="500">{fmt(rmMaxVal*p)}</text>
-                  </g>
-                ))}
-                {(() => {
-                  const n = roadmapData.length;
-                  const xFuture = rmPadL + (6 / (n - 1)) * rmPlotW;
-                  return <rect x={xFuture} y={rmPadT} width={rmW - rmPadR - xFuture} height={rmPlotH} fill="#f7f7f3" rx={2} opacity={0.7}/>;
-                })()}
-                {/* SBTi Pathway line (dashed green) — full 2021→2032 */}
-                {(() => {
-                  const n = roadmapData.length;
-                  const pts = roadmapData.map((d, i) => {
-                    const x = rmPadL + (i / (n - 1)) * rmPlotW;
-                    const y = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
-                    return `${x},${y}`;
-                  });
-                  return <polyline points={pts.join(' ')} fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.85}/>;
-                })()}
 
-                {/* Intensity line (solid purple) */}
-                {(() => {
-                  const validData = roadmapData.filter(d => d.rcn > 0 && d.actual > 0);
-                  if (validData.length < 2) return null;
-                  const n = roadmapData.length;
-                  const pts = validData.map(d => {
-                    const i = roadmapData.findIndex(rd => rd.year === d.year);
-                    const x = rmPadL + (i / (n - 1)) * rmPlotW;
-                    const intensity = d.actual / d.rcn;
-                    const y = rmPadT + rmPlotH * (1 - intensity / rmMaxInt);
-                    return `${x},${y}`;
-                  });
-                  return <polyline points={pts.join(' ')} fill="none" stroke="#6366F1" strokeWidth={2} opacity={0.85}/>;
-                })()}
+              {/* ── MAIN CHART: Clean bars + SBTi dashed line only ── */}
+              {(() => {
+                const W = 660, H = 160, PL = 48, PR = 12, PT = 18, PB = 28;
+                const plotW = W - PL - PR, plotH = H - PT - PB;
+                const n = roadmapData.length;
+                const maxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.18;
+                const xFuture = PL + (6 / (n - 1)) * plotW;
+                const BAR_W = 26;
 
-                {/* Intensity data points */}
-                {roadmapData.map(d => {
-                  if (d.rcn <= 0 || d.actual <= 0) return null;
-                  const n = roadmapData.length;
-                  const i = roadmapData.findIndex(rd => rd.year === d.year);
-                  const x = rmPadL + (i / (n - 1)) * rmPlotW;
-                  const intensity = d.actual / d.rcn;
-                  const y = rmPadT + rmPlotH * (1 - intensity / rmMaxInt);
-                  return (
-                    <g key={`int-${d.year}`}>
-                      <circle cx={x} cy={y} r={3.5} fill="#fff" stroke="#6366F1" strokeWidth={1.5} />
-                      <rect x={x - 12} y={y - 15} width={24} height={9} fill="#e0e7ff" rx={3} opacity={0.85} />
-                      <text x={x} y={y - 7.5} textAnchor="middle" fontSize="7.5" fill="#4338ca" fontWeight="800">
-                        {intensity.toFixed(2)}
-                      </text>
-                    </g>
-                  );
-                })}
-                {singleFacTarget !== null && (() => {
-                  const ty = rmPadT + rmPlotH * (1 - singleFacTarget / rmMaxVal);
-                  return (
-                    <g>
-                      <line x1={rmPadL} y1={ty} x2={rmW - rmPadR} y2={ty} stroke="#E32314" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.85}/>
-                      <rect x={rmPadL} y={ty - 12} width={50} height={14} rx={2} fill="#E32314" opacity={0.12}/>
-                      <text x={rmPadL + 25} y={ty - 3} textAnchor="middle" fontSize="9" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget)}t</text>
-                    </g>
-                  );
-                })()}
-                {roadmapData.map((d, i) => {
-                  const n = roadmapData.length;
-                  const x = rmPadL + (i / (n - 1)) * rmPlotW;
-                  const barW = 16;
-                  const barX = x - barW / 2;
-                  const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
-                  const isCurrent = d.year === selectedYear;
-                  const targetY = rmPadT + rmPlotH * (1 - d.target / rmMaxVal);
-                  let cumH = 0;
-                  return (
-                    <g key={d.year}>
-                      {isFuture ? (
-                        <rect x={barX} y={targetY} width={barW} height={Math.max(rmPadT + rmPlotH - targetY, 1)} rx={1.5}
-                          fill="none" stroke="#8CB92D" strokeWidth={1} strokeDasharray="3,2" opacity={0.5}/>
-                      ) : (
-                        d.perFactory.map((pf, fi) => {
-                          const h = rmMaxVal > 0 ? (pf.total / rmMaxVal) * rmPlotH : 0;
-                          const y = rmPadT + rmPlotH - cumH - h;
-                          cumH += h;
-                          const fIdx = factories.findIndex(f => f.id === pf.factory.id);
-                          const barColor = singleFacTarget !== null && d.actual > 0
-                            ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
-                            : FAC_COLORS[(fIdx >= 0 ? fIdx : fi) % FAC_COLORS.length];
-                          return <rect key={fi} x={barX} y={y} width={barW} height={Math.max(h, 0.5)} rx={1.5}
-                            fill={barColor} opacity={isCurrent ? 0.92 : 0.6}
-                            stroke={isCurrent ? '#333' : 'none'} strokeWidth={isCurrent ? 0.8 : 0}/>;
-                        })
-                      )}
-                      {d.actual > 0 && (
-                        <text x={x} y={rmPadT + rmPlotH - cumH - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={isCurrent ? '#E32314' : '#666'}>
-                          {fmt(d.actual)}
+                return (
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ overflow: 'visible', display: 'block' }}>
+                    {/* Future zone bg */}
+                    <rect x={xFuture} y={PT} width={W - PR - xFuture} height={plotH} fill="#f5f5f0" rx={3} opacity={0.8} />
+                    <text x={xFuture + (W - PR - xFuture) / 2} y={PT + 10} textAnchor="middle" fontSize="8" fill="#ccc" fontWeight="600">PROJECTED</text>
+
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((p, gi) => (
+                      <g key={gi}>
+                        <line x1={PL} y1={PT + plotH * (1 - p)} x2={W - PR} y2={PT + plotH * (1 - p)}
+                          stroke={p === 0 ? '#ccc' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
+                        <text x={PL - 5} y={PT + plotH * (1 - p) + 3} textAnchor="end" fontSize="8.5" fill="#bbb" fontWeight="500">
+                          {fmt(maxVal * p)}
                         </text>
-                      )}
-                      {isCurrent && d.actual > 0 && (() => {
-                        const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
-                        return (
-                          <text x={x} y={rmPadT + rmPlotH - cumH - 14} textAnchor="middle" fontSize="8" fontWeight="700" fill={d.onTrack ? '#27AE60' : '#E32314'}>
-                            {pct >= 0 ? '-' : '+'}{Math.abs(pct).toFixed(1)}%
+                      </g>
+                    ))}
+
+                    {/* SBTi Pathway — single clean dashed line */}
+                    {(() => {
+                      const pts = roadmapData.map((d, i) => {
+                        const x = PL + (i / (n - 1)) * plotW;
+                        const y = PT + plotH * (1 - d.target / maxVal);
+                        return `${x},${y}`;
+                      });
+                      return (
+                        <polyline points={pts.join(' ')} fill="none"
+                          stroke="#8CB92D" strokeWidth={2} strokeDasharray="6,3" opacity={0.9} />
+                      );
+                    })()}
+
+                    {/* 2032 target endpoint label */}
+                    {(() => {
+                      const last = roadmapData[roadmapData.length - 1];
+                      const x = PL + plotW;
+                      const y = PT + plotH * (1 - last.target / maxVal);
+                      return (
+                        <g>
+                          <circle cx={x} cy={y} r={5} fill="#8CB92D" opacity={0.9} />
+                          <rect x={x - 24} y={y - 22} width={48} height={15} rx={3} fill="#8CB92D" opacity={0.15} />
+                          <text x={x} y={y - 10} textAnchor="middle" fontSize="8.5" fill="#4A6E12" fontWeight="800">
+                            {fmt(last.target)} t
                           </text>
-                        );
-                      })()}
-                      <circle cx={x} cy={targetY} r={d.year === 2032 ? 4.5 : 2.5} fill="#8CB92D" opacity={0.8}/>
-                      {d.year === 2032 && (
-                        <>
-                          <text x={x} y={targetY - 10} textAnchor="middle" fontSize="8" fill="#4A6E12" fontWeight="800">{fmt(d.target)}</text>
-                          <rect x={x-16} y={targetY+6} width={32} height={12} rx={2} fill="#8CB92D" opacity={0.15}/>
-                          <text x={x} y={targetY+15} textAnchor="middle" fontSize="8" fill="#4A6E12" fontWeight="800">-50%</text>
-                        </>
-                      )}
-                      <text x={x} y={rmH - rmPadB + 13} textAnchor="middle"
-                        fontSize={d.year % 2 === 1 ? '9' : '10'}
-                        fill={isCurrent ? '#E32314' : d.year === 2032 ? '#4A6E12' : isFuture ? '#bbb' : '#888'}
-                        fontWeight={isCurrent || d.year === 2032 ? 800 : 500}>
-                        {d.year}
-                      </text>
-                      {d.actual > 0 && (() => {
-                        const onTrack = singleFacTarget !== null ? d.actual <= singleFacTarget : d.onTrack;
-                        return (
-                          <text x={x} y={rmH - rmPadB + 24} textAnchor="middle" fontSize="9" fill={onTrack ? '#2ECC71' : '#E32314'} fontWeight="800">
-                            {onTrack ? '✓' : '✗'}
+                          <text x={x} y={y + 18} textAnchor="middle" fontSize="8" fill="#4A6E12" fontWeight="700">−50%</text>
+                        </g>
+                      );
+                    })()}
+
+                    {/* Single-mode factory target line */}
+                    {singleFacTarget !== null && (() => {
+                      const ty = PT + plotH * (1 - singleFacTarget / maxVal);
+                      return (
+                        <g>
+                          <line x1={PL} y1={ty} x2={W - PR} y2={ty} stroke="#E32314" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.75} />
+                          <rect x={PL} y={ty - 13} width={52} height={13} rx={2} fill="#E32314" opacity={0.10} />
+                          <text x={PL + 26} y={ty - 3} textAnchor="middle" fontSize="9" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget)}t</text>
+                        </g>
+                      );
+                    })()}
+
+                    {/* Bars — per year */}
+                    {roadmapData.map((d, i) => {
+                      const x = PL + (i / (n - 1)) * plotW;
+                      const bx = x - BAR_W / 2;
+                      const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
+                      const isCurrent = d.year === selectedYear;
+                      const onTrack = singleFacTarget !== null ? d.actual <= singleFacTarget : d.onTrack;
+                      const targetY = PT + plotH * (1 - d.target / maxVal);
+
+                      return (
+                        <g key={d.year}>
+                          {isFuture && (
+                            <rect x={bx} y={targetY} width={BAR_W}
+                              height={Math.max(PT + plotH - targetY, 1)}
+                              rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.8}
+                              strokeDasharray="3,2" opacity={0.35} />
+                          )}
+                          {!isFuture && d.actual > 0 && (() => {
+                            let cumH = 0;
+                            return d.perFactory.map((pf, fi) => {
+                              const h = maxVal > 0 ? (pf.total / maxVal) * plotH : 0;
+                              const y = PT + plotH - cumH - h;
+                              cumH += h;
+                              const fIdx = factories.findIndex(f => f.id === pf.factory.id);
+                              const col = singleFacTarget !== null
+                                ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
+                                : FAC_COLORS[(fIdx >= 0 ? fIdx : fi) % FAC_COLORS.length];
+                              return (
+                                <rect key={fi} x={bx} y={y} width={BAR_W} height={Math.max(h, 0.5)}
+                                  rx={fi === d.perFactory.length - 1 ? 2 : 0}
+                                  fill={col} opacity={isCurrent ? 0.9 : 0.55}
+                                  stroke={isCurrent ? 'rgba(0,0,0,0.2)' : 'none'} strokeWidth={isCurrent ? 0.6 : 0}
+                                />
+                              );
+                            });
+                          })()}
+                          {d.actual > 0 && (() => {
+                            const totH = maxVal > 0 ? (d.actual / maxVal) * plotH : 0;
+                            return (
+                              <text x={x} y={PT + plotH - totH - 4} textAnchor="middle"
+                                fontSize={isCurrent ? 9.5 : 8} fontWeight={isCurrent ? 900 : 600}
+                                fill={isCurrent ? '#E32314' : '#888'}>
+                                {fmt(d.actual)}
+                              </text>
+                            );
+                          })()}
+                          {isCurrent && d.actual > 0 && (() => {
+                            const totH = maxVal > 0 ? (d.actual / maxVal) * plotH : 0;
+                            const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
+                            return (
+                              <g>
+                                <rect x={bx - 2} y={PT + plotH - totH - 27} width={BAR_W + 4} height={15} rx={3}
+                                  fill={onTrack ? '#27AE60' : '#E32314'} opacity={0.12} />
+                                <text x={x} y={PT + plotH - totH - 16} textAnchor="middle"
+                                  fontSize="8.5" fontWeight="800"
+                                  fill={onTrack ? '#27AE60' : '#E32314'}>
+                                  {pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%
+                                </text>
+                              </g>
+                            );
+                          })()}
+                          <text x={x} y={H - PB + 12} textAnchor="middle"
+                            fontSize={isCurrent ? 10 : 9}
+                            fill={isCurrent ? '#E32314' : d.year === 2032 ? '#4A6E12' : isFuture ? '#ccc' : '#888'}
+                            fontWeight={isCurrent || d.year === 2032 ? 800 : 400}>
+                            {d.year}
                           </text>
+                          {d.actual > 0 && (
+                            <text x={x} y={H - PB + 22} textAnchor="middle"
+                              fontSize="9" fontWeight="800"
+                              fill={onTrack ? '#27AE60' : '#E32314'}>
+                              {onTrack ? '✓' : '✗'}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </svg>
+                );
+              })()}
+
+              {/* ── RCN INTENSITY PANEL — standalone below main chart ── */}
+              {(() => {
+                const actualYears = roadmapData.filter(d => d.actual > 0 && d.rcn > 0);
+                if (actualYears.length === 0) return null;
+                const maxInt = Math.max(...actualYears.map(d => d.actual / d.rcn)) * 1.2 || 1;
+                return (
+                  <div style={{
+                    marginTop: 8, background: 'linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%)',
+                    border: '1.5px solid #e0e7ff', borderRadius: 10, padding: '8px 10px 6px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                        📊 CO₂e Intensity vs RCN Input
+                      </div>
+                      <div style={{ flex: 1, height: 1, background: '#c7d2fe', opacity: 0.6 }} />
+                      <div style={{ fontSize: 8, color: '#818cf8', fontWeight: 600 }}>tCO₂e / MT RCN</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
+                      {roadmapData.map(d => {
+                        const hasData = d.actual > 0 && d.rcn > 0;
+                        const intensity = hasData ? d.actual / d.rcn : null;
+                        const isCurrent = d.year === selectedYear;
+                        const barH = intensity !== null ? Math.max((intensity / maxInt) * 42, 3) : 0;
+                        return (
+                          <div key={d.year} style={{
+                            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            gap: 1, minWidth: 0, padding: '4px 2px 3px',
+                            background: isCurrent ? 'rgba(67,56,202,0.08)' : 'transparent',
+                            borderRadius: 6, border: isCurrent ? '1.5px solid #c7d2fe' : '1px solid transparent',
+                          }}>
+                            <div style={{
+                              fontSize: isCurrent ? 10 : 8.5, fontWeight: isCurrent ? 900 : 600,
+                              color: intensity !== null ? (isCurrent ? '#3730a3' : '#818cf8') : '#d1d5db',
+                              lineHeight: 1, marginBottom: 1,
+                            }}>
+                              {intensity !== null ? intensity.toFixed(2) : '—'}
+                            </div>
+                            <div style={{ width: '70%', height: 42, display: 'flex', alignItems: 'flex-end' }}>
+                              <div style={{
+                                width: '100%', height: barH,
+                                background: isCurrent ? 'linear-gradient(180deg,#4f46e5,#818cf8)' : 'linear-gradient(180deg,#a5b4fc,#c7d2fe)',
+                                borderRadius: '3px 3px 0 0',
+                              }} />
+                            </div>
+                            <div style={{ fontSize: 7, color: isCurrent ? '#4b5563' : '#9ca3af', fontWeight: isCurrent ? 700 : 400 }}>
+                              {d.rcn > 0 ? `${(d.rcn / 1000).toFixed(0)}k` : ''}
+                            </div>
+                            <div style={{ fontSize: isCurrent ? 9.5 : 8, fontWeight: isCurrent ? 800 : 400, color: isCurrent ? '#E32314' : '#9ca3af', marginTop: 1 }}>
+                              {d.year}
+                            </div>
+                          </div>
                         );
-                      })()}
-                    </g>
-                  );
-                })}
-              </svg>
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, marginTop: 5, fontSize: 7.5, color: '#9ca3af', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <div style={{ width: 10, height: 10, background: 'linear-gradient(180deg,#4f46e5,#818cf8)', borderRadius: 2 }} />
+                        <span style={{ color: '#4338ca', fontWeight: 600 }}>Intensity (tCO₂e/MT RCN)</span>
+                      </div>
+                      <span>Bottom row = RCN volume (MT ×1,000)</span>
+                      <span style={{ marginLeft: 'auto', fontStyle: 'italic' }}>↓ Lower = more efficient</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Legend */}
               <div className="ov-roadmap-legend">
                 {viewMode === 'ALL'
                   ? factories.map((f, i) => (
@@ -709,12 +794,12 @@ export default function OverviewPage() {
                       return <span key={fb.factory.id}><span className="ov-legend-dot" style={{ background: FAC_COLORS[(fIdx >= 0 ? fIdx : i) % FAC_COLORS.length] }} />{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</span>;
                     })
                 }
-                <span style={{ marginLeft: 'auto' }}><span style={{ borderBottom: '1.5px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Pathway</span>
+                <span style={{ marginLeft: 'auto' }}>
+                  <span style={{ borderBottom: '2px dashed #8CB92D', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> SBTi Pathway (−50% by 2032)
+                </span>
                 {viewMode === 'SINGLE' && singleFacTarget !== null && (
-                  <span><span style={{ borderBottom: '1.5px dashed #E32314', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> Factory 2032 Target ({Math.round(singleFacTarget)} tCO₂e)</span>
+                  <span><span style={{ borderBottom: '1.5px dashed #E32314', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> Factory 2032 Target</span>
                 )}
-                <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> RCN (MT)</span>
-                <span><span style={{ borderBottom: '1.5px solid #6366F1', paddingBottom: 1 }}>&nbsp;&nbsp;&nbsp;</span> CO₂e/RCN Intensity</span>
                 <span style={{ whiteSpace: 'nowrap' }}>✓ On track · ✗ Over</span>
               </div>
             </div>
