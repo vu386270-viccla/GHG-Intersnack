@@ -255,7 +255,8 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   }
 
   // If no base year data, use estimated multiplier
-  if (baseS1S2 === 0) baseS1S2 = (totalS1 + totalS2) * 1.25;
+  let baselineEstimated = false;
+  if (baseS1S2 === 0) { baseS1S2 = (totalS1 + totalS2) * 1.25; baselineEstimated = true; }
   if (baseS3 === 0) baseS3 = totalS3 * 1.12;
 
   // SBTi: −50% Scope 1+2 và −30% Scope 3 by 2032 vs baseline 2021
@@ -313,6 +314,32 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     monthlyIntensity,
   };
 
+  // ── Completeness: per factory × month, any data at all ──
+  const completeness: Record<string, boolean[]> = {};
+  for (const factory of factories) {
+    completeness[factory.id] = Array.from({ length: 12 }, (_, i) =>
+      emissions.some(e => e.factory_id === factory.id && e.month === i + 1)
+    );
+  }
+
+  // ── kWh per factory (Scope 2 cost analysis) ──
+  const kwhByFactory: Record<string, number> = {};
+  for (const factory of factories) {
+    kwhByFactory[factory.id] = emissions
+      .filter(e => e.factory_id === factory.id && e.scope === 'scope_2' && e.category === 'electricity')
+      .reduce((s, e) => s + Number(e.activity_data), 0);
+  }
+  const totalKwh = Object.values(kwhByFactory).reduce((s, v) => s + v, 0);
+
+  // ── Last updated timestamp ──
+  const { data: lastUpdatedRes } = await supabase
+    .from('emissions_data')
+    .select('created_at')
+    .eq('year', year)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const lastUpdated: string | null = (lastUpdatedRes?.[0] as any)?.created_at ?? null;
+
   // ── Per-factory RCN breakdown ──
   const rcnByFactory: Record<string, { totalRCN: number; totalCK: number; monthlyRCN: number[] }> = {};
   for (const factory of factories) {
@@ -342,6 +369,11 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     rcnData,
     rcnByFactory,
     year,
+    baselineEstimated,
+    completeness,
+    kwhByFactory,
+    totalKwh,
+    lastUpdated,
   };
 }
 

@@ -45,6 +45,11 @@ export default function Scope2Page() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [viewMode, setViewMode]   = useState<ViewMode>('overview');
   const [useIntensity, setUseIntensity] = useState(false);
+  const [totalKwh, setTotalKwh]   = useState(0);
+  // Cost analysis state
+  const [vnUnitCost, setVnUnitCost] = useState(2000);   // VND/kWh default
+  const [inUnitCost, setInUnitCost] = useState(8);      // INR/kWh default
+  const [kwhByFactory, setKwhByFactory] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setLoading(true);
@@ -55,6 +60,8 @@ export default function Scope2Page() {
         setS2Monthly(data.scope2Monthly as MonthlyByCat[] || []);
         setMonthlyRCN(data.monthlyRCN || []);
         setTotalRCN(data.rcnData?.totalRCN || 0);
+        setTotalKwh(data.totalKwh || 0);
+        setKwhByFactory(data.kwhByFactory || {});
         setLoading(false);
       })
       .catch(err => { setError(String(err)); setLoading(false); });
@@ -382,6 +389,71 @@ export default function Scope2Page() {
           ))}
         </div>
       )}
+
+      {/* ── Cost Intelligence ── */}
+      {(() => {
+        // Calculate cost per factory
+        const vnFactories = factories.filter(fs => fs.factory.country !== 'India');
+        const inFactories = factories.filter(fs => fs.factory.country === 'India');
+        const totalVnKwh = vnFactories.reduce((s, fs) => s + (kwhByFactory[fs.factory.id] || 0), 0);
+        const totalInKwh = inFactories.reduce((s, fs) => s + (kwhByFactory[fs.factory.id] || 0), 0);
+        const totalVnCost = totalVnKwh * vnUnitCost; // VND
+        const totalInCostVnd = totalInKwh * inUnitCost * 280; // INR → VND (approx)
+        const totalCostVnd = totalVnCost + totalInCostVnd;
+        const s2Emissions = scopeData?.totalEmissions || 0;
+        const costPerTonne = s2Emissions > 0 ? totalCostVnd / s2Emissions : 0;
+        return (
+          <div className="card animate-fade-in-up" style={{ marginTop: 12, border: '1.5px solid var(--color-scope-2)22' }}>
+            <div className="card-header">
+              <div className="card-title">💡 Phân tích chi phí điện → tCO₂e</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Nhập đơn giá để tính chi phí / tấn carbon</div>
+            </div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>🇻🇳 Giá điện VN (VND/kWh)</div>
+                <input type="number" value={vnUnitCost} onChange={e => setVnUnitCost(Number(e.target.value))}
+                  style={{ padding: '6px 10px', borderRadius: 7, border: '1.5px solid var(--color-border)', fontSize: 13, width: 140, textAlign: 'right' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>🇮🇳 Giá điện Ấn Độ (INR/kWh)</div>
+                <input type="number" value={inUnitCost} onChange={e => setInUnitCost(Number(e.target.value))}
+                  style={{ padding: '6px 10px', borderRadius: 7, border: '1.5px solid var(--color-border)', fontSize: 13, width: 140, textAlign: 'right' }} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>🇻🇳 Tổng kWh</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>{totalVnKwh.toLocaleString('vi-VN')}</div>
+                <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>kWh tiêu thụ</div>
+              </div>
+              <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>🇮🇳 Tổng kWh</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>{totalInKwh.toLocaleString('vi-VN')}</div>
+                <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>kWh tiêu thụ</div>
+              </div>
+              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: 10, color: '#9a3412', marginBottom: 4 }}>Tổng chi phí điện</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#c2410c' }}>
+                  {totalCostVnd >= 1e9 ? (totalCostVnd / 1e9).toFixed(1) + ' tỷ' : (totalCostVnd / 1e6).toFixed(0) + ' triệu'}
+                </div>
+                <div style={{ fontSize: 10, color: '#9a3412' }}>VND (ước tính)</div>
+              </div>
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: 10, color: '#0c4a6e', marginBottom: 4 }}>Chi phí / tCO₂e</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#0369a1' }}>
+                  {costPerTonne > 0 ? (costPerTonne / 1e6).toFixed(1) + ' triệu' : '—'}
+                </div>
+                <div style={{ fontSize: 10, color: '#0c4a6e' }}>VND / tấn CO₂e</div>
+              </div>
+            </div>
+            {totalKwh > 0 && s2Emissions > 0 && (
+              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--color-text-muted)', background: 'var(--color-bg-secondary)', borderRadius: 6, padding: '8px 12px' }}>
+                Gợi ý: Với {s2Emissions.toLocaleString()} tCO₂e Scope 2 — giảm 10% điện tiêu thụ tương đương giảm {Math.round(s2Emissions * 0.1).toLocaleString()} tCO₂e và tiết kiệm {((totalCostVnd * 0.1) / 1e6).toFixed(0)} triệu VND/năm.
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

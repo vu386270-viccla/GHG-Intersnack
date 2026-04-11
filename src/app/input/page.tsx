@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getDashboardData, invalidateCache } from '@/lib/data-service';
 import { supabase } from '@/lib/supabase';
 import {
@@ -8,6 +8,61 @@ import {
   GRID_EMISSION_FACTORS, SCOPE_COLORS,
 } from '@/lib/types';
 import type { Factory } from '@/lib/types';
+
+// ── Password gate (client-side, session-scoped) ──
+const AUTH_KEY = 'ghg_editor_v1';
+function checkAuth(): boolean {
+  try { return sessionStorage.getItem(AUTH_KEY) === '1'; } catch { return false; }
+}
+function setAuth() {
+  try { sessionStorage.setItem(AUTH_KEY, '1'); } catch { /* noop */ }
+}
+const SAVE_PWD = atob('UGh1b25ndnUwOTFA'); // Phuongvu091@
+
+function PasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onClose: () => void }) {
+  const [pwd, setPwd] = useState('');
+  const [err, setErr] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const attempt = () => {
+    if (pwd === SAVE_PWD) { setAuth(); onSuccess(); }
+    else { setErr(true); setPwd(''); setTimeout(() => setErr(false), 1500); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'white', borderRadius: 16, padding: '32px 36px', width: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 28 }}>🔐</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-text)' }}>Xác thực để lưu</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>Nhập mật khẩu để lưu dữ liệu</div>
+          </div>
+        </div>
+        <input
+          ref={inputRef}
+          type="password"
+          value={pwd}
+          onChange={e => setPwd(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && attempt()}
+          placeholder="Mật khẩu..."
+          style={{
+            padding: '10px 14px', borderRadius: 8, fontSize: 14, width: '100%', boxSizing: 'border-box',
+            border: `1.5px solid ${err ? '#ef4444' : 'var(--color-border)'}`,
+            outline: 'none', background: err ? '#fff5f5' : 'white',
+            transition: 'border-color 0.2s',
+          }}
+        />
+        {err && <div style={{ color: '#ef4444', fontSize: 12, marginTop: -8 }}>Mật khẩu không đúng</div>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '9px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'white', cursor: 'pointer', fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 600 }}>Hủy</button>
+          <button onClick={attempt} style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Xác nhận lưu</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface InputRow {
   category: string;
@@ -61,6 +116,25 @@ export default function InputPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPwdModal, setShowPwdModal] = useState(false);
+  const [prevMonthData, setPrevMonthData] = useState<Record<string, number>>({}); // category → emissions
+
+  // Fetch previous month's data for comparison
+  const fetchPrevMonth = useCallback(async (factoryId: string, year: number, month: number, scope: ScopeKey) => {
+    if (!factoryId) return;
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear  = month === 1 ? year - 1 : year;
+    const { data } = await supabase
+      .from('emissions_data')
+      .select('category,emissions_tco2e,activity_data')
+      .eq('factory_id', factoryId)
+      .eq('year', prevYear)
+      .eq('month', prevMonth)
+      .eq('scope', scope);
+    const map: Record<string, number> = {};
+    for (const row of data || []) map[row.category] = Number(row.emissions_tco2e);
+    setPrevMonthData(map);
+  }, []);
 
   // Bug 6: preserve entered data across scope switches
   const savedRowsRef = useRef<Partial<Record<ScopeKey, InputRow[]>>>({});
@@ -90,6 +164,11 @@ export default function InputPage() {
     const country = factory?.country || 'Vietnam';
     setRows(buildScope1Rows(country));
   }, [selectedFactory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch prev month data when context changes
+  useEffect(() => {
+    fetchPrevMonth(selectedFactory, selectedYear, selectedMonth, activeScope);
+  }, [selectedFactory, selectedYear, selectedMonth, activeScope, fetchPrevMonth]);
 
   // Bug 2: rebuild Scope 2 row when factory or year changes
   useEffect(() => {
@@ -137,7 +216,7 @@ export default function InputPage() {
 
   const totalEmissions = rows.reduce((sum, r) => sum + r.emissions, 0);
 
-  const handleSave = async () => {
+  const doSave = async () => {
     if (!factory) return;
     setSaving(true);
 
@@ -168,6 +247,12 @@ export default function InputPage() {
       }
     }
     setSaving(false);
+  };
+
+  const handleSave = () => {
+    if (!factory) return;
+    if (checkAuth()) { doSave(); return; }
+    setShowPwdModal(true);
   };
 
   const months = [
@@ -245,28 +330,51 @@ export default function InputPage() {
 
       <div className="card mb-xl animate-fade-in-up">
         <table className="data-table">
-          <thead><tr><th style={{ width: '40px' }}></th><th>Nguồn / Hạng mục</th><th>Đơn vị</th><th>Hệ số EF</th><th style={{ width: '160px' }}>Số liệu hoạt động</th><th style={{ textAlign: 'right' }}>Phát thải (tCO₂e)</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ width: '40px' }}></th>
+              <th>Nguồn / Hạng mục</th>
+              <th>Đơn vị</th>
+              <th>Hệ số EF</th>
+              <th style={{ width: '160px' }}>Số liệu hoạt động</th>
+              <th style={{ textAlign: 'right' }}>Phát thải (tCO₂e)</th>
+              <th style={{ textAlign: 'right', color: 'var(--color-text-muted)', fontSize: '11px', fontWeight: 600 }}>
+                T.trước {selectedMonth === 1 ? `(T12/${selectedYear - 1})` : `(T${selectedMonth - 1}/${selectedYear})`}
+              </th>
+            </tr>
+          </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.category}>
-                <td style={{ fontSize: '18px' }}>{row.icon}</td>
-                <td style={{ fontWeight: 600 }}>{row.label}</td>
-                <td style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{row.unit}</td>
-                <td><code style={{ background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
-                  {row.ef > 0 ? row.ef : '—'} {row.efUnit}
-                </code>
-                {/* Show regional EF source */}
-                {activeScope === 'scope_1' && (() => {
-                  const src = SCOPE_1_EF_BY_COUNTRY.find(r => r.country === (factory?.country || 'Vietnam') && r.category === row.category);
-                  return src ? <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{src.source}</div> : null;
-                })()}
-                </td>
-                <td><input type="number" className="form-input" placeholder="0" value={row.value} onChange={e => updateValue(i, e.target.value)} style={{ width: '100%', textAlign: 'right' }} /></td>
-                <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: row.emissions > 0 ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
-                  {row.emissions > 0 ? row.emissions.toFixed(2) : '—'}
-                </td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const prev = prevMonthData[row.category];
+              const diff = row.emissions > 0 && prev !== undefined ? row.emissions - prev : null;
+              return (
+                <tr key={row.category}>
+                  <td style={{ fontSize: '18px' }}>{row.icon}</td>
+                  <td style={{ fontWeight: 600 }}>{row.label}</td>
+                  <td style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{row.unit}</td>
+                  <td><code style={{ background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
+                    {row.ef > 0 ? row.ef : '—'} {row.efUnit}
+                  </code>
+                  {activeScope === 'scope_1' && (() => {
+                    const src = SCOPE_1_EF_BY_COUNTRY.find(r => r.country === (factory?.country || 'Vietnam') && r.category === row.category);
+                    return src ? <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{src.source}</div> : null;
+                  })()}
+                  </td>
+                  <td><input type="number" className="form-input" placeholder="0" value={row.value} onChange={e => updateValue(i, e.target.value)} style={{ width: '100%', textAlign: 'right' }} /></td>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: row.emissions > 0 ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
+                    {row.emissions > 0 ? row.emissions.toFixed(2) : '—'}
+                    {diff !== null && (
+                      <div style={{ fontSize: '10px', fontFamily: 'var(--font-body)', fontWeight: 600, marginTop: 2, color: diff > 0 ? '#ef4444' : '#22c55e' }}>
+                        {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(2)}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right', fontSize: '13px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-display)' }}>
+                    {prev !== undefined && prev > 0 ? prev.toFixed(2) : '—'}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr>
@@ -274,6 +382,9 @@ export default function InputPage() {
               <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, color: 'var(--color-primary)', borderTop: '2px solid var(--color-border)', paddingTop: 'var(--space-md)' }}>
                 {totalEmissions > 0 ? totalEmissions.toFixed(2) : '0'}
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>tCO₂e</span>
+              </td>
+              <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '14px', color: 'var(--color-text-muted)', borderTop: '2px solid var(--color-border)', paddingTop: 'var(--space-md)' }}>
+                {Object.values(prevMonthData).reduce((s, v) => s + v, 0).toFixed(2)}
               </td>
             </tr>
           </tfoot>
@@ -283,7 +394,7 @@ export default function InputPage() {
       <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary" onClick={handleClear}>Xóa dữ liệu</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ padding: 'var(--space-sm) var(--space-2xl)', fontSize: '15px' }}>
-          {saving ? '⏳ Đang lưu...' : saved ? '✅ Đã lưu!' : '💾 Lưu vào Supabase'}
+          {saving ? '⏳ Đang lưu...' : saved ? '✅ Đã lưu!' : '🔐 Lưu vào Supabase'}
         </button>
       </div>
 
@@ -294,6 +405,13 @@ export default function InputPage() {
             Dữ liệu đã được lưu thành công cho {factory?.name} — {months[selectedMonth - 1]} {selectedYear}
           </span>
         </div>
+      )}
+
+      {showPwdModal && (
+        <PasswordModal
+          onSuccess={() => { setShowPwdModal(false); doSave(); }}
+          onClose={() => setShowPwdModal(false)}
+        />
       )}
     </div>
   );

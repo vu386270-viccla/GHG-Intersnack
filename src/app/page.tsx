@@ -195,6 +195,8 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFactory, setSelectedFactory] = useState<string>('ALL');
   const [s3Annual, setS3Annual] = useState<{ year: number; total: number; cat1: number; cat3: number; cat4: number } | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [baselineEstimated, setBaselineEstimated] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -210,6 +212,8 @@ export default function DashboardPage() {
       setTargets(data.targets);
       setRcnData(data.rcnData);
       setRcnByFactory(data.rcnByFactory);
+      setLastUpdated(data.lastUpdated ?? null);
+      setBaselineEstimated(data.baselineEstimated ?? false);
       // Pick S3 for selected year, fallback to most recent year with data
       const s3Row = s3Data.rows.find(r => r.year === selectedYear)
         ?? s3Data.rows[s3Data.rows.length - 1];
@@ -270,14 +274,35 @@ export default function DashboardPage() {
   const maxFacTotal = Math.max(...factorySummaries.map(fs => fs.totalEmissions), 1);
 
 
+  // Format last-updated timestamp
+  const lastUpdatedFmt = lastUpdated
+    ? new Date(lastUpdated).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* ── Baseline estimated warning ── */}
+      {baselineEstimated && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 10, fontSize: 12 }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div>
+            <span style={{ fontWeight: 700, color: '#92400e' }}>Baseline 2021 chưa có dữ liệu thực.</span>
+            <span style={{ color: '#78350f', marginLeft: 6 }}>Hệ thống đang dùng ước tính (×1.25) — SBTi target tracking có thể không chính xác. Hãy nhập dữ liệu năm 2021.</span>
+          </div>
+        </div>
+      )}
 
       {/* ══ ROW 0: Header + Filters ══ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: 8 }}>
             Tổng quan — GHG Emissions
+            {lastUpdatedFmt && (
+              <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--color-text-muted)', background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: 20, letterSpacing: 0 }}>
+                Dữ liệu tới {lastUpdatedFmt}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: 'var(--color-text)' }}>
             {formatTCO2e(totals.total)}

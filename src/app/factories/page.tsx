@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getDashboardData, formatTCO2e, formatNumber } from '@/lib/data-service';
-import { SCOPE_COLORS } from '@/lib/types';
+import { SCOPE_COLORS, MONTHS_VI } from '@/lib/types';
 import type { FactorySummary } from '@/lib/types';
 import BarChart from '@/components/charts/BarChart';
 import TrendLine from '@/components/charts/TrendLine';
@@ -11,18 +11,22 @@ export default function FactoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [factorySummaries, setFactorySummaries] = useState<FactorySummary[]>([]);
+  const [completeness, setCompleteness] = useState<Record<string, boolean[]>>({});
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    getDashboardData()
+    setLoading(true);
+    getDashboardData(selectedYear)
       .then(data => {
         setFactorySummaries(data.factorySummaries);
+        setCompleteness(data.completeness || {});
         setLoading(false);
       })
       .catch(err => {
         setError(err instanceof Error ? err.message : String(err));
         setLoading(false);
       });
-  }, []);
+  }, [selectedYear]);
 
   if (loading) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: '12px' }}><div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span></div>;
@@ -32,13 +36,28 @@ export default function FactoriesPage() {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}><div style={{ color: 'var(--color-primary)', background: 'var(--color-primary-alpha-10)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-md)' }}>⚠️ Lỗi tải dữ liệu: {error}</div></div>;
   }
 
+  // Compute overall completeness % per factory
+  const totalMonthsWithData = (factId: string) =>
+    (completeness[factId] || []).filter(Boolean).length;
+
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">🏭 <span className="page-title-accent">Nhà máy</span></div>
-        <div className="page-subtitle">So sánh phát thải GHG giữa 4 nhà máy — 3 tại Việt Nam 🇻🇳 + 1 tại Ấn Độ 🇮🇳</div>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+        <div>
+          <div className="page-title">🏭 <span className="page-title-accent">Nhà máy</span></div>
+          <div className="page-subtitle">So sánh phát thải GHG giữa 4 nhà máy — 3 tại Việt Nam 🇻🇳 + 1 tại Ấn Độ 🇮🇳</div>
+        </div>
+        <select
+          value={selectedYear}
+          onChange={e => setSelectedYear(Number(e.target.value))}
+          style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--color-border)', fontSize: 14, background: 'var(--color-card-bg)', color: 'var(--color-text)', fontWeight: 700, cursor: 'pointer' }}
+        >
+          {[2026, 2025, 2024, 2023, 2022, 2021].map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
       </div>
 
+      {/* ── Factory cards ── */}
       <div className="grid-4 stagger-children mb-xl">
         {factorySummaries.map((fs, ri) => (
           <div key={fs.factory.id} className="card factory-card animate-fade-in-up">
@@ -70,12 +89,85 @@ export default function FactoriesPage() {
                 </div>
               </>
             )}
+            {/* Data completeness badge */}
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {(() => {
+                const months = totalMonthsWithData(fs.factory.id);
+                const pct = Math.round((months / 12) * 100);
+                const color = months === 12 ? '#22c55e' : months >= 6 ? '#f59e0b' : '#ef4444';
+                return (
+                  <>
+                    <div style={{ flex: 1, height: 4, background: '#f0f0f0', borderRadius: 2 }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width 0.3s' }} />
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{months}/12 tháng</span>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         ))}
       </div>
 
+      {/* ── Completeness heatmap ── */}
       <div className="card mb-xl animate-fade-in-up">
-        <div className="card-header"><div className="card-title">Phát thải theo Scope — So sánh nhà máy</div></div>
+        <div className="card-header">
+          <div className="card-title">Độ đầy đủ dữ liệu — {selectedYear}</div>
+          <div style={{ display: 'flex', gap: 12, fontSize: 11, alignItems: 'center' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 12, height: 12, background: '#22c55e', borderRadius: 2, display: 'inline-block' }} />Có dữ liệu</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 12, height: 12, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 2, display: 'inline-block' }} />Chưa nhập</span>
+          </div>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600, width: 140 }}>Nhà máy</th>
+                {MONTHS_VI.map((m, i) => (
+                  <th key={i} style={{ textAlign: 'center', padding: '6px 4px', fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600, minWidth: 32 }}>{m}</th>
+                ))}
+                <th style={{ textAlign: 'center', padding: '6px 8px', fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600 }}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {factorySummaries.map(fs => {
+                const cells = completeness[fs.factory.id] || Array(12).fill(false);
+                const filled = cells.filter(Boolean).length;
+                return (
+                  <tr key={fs.factory.id} style={{ borderTop: '1px solid var(--color-border-light)' }}>
+                    <td style={{ padding: '8px 10px', fontSize: 12, fontWeight: 600 }}>
+                      {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fs.factory.name}
+                    </td>
+                    {cells.map((has, mi) => (
+                      <td key={mi} style={{ padding: '8px 4px', textAlign: 'center' }}>
+                        <div
+                          title={`${MONTHS_VI[mi]} ${selectedYear}: ${has ? 'Có dữ liệu' : 'Chưa nhập'}`}
+                          style={{
+                            width: 24, height: 24, borderRadius: 4, margin: '0 auto',
+                            background: has ? '#dcfce7' : '#f3f4f6',
+                            border: `1.5px solid ${has ? '#22c55e' : '#e5e7eb'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11,
+                          }}
+                        >
+                          {has ? '✓' : ''}
+                        </div>
+                      </td>
+                    ))}
+                    <td style={{ textAlign: 'center', padding: '8px 8px', fontWeight: 700, fontSize: 12, color: filled === 12 ? '#22c55e' : filled >= 6 ? '#f59e0b' : '#ef4444' }}>
+                      {Math.round((filled / 12) * 100)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Bar chart ── */}
+      <div className="card mb-xl animate-fade-in-up">
+        <div className="card-header"><div className="card-title">Phát thải theo Scope — So sánh nhà máy {selectedYear}</div></div>
         <BarChart
           data={factorySummaries.map(fs => ({
             label: `${fs.factory.name} ${fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'}`,
@@ -90,8 +182,9 @@ export default function FactoriesPage() {
         />
       </div>
 
+      {/* ── Trend line ── */}
       <div className="card animate-fade-in-up">
-        <div className="card-header"><div className="card-title">Xu hướng tổng phát thải — Tất cả nhà máy</div></div>
+        <div className="card-header"><div className="card-title">Xu hướng tổng phát thải {selectedYear} — Tất cả nhà máy</div></div>
         <TrendLine
           data={factorySummaries[0]?.monthlyTrend.map((_, i) => ({
             label: factorySummaries[0].monthlyTrend[i].label,

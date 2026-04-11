@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
   '/opex-report': { title: 'Opex Report', accent: 'SBTi Annual' },
   '/reference': { title: 'Reference', accent: 'Emission Factors' },
   '/overview': { title: 'Overview', accent: 'PPT Slide' },
+  '/initiatives': { title: 'Sáng kiến', accent: 'Giảm phát thải' },
 };
 
 function HeaderInner() {

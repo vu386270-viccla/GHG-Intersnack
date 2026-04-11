@@ -30,7 +30,9 @@ const navItems = [
     items: [
       { href: '/input', label: 'Nhập dữ liệu', icon: '📝' },
       { href: '/targets', label: 'Mục tiêu SBTi', icon: '🎯' },
+      { href: '/initiatives', label: 'Sáng kiến giảm phát thải', icon: '🌱' },
       { href: '/opex-report', label: 'Opex Report', icon: '📋' },
+      { href: '/financials', label: 'Financials (COO)', icon: '💰' },
       { href: '/reference', label: 'Reference & EF', icon: '📚' },
     ],
   },
