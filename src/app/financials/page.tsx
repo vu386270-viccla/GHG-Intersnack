@@ -110,7 +110,7 @@ function LineChart({ data, years, lines, title, yUnit }: {
           return (
             <g key={l.key}>
               <polyline points={pts.join(' ')} fill="none" stroke={l.color} strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round" />
+                strokeLinecap="round" strokeLinejoin="round" className="chart-line-draw" />
               {years.map((y, i) => {
                 const v = data[y]?.[l.key];
                 if (v == null) return null;
@@ -352,7 +352,7 @@ export default function FinancialsPage() {
   };
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '1240px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+    <div className="page-enter" style={{ padding: '28px 32px', maxWidth: '1240px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
 
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
@@ -381,10 +381,10 @@ export default function FinancialsPage() {
       </div>
 
       {/* ── KPI CARDS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
+      <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
 
         {/* Card 1: Total energy cost */}
-        <div style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #111' }}>
+        <div className="animate-fade-in-up" style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #111' }}>
           <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
             Tổng chi phí Năng lượng ({metrics.latestYear})
           </div>
@@ -408,7 +408,7 @@ export default function FinancialsPage() {
         </div>
 
         {/* Card 2: Carbon liability */}
-        <div style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #3E7B3E' }}>
+        <div className="animate-fade-in-up" style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #3E7B3E' }}>
           <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
             Nợ thuế carbon ước tính ({selectedYear})
           </div>
@@ -424,7 +424,7 @@ export default function FinancialsPage() {
         </div>
 
         {/* Card 3: Worst performer */}
-        <div style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #C8281A' }}>
+        <div className="animate-fade-in-up" style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #C8281A' }}>
           <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
             Hiệu suất kém nhất ({selectedYear})
           </div>
@@ -451,7 +451,7 @@ export default function FinancialsPage() {
       </div>
 
       {/* ── CHARTS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+      <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
         <LineChart
           title="Hiệu suất chi phí theo nhà máy ($/tRCN)"
           data={metrics.effChartData}
@@ -466,7 +466,7 @@ export default function FinancialsPage() {
       </div>
 
       {/* ── RANKING TABLE ── */}
-      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+      <div className="animate-fade-in-up" style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
         {/* Table header bar */}
         <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#222' }}>

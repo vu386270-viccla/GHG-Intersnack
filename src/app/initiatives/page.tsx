@@ -138,7 +138,7 @@ export default function InitiativesPage() {
   );
 
   return (
-    <div>
+    <div className="page-enter">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
         <div>
           <div className="page-title">🌱 <span className="page-title-accent">Sáng kiến giảm phát thải</span></div>
