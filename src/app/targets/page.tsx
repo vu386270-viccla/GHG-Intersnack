@@ -108,7 +108,7 @@ export default function TargetsPage() {
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Mục tiêu ({target.targetYear})</div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, color: '#8CB92D' }}>{formatTCO2e(target.targetEmissions)}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, color: SCOPE_COLORS.scope_3 }}>{formatTCO2e(target.targetEmissions)}</div>
                 <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>tCO₂e</div>
               </div>
             </div>

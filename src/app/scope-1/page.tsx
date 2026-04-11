@@ -149,7 +149,7 @@ export default function Scope1Page() {
   );
 
   return (
-    <div>
+    <div className="page-enter">
       {/* ── Header row ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <div>

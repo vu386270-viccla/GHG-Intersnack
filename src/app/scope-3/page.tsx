@@ -195,7 +195,7 @@ export default function Scope3Page() {
   );
 
   return (
-    <div>
+    <div className="page-enter">
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <div>

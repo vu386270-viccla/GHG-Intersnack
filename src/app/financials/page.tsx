@@ -352,7 +352,7 @@ export default function FinancialsPage() {
   };
 
   return (
-    <div className="page-enter" style={{ padding: '28px 32px', maxWidth: '1240px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+    <div className="page-enter" style={{ padding: '28px 32px', maxWidth: '1240px', margin: '0 auto', fontFamily: 'var(--font-body)' }}>
 
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>

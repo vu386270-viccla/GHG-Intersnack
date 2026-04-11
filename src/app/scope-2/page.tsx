@@ -119,7 +119,7 @@ export default function Scope2Page() {
   );
 
   return (
-    <div>
+    <div className="page-enter">
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -172,7 +172,12 @@ export default function Scope2Page() {
           sub={scopeData.changePercent < 0 ? '▼ Giảm' : '▲ Tăng'}
         />
         <StatBox label="Cường độ" value={intensity > 0 ? intensity.toFixed(useUSD ? 2 : 3) : '—'} color="#6366F1" sub={`${unitStr} / MT RCN`} />
-        <StatBox label="EF Điện VN" value={`0.6592`} color={scopeColor} sub={`kg CO₂e/kWh · ${selectedYear}`} />
+        <StatBox
+          label="EF Điện VN"
+          value={`${(GRID_EMISSION_FACTORS.find(ef => ef.country === 'Vietnam' && ef.year === selectedYear)?.factor ?? 0.6592).toFixed(4)}`}
+          color={scopeColor}
+          sub={`kg CO₂e/kWh · ${selectedYear}`}
+        />
       </div>
 
       {/* ── View tabs ── */}

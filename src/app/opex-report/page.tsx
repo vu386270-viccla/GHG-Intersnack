@@ -46,6 +46,7 @@ function fmtBar(n: number): string {
 }
 
 function pctStr(val: number, base: number): string {
+  if (!base) return '—';
   const p = Math.round(((val - base) / base) * 100);
   return (p >= 0 ? '+' : '') + p + '%';
 }

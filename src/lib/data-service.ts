@@ -103,9 +103,55 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
 
   const totalS1 = byScope['scope_1'] || 0;
   const totalS2 = byScope['scope_2'] || 0;
-  const totalS3 = byScope['scope_3'] || 0;
+  let   totalS3 = byScope['scope_3'] || 0; // will be replaced by scope3_transport_data below
   const totalS1Cost = byScopeCost['scope_1'] || 0;
   const totalS2Cost = byScopeCost['scope_2'] || 0;
+
+  // ── Pull real Scope 3 from scope3_transport_data ──────────────────────────
+  // emissions_data has virtually no scope_3 rows — actual Cat.1 + Cat.4 data
+  // lives in scope3_transport_data; Cat.3 (WTT) is derived from fuel activity.
+  const WTT_FAC = {
+    diesel_VN: 0.00055, diesel_IN: 0.0008058,
+    lpg: 0.392,
+    elec_VN: 0.00006, elec_IN: 0.00012,
+  };
+  const facCtry: Record<string, string> = Object.fromEntries(
+    factories.map(f => [f.id, (f as any).country || ''])
+  );
+  const sumS3Trans = (rows: any[] | null) => {
+    let cat1 = 0, cat4 = 0;
+    for (const r of rows || []) {
+      cat1 += (Number(r.em_cashew_kg) || 0) / 1000;
+      cat4 += ((Number(r.km_ton_vessel) || 0) * 0.01604
+             + (Number(r.km_ton_road)   || 0) * 0.07547) / 1000;
+    }
+    return { cat1, cat4 };
+  };
+
+  const [s3TransRes, s3Trans2021Res] = await Promise.all([
+    supabase.from('scope3_transport_data')
+      .select('em_cashew_kg,km_ton_vessel,km_ton_road').eq('year', year),
+    year !== 2021
+      ? supabase.from('scope3_transport_data')
+          .select('em_cashew_kg,km_ton_vessel,km_ton_road').eq('year', 2021)
+      : Promise.resolve({ data: null as any }),
+  ]);
+
+  let s3Cat3Wtt = 0;
+  for (const e of emissions) {
+    const isIndia = facCtry[e.factory_id] === 'India';
+    const act = Number(e.activity_data) || 0;
+    if      (e.category === 'diesel')      s3Cat3Wtt += act * (isIndia ? WTT_FAC.diesel_IN : WTT_FAC.diesel_VN);
+    else if (e.category === 'lpg')         s3Cat3Wtt += act * WTT_FAC.lpg;
+    else if (e.category === 'electricity') s3Cat3Wtt += act * (isIndia ? WTT_FAC.elec_IN   : WTT_FAC.elec_VN);
+  }
+
+  const s3Cur  = sumS3Trans(s3TransRes.data);
+  const s3Real = s3Cur.cat1 + s3Cur.cat4 + s3Cat3Wtt;
+  if (s3Real > totalS3) totalS3 = s3Real; // prefer transport data over sparse emissions_data entries
+
+  const s3Base2021Trans = sumS3Trans(s3Trans2021Res.data);
+
   const grandTotal = totalS1 + totalS2 + totalS3;
 
   // Previous year totals
@@ -196,16 +242,29 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
       previousYearEmissions: Math.round(prevByScope['scope_3'] || 0),
       percentOfTotal: grandTotal > 0 ? Math.round((totalS3 / grandTotal) * 100) : 0,
       changePercent: calcChange('scope_3', totalS3),
-      categories: SCOPE_3_CATEGORIES.map(cat => {
-        const catEmissions = byScopeCategory['scope_3']?.[cat.key] || 0;
-        return {
-          category: cat.key,
-          label: `${cat.ghgCategory} — ${cat.label}`,
-          emissions: Math.round(catEmissions),
-          percentOfScope: totalS3 > 0 ? Math.round((catEmissions / totalS3) * 100) : 0,
-          unit: cat.unit,
-        };
-      }),
+      categories: [
+        {
+          category: 'purchased_goods',
+          label: 'Cat.1 — Hàng hóa mua (Cashew)',
+          emissions: Math.round(s3Cur.cat1),
+          percentOfScope: totalS3 > 0 ? Math.round(s3Cur.cat1 / totalS3 * 100) : 0,
+          unit: 'tCO₂e',
+        },
+        {
+          category: 'fuel_energy_related',
+          label: 'Cat.3 — WTT (Năng lượng thượng nguồn)',
+          emissions: Math.round(s3Cat3Wtt),
+          percentOfScope: totalS3 > 0 ? Math.round(s3Cat3Wtt / totalS3 * 100) : 0,
+          unit: 'tCO₂e',
+        },
+        {
+          category: 'upstream_transport',
+          label: 'Cat.4 — Vận tải thượng nguồn',
+          emissions: Math.round(s3Cur.cat4),
+          percentOfScope: totalS3 > 0 ? Math.round(s3Cur.cat4 / totalS3 * 100) : 0,
+          unit: 'tCO₂e',
+        },
+      ].filter(c => c.emissions > 0),
     },
   ];
 
@@ -287,7 +346,11 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     baseS3 = totalS3;
   }
 
-  // If no base year data, use estimated multiplier
+  // Override Scope 3 baseline with transport data if available (much more accurate)
+  const s3Base2021FromTrans = s3Base2021Trans.cat1 + s3Base2021Trans.cat4;
+  if (s3Base2021FromTrans > baseS3) baseS3 = s3Base2021FromTrans;
+
+  // If no base year data at all, use estimated multiplier
   let baselineEstimated = false;
   if (baseS1S2 === 0) { baseS1S2 = (totalS1 + totalS2) * 1.25; baselineEstimated = true; }
   if (baseS3 === 0) baseS3 = totalS3 * 1.12;
@@ -412,19 +475,37 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
 
 // ── Annual totals by scope — used by Targets page chart ──
 export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s12: number; s3: number }>> {
-  const { data } = await supabase
-    .from('emissions_data')
-    .select('year,scope,emissions_tco2e')
-    .gte('year', fromYear)
-    .lte('year', toYear)
-    .limit(10000); // multi-year: 6 years × ~300 rows/yr = ~1800; safe ceiling
+  // Fetch S1+S2 from emissions_data, S3 from scope3_transport_data
+  const [opsRes, s3Res] = await Promise.all([
+    supabase.from('emissions_data')
+      .select('year,scope,emissions_tco2e')
+      .gte('year', fromYear).lte('year', toYear).limit(10000),
+    supabase.from('scope3_transport_data')
+      .select('year,em_cashew_kg,km_ton_vessel,km_ton_road')
+      .gte('year', fromYear).lte('year', toYear),
+  ]);
+
   const result: Record<number, { s12: number; s3: number }> = {};
-  for (const e of data || []) {
+
+  for (const e of opsRes.data || []) {
     if (!result[e.year]) result[e.year] = { s12: 0, s3: 0 };
     const val = Number(e.emissions_tco2e);
     if (e.scope === 'scope_1' || e.scope === 'scope_2') result[e.year].s12 += val;
-    else if (e.scope === 'scope_3') result[e.year].s3 += val;
   }
+
+  // Aggregate Scope 3 from transport table (Cat.1 + Cat.4)
+  const s3ByYear: Record<number, number> = {};
+  for (const r of s3Res.data || []) {
+    const cat1 = (Number(r.em_cashew_kg) || 0) / 1000;
+    const cat4 = ((Number(r.km_ton_vessel) || 0) * 0.01604 + (Number(r.km_ton_road) || 0) * 0.07547) / 1000;
+    s3ByYear[r.year] = (s3ByYear[r.year] || 0) + cat1 + cat4;
+  }
+  for (const [yr, val] of Object.entries(s3ByYear)) {
+    const y = Number(yr);
+    if (!result[y]) result[y] = { s12: 0, s3: 0 };
+    result[y].s3 = val;
+  }
+
   return result;
 }
 

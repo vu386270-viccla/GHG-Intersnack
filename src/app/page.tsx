@@ -280,7 +280,7 @@ export default function DashboardPage() {
     : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── Baseline estimated warning ── */}
       {baselineEstimated && (
