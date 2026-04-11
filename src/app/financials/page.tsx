@@ -116,6 +116,81 @@ function LineChart({ data, years, lines, title }: any) {
   );
 }
 
+// Scatter Plot Component
+function ScatterPlot({ rows, title }: any) {
+  const W = 600, H = 250;
+  const PT = 30, PB = 40, PL = 55, PR = 20;
+  const cw = W - PL - PR, ch = H - PT - PB;
+
+  const valid = rows.filter((r: any) => r.emissions_tco2e > 0 && r.cost_usd > 0);
+  const maxX = Math.max(...valid.map((r: any) => r.emissions_tco2e)) * 1.1 || 100;
+  const maxY = Math.max(...valid.map((r: any) => r.cost_usd)) * 1.1 || 100;
+
+  const getX = (v: number) => PL + (v / maxX) * cw;
+  const getY = (v: number) => PT + ch - (v / maxY) * ch;
+
+  const cats = [...new Set(valid.map((r: any) => r.category))];
+  const colors = ['#E8960E', '#4A90E2', '#3E7B3E', '#C8281A', '#8B5CF6'];
+
+  return (
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', color: '#222' }}>{title}</h3>
+      <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#666' }}>Mỗi điểm là 1 nguồn nhiên liệu/tháng của 1 nhà máy.</p>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto">
+        {/* Grids */}
+        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+          const valY = maxY * pct;
+          const yy = getY(valY);
+          return (
+            <g key={'y'+pct}>
+              <line x1={PL} y1={yy} x2={W - PR} y2={yy} stroke="#eee" strokeWidth="1" />
+              <text x={PL - 8} y={yy + 4} textAnchor="end" fontSize="10" fill="#888">{valY >= 1000 ? '$'+(valY/1000).toFixed(0)+'k' : $$(valY)}</text>
+            </g>
+          );
+        })}
+        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+          const valX = maxX * pct;
+          const xx = getX(valX);
+          return (
+            <g key={'x'+pct}>
+               <line x1={xx} y1={PT} x2={xx} y2={PT + ch} stroke="#f5f5f5" strokeWidth="1" />
+               <text x={xx} y={PT + ch + 15} textAnchor="middle" fontSize="10" fill="#888">{fmt(valX)} t</text>
+            </g>
+          );
+        })}
+        
+        <line x1={PL} y1={PT + ch} x2={W - PR} y2={PT + ch} stroke="#ccc" strokeWidth="1.5" />
+        <line x1={PL} y1={PT} x2={PL} y2={PT + ch} stroke="#ccc" strokeWidth="1.5" />
+        {/* Axis labels */}
+        <text x={W - PR + 10} y={PT + ch + 4} textAnchor="start" fontSize="10" fill="#bbb">tCO₂e</text>
+        <text x={PL} y={PT - 10} textAnchor="middle" fontSize="10" fill="#bbb">USD</text>
+
+        {/* Dots */}
+        {valid.map((r: any, i: number) => {
+          const cx = getX(r.emissions_tco2e);
+          const cy = getY(r.cost_usd);
+          const cIdx = cats.indexOf(r.category);
+          const col = colors[cIdx % colors.length];
+          return (
+            <circle key={i} cx={cx} cy={cy} r="4.5" fill={col} opacity={0.65} stroke="#fff" strokeWidth="1">
+              <title>{r.category} | Phát thải: {fmt(r.emissions_tco2e)} | Chi phí: {$$(r.cost_usd)}</title>
+            </circle>
+          )
+        })}
+      </svg>
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+        {cats.map((c: any, i) => (
+          <div key={c} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#555' }}>
+             <div style={{ width: '10px', height: '10px', background: colors[i % colors.length], borderRadius: '50%', opacity: 0.8 }} />
+             {c}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────────────
 export default function FinancialsPage() {
   const [loading, setLoading] = useState(true);
@@ -312,12 +387,16 @@ export default function FinancialsPage() {
       </div>
 
       {/* CHARTS ROW */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginBottom: '30px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '30px' }}>
         <LineChart 
           title="Xu hướng Chi phí trên mỗi tấn RCN (USD/tRCN)" 
           data={metrics.effChartData} 
           years={metrics.years} 
           lines={lines} 
+        />
+        <ScatterPlot 
+          title={`Biểu đồ Tán xạ: Tương quan Chi phí vs Phát thải (${metrics.targetYr})`}
+          rows={data?.emissions.filter(e => e.year === metrics.targetYr) || []} 
         />
       </div>
 
