@@ -29,85 +29,102 @@ interface Factory {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-const fmt = (n: number, d=0) => n != null && !isNaN(n) ? n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : 'N/A';
-const $$ = (v: number) => v > 0 ? '$' + fmt(v, 0) : '-';
+const fmt = (n: number, d = 0) =>
+  n != null && !isNaN(n)
+    ? n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
+    : 'N/A';
 
-const FAC_COLORS: Record<string, string> = {
-  'Phan Thiet': '#3E7B3E',  // Green
-  'Tay Ninh': '#C8281A',    // Red
-  'Long An': '#E8960E',     // Orange
-  'Tuticorin': '#4A90E2',   // Blue
-};
+const $$ = (v: number) => (v > 0 ? '$' + fmt(v, 0) : v === 0 ? '$0' : '-');
 
-// SVG Line Chart Component
-function LineChart({ data, years, lines, title }: any) {
-  const W = 600, H = 250;
-  const PT = 30, PB = 40, PL = 50, PR = 20;
+// Palette indexed by load order — works regardless of factory name/code
+const FAC_PALETTE = ['#C8281A', '#E8960E', '#3E7B3E', '#4A90E2', '#8B5CF6', '#14B8A6'];
+let _facColorMap: Record<string, string> = {};
+function getFacColor(factories: Factory[], id: string): string {
+  if (Object.keys(_facColorMap).length !== factories.length) {
+    _facColorMap = Object.fromEntries(
+      factories.map((f, i) => [f.id, FAC_PALETTE[i % FAC_PALETTE.length]])
+    );
+  }
+  return _facColorMap[id] || '#999';
+}
+
+// ── SVG Line Chart ────────────────────────────────────────────────
+function LineChart({ data, years, lines, title, yUnit }: {
+  data: Record<number, any>;
+  years: number[];
+  lines: { key: string; label: string; color: string }[];
+  title: string;
+  yUnit?: string;
+}) {
+  const W = 580, H = 240;
+  const PT = 30, PB = 44, PL = 62, PR = 20;
   const cw = W - PL - PR, ch = H - PT - PB;
 
-  // Find overall max
   let globalMax = 0;
   for (const l of lines) {
     for (const y of years) {
-      if (data[y]?.[l.key] > globalMax) globalMax = data[y][l.key];
+      if ((data[y]?.[l.key] ?? 0) > globalMax) globalMax = data[y][l.key];
     }
   }
-  const yMax = Math.ceil((globalMax || 100) / 10) * 10 * 1.1; // Add 10% headroom
+  const yMax = Math.ceil((globalMax || 100) / 10) * 10 * 1.15;
 
   const getX = (i: number) => PL + (cw / Math.max(1, years.length - 1)) * i;
   const getY = (v: number) => PT + ch - (v / yMax) * ch;
 
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-      <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', color: '#222' }}>{title}</h3>
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px 20px 14px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <h3 style={{ margin: '0 0 14px 0', fontSize: '14px', fontWeight: 600, color: '#333' }}>{title}</h3>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto">
-        {/* Y-axis grids */}
+        {/* Y-axis grid + labels */}
         {[0, 0.25, 0.5, 0.75, 1].map(pct => {
           const val = yMax * pct;
           const yy = getY(val);
           return (
             <g key={pct}>
-              <line x1={PL} y1={yy} x2={W - PR} y2={yy} stroke="#eee" strokeWidth="1" />
-              <text x={PL - 8} y={yy + 4} textAnchor="end" fontSize="10" fill="#888">${fmt(val)}</text>
+              <line x1={PL} y1={yy} x2={W - PR} y2={yy} stroke="#f0f0f0" strokeWidth="1" />
+              <text x={PL - 6} y={yy + 4} textAnchor="end" fontSize="10" fill="#aaa">
+                {val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val.toFixed(0)}
+              </text>
             </g>
           );
         })}
-        {/* Bottom axis line */}
-        <line x1={PL} y1={PT + ch} x2={W - PR} y2={PT + ch} stroke="#ccc" strokeWidth="1.5" />
+        {/* Y unit label */}
+        {yUnit && (
+          <text x={PL - 6} y={PT - 10} textAnchor="end" fontSize="9" fill="#bbb">{yUnit}</text>
+        )}
+        {/* Bottom axis */}
+        <line x1={PL} y1={PT + ch} x2={W - PR} y2={PT + ch} stroke="#ddd" strokeWidth="1.5" />
 
         {/* X-axis labels */}
-        {years.map((y: any, i: number) => (
-          <text key={y} x={getX(i)} y={PT + ch + 20} textAnchor="middle" fontSize="11" fill="#666" fontWeight="600">{y}</text>
+        {years.map((y, i) => (
+          <text key={y} x={getX(i)} y={PT + ch + 18} textAnchor="middle" fontSize="11" fill="#666" fontWeight="600">{y}</text>
         ))}
 
-        {/* Lines */}
-        {lines.map((l: any) => {
-          const pts = years.map((y: any, i: number) => {
+        {/* Lines + dots */}
+        {lines.map(l => {
+          const pts = years.map((y, i) => {
             const v = data[y]?.[l.key];
             return v != null ? `${getX(i)},${getY(v)}` : '';
           }).filter(Boolean);
-          
           if (pts.length === 0) return null;
-
           return (
             <g key={l.key}>
-              <polyline points={pts.join(' ')} fill="none" stroke={l.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              {years.map((y: any, i: number) => {
+              <polyline points={pts.join(' ')} fill="none" stroke={l.color} strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round" />
+              {years.map((y, i) => {
                 const v = data[y]?.[l.key];
                 if (v == null) return null;
-                return (
-                  <circle key={i} cx={getX(i)} cy={getY(v)} r="4" fill="#fff" stroke={l.color} strokeWidth="2" />
-                );
+                return <circle key={i} cx={getX(i)} cy={getY(v)} r="3.5" fill="#fff" stroke={l.color} strokeWidth="2" />;
               })}
             </g>
           );
         })}
       </svg>
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '10px' }}>
-        {lines.map((l: any) => (
-          <div key={l.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#555' }}>
-            <div style={{ width: '12px', height: '12px', background: l.color, borderRadius: '50%' }} />
+      <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+        {lines.map(l => (
+          <div key={l.key} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#555' }}>
+            <div style={{ width: '10px', height: '10px', background: l.color, borderRadius: '50%' }} />
             {l.label}
           </div>
         ))}
@@ -116,74 +133,79 @@ function LineChart({ data, years, lines, title }: any) {
   );
 }
 
-// Scatter Plot Component
-function ScatterPlot({ rows, title }: any) {
-  const W = 600, H = 250;
-  const PT = 30, PB = 40, PL = 55, PR = 20;
+// ── Scatter Plot ──────────────────────────────────────────────────
+function ScatterPlot({ rows, title }: { rows: Row[]; title: string }) {
+  const W = 580, H = 240;
+  const PT = 30, PB = 44, PL = 58, PR = 20;
   const cw = W - PL - PR, ch = H - PT - PB;
 
-  const valid = rows.filter((r: any) => r.emissions_tco2e > 0 && r.cost_usd > 0);
-  const maxX = Math.max(...valid.map((r: any) => r.emissions_tco2e)) * 1.1 || 100;
-  const maxY = Math.max(...valid.map((r: any) => r.cost_usd)) * 1.1 || 100;
+  const valid = rows.filter(r => r.emissions_tco2e > 0 && (r.cost_usd ?? 0) > 0);
+  const maxX = (Math.max(...valid.map(r => r.emissions_tco2e), 1)) * 1.1;
+  const maxY = (Math.max(...valid.map(r => r.cost_usd!), 1)) * 1.1;
 
   const getX = (v: number) => PL + (v / maxX) * cw;
   const getY = (v: number) => PT + ch - (v / maxY) * ch;
 
-  const cats = [...new Set(valid.map((r: any) => r.category))];
-  const colors = ['#E8960E', '#4A90E2', '#3E7B3E', '#C8281A', '#8B5CF6'];
+  const cats = [...new Set(valid.map(r => r.category))];
+  const colors = ['#E8960E', '#4A90E2', '#3E7B3E', '#C8281A', '#8B5CF6', '#14B8A6'];
 
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-      <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', color: '#222' }}>{title}</h3>
-      <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#666' }}>Mỗi điểm là 1 nguồn nhiên liệu/tháng của 1 nhà máy.</p>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto">
-        {/* Grids */}
-        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
-          const valY = maxY * pct;
-          const yy = getY(valY);
-          return (
-            <g key={'y'+pct}>
-              <line x1={PL} y1={yy} x2={W - PR} y2={yy} stroke="#eee" strokeWidth="1" />
-              <text x={PL - 8} y={yy + 4} textAnchor="end" fontSize="10" fill="#888">{valY >= 1000 ? '$'+(valY/1000).toFixed(0)+'k' : $$(valY)}</text>
-            </g>
-          );
-        })}
-        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
-          const valX = maxX * pct;
-          const xx = getX(valX);
-          return (
-            <g key={'x'+pct}>
-               <line x1={xx} y1={PT} x2={xx} y2={PT + ch} stroke="#f5f5f5" strokeWidth="1" />
-               <text x={xx} y={PT + ch + 15} textAnchor="middle" fontSize="10" fill="#888">{fmt(valX)} t</text>
-            </g>
-          );
-        })}
-        
-        <line x1={PL} y1={PT + ch} x2={W - PR} y2={PT + ch} stroke="#ccc" strokeWidth="1.5" />
-        <line x1={PL} y1={PT} x2={PL} y2={PT + ch} stroke="#ccc" strokeWidth="1.5" />
-        {/* Axis labels */}
-        <text x={W - PR + 10} y={PT + ch + 4} textAnchor="start" fontSize="10" fill="#bbb">tCO₂e</text>
-        <text x={PL} y={PT - 10} textAnchor="middle" fontSize="10" fill="#bbb">USD</text>
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px 20px 14px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 600, color: '#333' }}>{title}</h3>
+      <p style={{ margin: '0 0 10px 0', fontSize: '11px', color: '#999' }}>
+        Mỗi điểm = 1 nguồn nhiên liệu/tháng của 1 nhà máy
+      </p>
+      {valid.length === 0 ? (
+        <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: '13px' }}>
+          Chưa có dữ liệu chi phí cho năm này
+        </div>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto">
+          {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+            const valY = maxY * pct;
+            const yy = getY(valY);
+            return (
+              <g key={'y' + pct}>
+                <line x1={PL} y1={yy} x2={W - PR} y2={yy} stroke="#f0f0f0" strokeWidth="1" />
+                <text x={PL - 6} y={yy + 4} textAnchor="end" fontSize="10" fill="#aaa">
+                  {valY >= 1000 ? '$' + (valY / 1000).toFixed(0) + 'k' : '$' + valY.toFixed(0)}
+                </text>
+              </g>
+            );
+          })}
+          {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+            const valX = maxX * pct;
+            const xx = getX(valX);
+            return (
+              <g key={'x' + pct}>
+                <line x1={xx} y1={PT} x2={xx} y2={PT + ch} stroke="#f5f5f5" strokeWidth="1" />
+                <text x={xx} y={PT + ch + 15} textAnchor="middle" fontSize="10" fill="#aaa">
+                  {fmt(valX)}
+                </text>
+              </g>
+            );
+          })}
+          <line x1={PL} y1={PT + ch} x2={W - PR} y2={PT + ch} stroke="#ddd" strokeWidth="1.5" />
+          <line x1={PL} y1={PT} x2={PL} y2={PT + ch} stroke="#ddd" strokeWidth="1.5" />
+          <text x={W - PR + 8} y={PT + ch + 4} textAnchor="start" fontSize="9" fill="#ccc">tCO₂e →</text>
+          <text x={PL} y={PT - 12} textAnchor="middle" fontSize="9" fill="#ccc">↑ USD</text>
 
-        {/* Dots */}
-        {valid.map((r: any, i: number) => {
-          const cx = getX(r.emissions_tco2e);
-          const cy = getY(r.cost_usd);
-          const cIdx = cats.indexOf(r.category);
-          const col = colors[cIdx % colors.length];
-          return (
-            <circle key={i} cx={cx} cy={cy} r="4.5" fill={col} opacity={0.65} stroke="#fff" strokeWidth="1">
-              <title>{r.category} | Phát thải: {fmt(r.emissions_tco2e)} | Chi phí: {$$(r.cost_usd)}</title>
-            </circle>
-          )
-        })}
-      </svg>
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
-        {cats.map((c: any, i) => (
-          <div key={c} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#555' }}>
-             <div style={{ width: '10px', height: '10px', background: colors[i % colors.length], borderRadius: '50%', opacity: 0.8 }} />
-             {c}
+          {valid.map((r, i) => {
+            const col = colors[cats.indexOf(r.category) % colors.length];
+            return (
+              <circle key={i} cx={getX(r.emissions_tco2e)} cy={getY(r.cost_usd!)} r="4"
+                fill={col} opacity={0.7} stroke="#fff" strokeWidth="1">
+                <title>{r.category} | {fmt(r.emissions_tco2e, 1)} tCO₂e | {$$(r.cost_usd!)}</title>
+              </circle>
+            );
+          })}
+        </svg>
+      )}
+      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+        {cats.map((c, i) => (
+          <div key={c} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#555' }}>
+            <div style={{ width: '9px', height: '9px', background: colors[i % colors.length], borderRadius: '50%', opacity: 0.8 }} />
+            {c}
           </div>
         ))}
       </div>
@@ -194,18 +216,18 @@ function ScatterPlot({ rows, title }: any) {
 // ── Main Page ────────────────────────────────────────────────────
 export default function FinancialsPage() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ emissions: Row[], rcn: RCN[], factories: Factory[] } | null>(null);
+  const [rawData, setRawData] = useState<{ emissions: Row[]; rcn: RCN[]; factories: Factory[] } | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
-      // Setup paginated fetchers
-      const fetchPaged = async (table: string, query: string, extraChain?: (q: any) => any) => {
+      const fetchPaged = async (table: string, query: string, chain?: (q: any) => any) => {
         let all: any[] = [];
         let from = 0;
         const PAGE = 1000;
         while (true) {
           let q = supabase.from(table).select(query).range(from, from + PAGE - 1);
-          if (extraChain) q = extraChain(q);
+          if (chain) q = chain(q);
           const { data } = await q;
           all = all.concat(data || []);
           if (!data || data.length < PAGE) break;
@@ -220,33 +242,32 @@ export default function FinancialsPage() {
         fetchPaged('production_data', 'id,factory_id,year,quantity,category', q => q.eq('category', 'rcn_input').gte('year', 2021)),
       ]);
 
-      setData({
-        factories: facRes.data || [],
-        emissions: emsAll,
-        rcn: rcnAll
-      });
+      const factories: Factory[] = facRes.data || [];
+      const emissions: Row[] = emsAll;
+      const rcn: RCN[] = rcnAll;
+
+      const years = [...new Set(emissions.map(r => r.year))].sort();
+      const defaultYear = years.includes(new Date().getFullYear()) ? new Date().getFullYear() : years[years.length - 1];
+      setSelectedYear(defaultYear || null);
+      setRawData({ factories, emissions, rcn });
       setLoading(false);
     }
     load();
   }, []);
 
   const metrics = useMemo(() => {
-    if (!data) return null;
-    const { emissions, rcn, factories } = data;
-    
-    // Process dictionaries
-    const facName = (id: string) => factories.find(f => f.id === id)?.name || 'Unknown';
-    const years = [...new Set(emissions.map(r => r.year))].sort();
-    
-    // Only rows with cost
-    const withCost = emissions.filter(r => (r.cost_usd ?? 0) > 0);
-    const imputedCount = emissions.filter(r => r.notes?.includes('imputed')).length;
+    if (!rawData || !selectedYear) return null;
+    const { emissions, rcn, factories } = rawData;
 
-    // Aggregators
-    const costY  = {} as Record<number, number>;
-    const costYF = {} as Record<string, number>;
-    const rcnYF  = {} as Record<string, number>;
-    const co2YF  = {} as Record<string, number>;
+    const years = [...new Set(emissions.map(r => r.year))].sort() as number[];
+    const withCost = emissions.filter(r => (r.cost_usd ?? 0) > 0);
+    const coveragePct = emissions.length > 0 ? Math.round(withCost.length / emissions.length * 100) : 0;
+
+    // Aggregation dicts
+    const costY: Record<number, number> = {};
+    const costYF: Record<string, number> = {};
+    const rcnYF: Record<string, number> = {};
+    const co2YF: Record<string, number> = {};
 
     for (const r of withCost) {
       costY[r.year] = (costY[r.year] || 0) + r.cost_usd!;
@@ -262,8 +283,8 @@ export default function FinancialsPage() {
       rcnYF[k] = (rcnYF[k] || 0) + r.quantity;
     }
 
-    // Efficiency data for line chart
-    const effChartData = {} as Record<number, any>;
+    // Efficiency trend chart ($/tRCN per factory per year)
+    const effChartData: Record<number, any> = {};
     for (const y of years) {
       effChartData[y] = {};
       for (const f of factories) {
@@ -274,182 +295,305 @@ export default function FinancialsPage() {
       }
     }
 
-    // Factory Ranking (Target year: 2024 or max available)
-    const targetYr = years.includes(2024) ? 2024 : years[years.length - 1];
+    // Ranking for selected year
     const ranking = factories.map(f => {
-      const k = `${targetYr}|${f.id}`;
+      const k = `${selectedYear}|${f.id}`;
       const c = costYF[k] || 0;
       const r = rcnYF[k] || 0;
       const co2 = co2YF[k] || 0;
       return {
         id: f.id,
         name: f.name,
+        code: f.code,
         cost: c,
         rcn: r,
+        co2,
         eff: r > 0 ? c / r : 0,
         carb: co2 > 0 ? c / co2 : 0,
       };
-    }).sort((a,b) => b.eff - a.eff); // Sort highest cost per ton first
+    }).sort((a, b) => b.eff - a.eff);
 
-    const latestYear = years[years.length - 1] || 2024;
+    const latestYear = years[years.length - 1] || selectedYear;
     const prevYear = latestYear - 1;
     const ytdCost = costY[latestYear] || 0;
     const prevYtdCost = costY[prevYear] || 0;
-    const yoyPct = prevYtdCost > 0 ? (ytdCost - prevYtdCost) / prevYtdCost * 100 : 0;
+    const yoyPct = prevYtdCost > 0 ? (ytdCost - prevYtdCost) / prevYtdCost * 100 : null;
 
-    return { years, costY, effChartData, ranking, imputedCount, latestYear, ytdCost, yoyPct, targetYr };
-  }, [data]);
+    const totalCo2ForYear = ranking.reduce((s, r) => s + r.co2, 0);
+    const totalCostForYear = ranking.reduce((s, r) => s + r.cost, 0);
 
-  if (loading || !metrics) {
+    return {
+      years, costY, effChartData, ranking,
+      coveragePct, withCostCount: withCost.length, totalCount: emissions.length,
+      latestYear, ytdCost, yoyPct, totalCo2ForYear, totalCostForYear,
+    };
+  }, [rawData, selectedYear]);
+
+  if (loading || !metrics || !rawData) {
     return (
       <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#222' }}>Phân tích Chi phí (Financials)</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#222' }}>Financials — Chi phí & Carbon</h1>
         <div className="loading-spinner" style={{ alignSelf: 'center', marginTop: '60px' }} />
       </div>
     );
   }
 
-  const lines = data?.factories.map(f => ({
+  const facLines = rawData.factories.map(f => ({
     key: f.name,
     label: f.name,
-    color: FAC_COLORS[f.name] || '#333'
-  })) || [];
+    color: getFacColor(rawData.factories, f.id),
+  }));
+
+  const ratingLabel = (eff: number) => {
+    if (eff <= 0) return { text: 'Chưa có dữ liệu', bg: '#f5f5f5', fg: '#aaa' };
+    if (eff > 35) return { text: 'Chi phí cao', bg: '#fee2e2', fg: '#991b1b' };
+    if (eff > 25) return { text: 'Trung bình', bg: '#fef3c7', fg: '#92400e' };
+    return { text: 'Hiệu quả', bg: '#dcfce7', fg: '#166534' };
+  };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px' }}>
+    <div style={{ padding: '28px 32px', maxWidth: '1240px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#111', margin: '0 0 8px 0', letterSpacing: '-0.5px' }}>
-            Phân tích Chi phí (OpEx)
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>
+            Phân tích Tài chính
           </h1>
-          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
-            Toàn cảnh chi phí năng lượng và hiệu suất USD/tRCN.
+          <p style={{ margin: 0, color: '#888', fontSize: '13px' }}>
+            Chi phí năng lượng · Hiệu suất USD/tRCN · Rủi ro thuế carbon
           </p>
         </div>
-        
-        {metrics.imputedCount > 0 && (
-          <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', color: '#b45309', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-            <span style={{ fontSize: '16px' }}>⚠️</span>
-            <span>Data Warning: {metrics.imputedCount} records auto-infilled</span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Cost data coverage badge */}
+          <div style={{
+            background: metrics.coveragePct >= 80 ? '#f0fdf4' : metrics.coveragePct >= 40 ? '#fffbeb' : '#fef2f2',
+            border: `1px solid ${metrics.coveragePct >= 80 ? '#bbf7d0' : metrics.coveragePct >= 40 ? '#fde68a' : '#fecaca'}`,
+            color: metrics.coveragePct >= 80 ? '#166534' : metrics.coveragePct >= 40 ? '#92400e' : '#991b1b',
+            padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: '5px',
+          }}>
+            <span>{metrics.coveragePct >= 80 ? '✅' : metrics.coveragePct >= 40 ? '⚠️' : '❌'}</span>
+            Dữ liệu chi phí: {metrics.coveragePct}% ({metrics.withCostCount}/{metrics.totalCount} records)
           </div>
-        )}
+        </div>
       </div>
 
-      {/* KPI CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '30px' }}>
-        
-        <div style={{ background: '#fff', padding: '24px', borderRadius: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', borderTop: '4px solid #111' }}>
-          <div style={{ color: '#666', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
+      {/* ── KPI CARDS ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
+
+        {/* Card 1: Total energy cost */}
+        <div style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #111' }}>
+          <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
             Tổng chi phí Năng lượng ({metrics.latestYear})
           </div>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: '#111', letterSpacing: '-1px' }}>
-            {metrics.ytdCost > 1000000 ? `$${(metrics.ytdCost/1000000).toFixed(2)}M` : $$(metrics.ytdCost)}
+          <div style={{ fontSize: '30px', fontWeight: 800, color: '#111', letterSpacing: '-0.8px' }}>
+            {metrics.ytdCost > 1_000_000
+              ? `$${(metrics.ytdCost / 1_000_000).toFixed(2)}M`
+              : $$(metrics.ytdCost)}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', fontSize: '13px', fontWeight: 600 }}>
-            <span style={{ color: metrics.yoyPct > 0 ? '#C8281A' : '#3E7B3E', background: metrics.yoyPct > 0 ? '#fee2e2' : '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>
-              {metrics.yoyPct > 0 ? '📈' : '📉'} {Math.abs(metrics.yoyPct).toFixed(1)}%
+          {metrics.yoyPct !== null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', fontSize: '12px' }}>
+              <span style={{
+                color: metrics.yoyPct > 0 ? '#991b1b' : '#166534',
+                background: metrics.yoyPct > 0 ? '#fee2e2' : '#dcfce7',
+                padding: '2px 8px', borderRadius: '4px', fontWeight: 700,
+              }}>
+                {metrics.yoyPct > 0 ? '▲' : '▼'} {Math.abs(metrics.yoyPct).toFixed(1)}%
+              </span>
+              <span style={{ color: '#aaa' }}>so với {metrics.latestYear - 1}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Card 2: Carbon liability */}
+        <div style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #3E7B3E' }}>
+          <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
+            Nợ thuế carbon ước tính ({selectedYear})
+          </div>
+          <div style={{ fontSize: '30px', fontWeight: 800, color: '#111', letterSpacing: '-0.8px' }}>
+            {$$(metrics.totalCo2ForYear * 25)}
+          </div>
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#aaa', lineHeight: 1.5 }}>
+            {fmt(metrics.totalCo2ForYear, 0)} tCO₂e × $25/t
+            <span style={{ display: 'inline-block', background: '#f0fdf4', color: '#166534', borderRadius: '4px', padding: '1px 6px', marginLeft: '6px', fontWeight: 600 }}>
+              @EU ETS ref.
             </span>
-            <span style={{ color: '#888' }}>so với năm trước</span>
           </div>
         </div>
 
-        <div style={{ background: '#fff', padding: '24px', borderRadius: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', borderTop: '4px solid #3E7B3E' }}>
-          <div style={{ color: '#666', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
-            Cường độ carbon Liability ({metrics.targetYr})
+        {/* Card 3: Worst performer */}
+        <div style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #C8281A' }}>
+          <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
+            Hiệu suất kém nhất ({selectedYear})
           </div>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: '#111', letterSpacing: '-1px' }}>
-            <span style={{ fontSize: '20px', color: '#666', verticalAlign: 'middle', marginRight: '4px' }}>@$25/tCO2e: </span>
-            {(() => {
-              const carbTotal = metrics.ranking.reduce((s,r) => s + (r.cost / (r.carb || 1)), 0);
-              return $$(carbTotal * 25);
-            })()}
-          </div>
-          <div style={{ marginTop: '10px', fontSize: '13px', color: '#888', lineHeight: 1.4 }}>
-            Dự kiến nợ thuế carbon hàng năm nếu áp dụng mức giá $25/tCO₂e cho Scope 1+2.
-          </div>
-        </div>
-
-        <div style={{ background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)', padding: '24px', borderRadius: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: '#fff' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px', opacity: 0.9 }}>
-            Hiệu năng chi phí tệ nhất ({metrics.targetYr})
-          </div>
-          <div style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1px' }}>
-            {metrics.ranking[0]?.name}
-          </div>
-          <div style={{ marginTop: '10px', fontSize: '15px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '22px', fontWeight: 800, background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: '6px' }}>
-              ${metrics.ranking[0]?.eff.toFixed(1)} <span style={{ fontSize: '12px', fontWeight: 400 }}>/ tRCN</span>
-            </span>
-            <span style={{ opacity: 0.8 }}>(Đắt nhất)</span>
-          </div>
+          {metrics.ranking[0]?.eff > 0 ? (
+            <>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: '#111', letterSpacing: '-0.3px' }}>
+                {metrics.ranking[0]?.name}
+              </div>
+              <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '20px', fontWeight: 800, color: '#C8281A',
+                  background: '#fee2e2', padding: '3px 12px', borderRadius: '6px',
+                }}>
+                  ${metrics.ranking[0]?.eff.toFixed(1)}
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: '#C8281A', marginLeft: '4px' }}>/tRCN</span>
+                </span>
+                <span style={{ fontSize: '12px', color: '#aaa' }}>(đắt nhất)</span>
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: '15px', color: '#ccc', marginTop: '10px' }}>Chưa có dữ liệu</div>
+          )}
         </div>
       </div>
 
-      {/* CHARTS ROW */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '30px' }}>
-        <LineChart 
-          title="Xu hướng Chi phí trên mỗi tấn RCN (USD/tRCN)" 
-          data={metrics.effChartData} 
-          years={metrics.years} 
-          lines={lines} 
+      {/* ── CHARTS ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+        <LineChart
+          title="Hiệu suất chi phí theo nhà máy ($/tRCN)"
+          data={metrics.effChartData}
+          years={metrics.years}
+          lines={facLines}
+          yUnit="$/tRCN"
         />
-        <ScatterPlot 
-          title={`Biểu đồ Tán xạ: Tương quan Chi phí vs Phát thải (${metrics.targetYr})`}
-          rows={data?.emissions.filter(e => e.year === metrics.targetYr) || []} 
+        <ScatterPlot
+          title={`Tương quan Chi phí vs Phát thải (${selectedYear})`}
+          rows={rawData.emissions.filter(e => e.year === selectedYear)}
         />
       </div>
 
-      {/* TABLE */}
+      {/* ── RANKING TABLE ── */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', color: '#222' }}>Bảng xếp hạng Hiệu quả Tài chính - {metrics.targetYr}</h3>
+        {/* Table header bar */}
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#222' }}>
+            Bảng xếp hạng Hiệu quả Tài chính
+          </h3>
+
+          {/* Year selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: '#888', fontWeight: 500 }}>Năm:</span>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {metrics.years.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  style={{
+                    padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                    fontSize: '12px', fontWeight: 700,
+                    background: selectedYear === y ? '#111' : '#f0f0f0',
+                    color: selectedYear === y ? '#fff' : '#666',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
-            <tr style={{ background: '#fff', color: '#888', borderBottom: '2px solid #eee' }}>
-              <th style={{ padding: '16px 24px', fontWeight: 600 }}>Nhà máy (Factory)</th>
-              <th style={{ padding: '16px 24px', fontWeight: 600, textAlign: 'right' }}>Tổng Chi phí (USD)</th>
-              <th style={{ padding: '16px 24px', fontWeight: 600, textAlign: 'right' }}>Sản lượng (tRCN)</th>
-              <th style={{ padding: '16px 24px', fontWeight: 600, textAlign: 'right' }}>USD / tRCN</th>
-              <th style={{ padding: '16px 24px', fontWeight: 600, textAlign: 'right' }}>Đơn giá Carbon (USD/tCO2e)</th>
-              <th style={{ padding: '16px 24px', fontWeight: 600, textAlign: 'center' }}>Đánh giá</th>
+            <tr style={{ background: '#fff', borderBottom: '1.5px solid #f0f0f0' }}>
+              <th style={{ padding: '12px 20px', fontWeight: 600, color: '#aaa', textAlign: 'left', width: '40px' }}>#</th>
+              <th style={{ padding: '12px 16px', fontWeight: 600, color: '#aaa', textAlign: 'left' }}>Nhà máy</th>
+              <th style={{ padding: '12px 16px', fontWeight: 600, color: '#aaa', textAlign: 'right' }}>Tổng Chi phí</th>
+              <th style={{ padding: '12px 16px', fontWeight: 600, color: '#aaa', textAlign: 'right' }}>Sản lượng (tRCN)</th>
+              <th style={{ padding: '12px 16px', fontWeight: 600, color: '#aaa', textAlign: 'right' }}>Phát thải (tCO₂e)</th>
+              <th style={{ padding: '12px 16px', fontWeight: 600, color: '#aaa', textAlign: 'right' }}>USD/tRCN</th>
+              <th style={{ padding: '12px 16px', fontWeight: 600, color: '#aaa', textAlign: 'right' }}>USD/tCO₂e</th>
+              <th style={{ padding: '12px 20px', fontWeight: 600, color: '#aaa', textAlign: 'center' }}>Đánh giá</th>
             </tr>
           </thead>
           <tbody>
-            {metrics.ranking.map((r, i) => (
-              <tr key={r.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                <td style={{ padding: '16px 24px', fontWeight: 600, color: '#111', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: FAC_COLORS[r.name] || '#ccc' }} />
-                  {r.name}
-                </td>
-                <td style={{ padding: '16px 24px', textAlign: 'right', color: '#555', fontFamily: 'monospace', fontSize: '15px' }}>{$$(r.cost)}</td>
-                <td style={{ padding: '16px 24px', textAlign: 'right', color: '#555' }}>{fmt(r.rcn)}</td>
-                <td style={{ padding: '16px 24px', textAlign: 'right', fontWeight: 700, color: r.eff > 35 ? '#C8281A' : '#3E7B3E', fontSize: '15px' }}>
-                  ${r.eff.toFixed(1)}
-                </td>
-                <td style={{ padding: '16px 24px', textAlign: 'right', color: '#666' }}>
-                  ${r.carb.toFixed(1)}
-                </td>
-                <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                  <span style={{ 
-                    padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                    background: r.eff > 35 ? '#fee2e2' : r.eff > 25 ? '#fef3c7' : '#dcfce7',
-                    color: r.eff > 35 ? '#991b1b' : r.eff > 25 ? '#92400e' : '#166534'
-                  }}>
-                    {r.eff > 35 ? 'HIGH RISK' : r.eff > 25 ? 'ACCEPTABLE' : 'OPTIMAL'}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {metrics.ranking.map((r, i) => {
+              const rating = ratingLabel(r.eff);
+              return (
+                <tr key={r.id} style={{ borderBottom: '1px solid #f8f8f8', transition: 'background 0.1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {/* Rank */}
+                  <td style={{ padding: '14px 20px', color: i === 0 ? '#C8281A' : '#ccc', fontWeight: 700, fontSize: '14px', textAlign: 'center' }}>
+                    {i + 1}
+                  </td>
+                  {/* Name */}
+                  <td style={{ padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getFacColor(rawData.factories, r.id), flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#111', fontSize: '13px' }}>{r.name}</div>
+                        <div style={{ fontSize: '11px', color: '#bbb' }}>{r.code}</div>
+                      </div>
+                    </div>
+                  </td>
+                  {/* Cost */}
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontFamily: 'monospace', color: '#333', fontSize: '13px' }}>
+                    {r.cost > 0 ? $$(r.cost) : <span style={{ color: '#ddd' }}>—</span>}
+                  </td>
+                  {/* RCN */}
+                  <td style={{ padding: '14px 16px', textAlign: 'right', color: '#555' }}>
+                    {r.rcn > 0 ? fmt(r.rcn) : <span style={{ color: '#ddd' }}>—</span>}
+                  </td>
+                  {/* CO2 */}
+                  <td style={{ padding: '14px 16px', textAlign: 'right', color: '#555' }}>
+                    {r.co2 > 0 ? fmt(r.co2, 0) : <span style={{ color: '#ddd' }}>—</span>}
+                  </td>
+                  {/* USD/tRCN */}
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, fontSize: '14px',
+                    color: r.eff > 35 ? '#C8281A' : r.eff > 25 ? '#d97706' : r.eff > 0 ? '#3E7B3E' : '#ddd' }}>
+                    {r.eff > 0 ? `$${r.eff.toFixed(1)}` : '—'}
+                  </td>
+                  {/* USD/tCO2e */}
+                  <td style={{ padding: '14px 16px', textAlign: 'right', color: '#888', fontSize: '13px' }}>
+                    {r.carb > 0 ? `$${r.carb.toFixed(1)}` : <span style={{ color: '#ddd' }}>—</span>}
+                  </td>
+                  {/* Rating */}
+                  <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                    <span style={{
+                      padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                      background: rating.bg, color: rating.fg,
+                    }}>
+                      {rating.text}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
             {metrics.ranking.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
-                  Không có dữ liệu cho năm {metrics.targetYr}
+                <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: '#ccc', fontSize: '14px' }}>
+                  Không có dữ liệu cho năm {selectedYear}
                 </td>
               </tr>
             )}
           </tbody>
+          {/* Footer totals */}
+          {metrics.ranking.some(r => r.cost > 0) && (
+            <tfoot>
+              <tr style={{ borderTop: '2px solid #f0f0f0', background: '#fafafa' }}>
+                <td colSpan={2} style={{ padding: '12px 20px', fontWeight: 700, color: '#555', fontSize: '12px' }}>
+                  TỔNG ({selectedYear})
+                </td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#111', fontFamily: 'monospace' }}>
+                  {metrics.totalCostForYear > 1_000_000
+                    ? `$${(metrics.totalCostForYear / 1_000_000).toFixed(2)}M`
+                    : $$(metrics.totalCostForYear)}
+                </td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', color: '#555', fontWeight: 600 }}>
+                  {fmt(metrics.ranking.reduce((s, r) => s + r.rcn, 0))}
+                </td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', color: '#555', fontWeight: 600 }}>
+                  {fmt(metrics.totalCo2ForYear, 0)}
+                </td>
+                <td colSpan={3} />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>

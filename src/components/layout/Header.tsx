@@ -15,6 +15,7 @@ const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
   '/reference': { title: 'Reference', accent: 'Emission Factors' },
   '/overview': { title: 'Overview', accent: 'PPT Slide' },
   '/initiatives': { title: 'Sáng kiến', accent: 'Giảm phát thải' },
+  '/financials': { title: 'Financials', accent: 'Chi phí & Carbon' },
 };
 
 function HeaderInner() {

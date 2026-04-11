@@ -73,13 +73,13 @@ interface InputRow {
   efUnit: string;
   value: string;
   emissions: number;
+  costUsd: string; // optional USD cost
 }
 
 type ScopeKey = 'scope_1' | 'scope_2' | 'scope_3';
 
 function buildScope1Rows(country?: string): InputRow[] {
   return SCOPE_1_CATEGORIES.map(cat => {
-    // Use regional EF if available (default), fallback to generic
     const regional = country
       ? SCOPE_1_EF_BY_COUNTRY.find(r => r.country === country && r.category === cat.key)
       : undefined;
@@ -87,7 +87,7 @@ function buildScope1Rows(country?: string): InputRow[] {
       category: cat.key, label: cat.label, icon: cat.icon, unit: cat.unit,
       ef: regional?.ef ?? cat.ef,
       efUnit: regional?.efUnit ?? cat.efUnit,
-      value: '', emissions: 0,
+      value: '', emissions: 0, costUsd: '',
     };
   });
 }
@@ -95,14 +95,14 @@ function buildScope1Rows(country?: string): InputRow[] {
 function buildScope2Rows(country: string, ef: number): InputRow[] {
   return [{
     category: 'electricity', label: `Điện lưới (${country})`, icon: '⚡', unit: 'kWh',
-    ef, efUnit: 'kg CO₂e/kWh', value: '', emissions: 0,
+    ef, efUnit: 'kg CO₂e/kWh', value: '', emissions: 0, costUsd: '',
   }];
 }
 
 function buildScope3Rows(): InputRow[] {
   return SCOPE_3_CATEGORIES.map(cat => ({
     category: cat.key, label: `${cat.ghgCategory} — ${cat.label}`, icon: cat.icon, unit: cat.unit,
-    ef: 0, efUnit: 'tCO₂e (nhập trực tiếp)', value: '', emissions: 0,
+    ef: 0, efUnit: 'tCO₂e (nhập trực tiếp)', value: '', emissions: 0, costUsd: '',
   }));
 }
 
@@ -208,6 +208,10 @@ export default function InputPage() {
     }));
   };
 
+  const updateCost = (index: number, val: string) => {
+    setRows(prev => prev.map((row, i) => i === index ? { ...row, costUsd: val } : row));
+  };
+
   // Bug 1: clear all entered values for current scope
   const handleClear = () => {
     setRows(prev => prev.map(row => ({ ...row, value: '', emissions: 0 })));
@@ -231,6 +235,7 @@ export default function InputPage() {
         activity_data: parseFloat(r.value),
         activity_unit: r.unit,
         emissions_tco2e: Math.round(r.emissions * 10000) / 10000,
+        cost_usd: parseFloat(r.costUsd) > 0 ? Math.round(parseFloat(r.costUsd) * 100) / 100 : null,
       }));
 
     if (records.length > 0) {
@@ -338,6 +343,11 @@ export default function InputPage() {
               <th>Hệ số EF</th>
               <th style={{ width: '160px' }}>Số liệu hoạt động</th>
               <th style={{ textAlign: 'right' }}>Phát thải (tCO₂e)</th>
+              {activeScope !== 'scope_3' && (
+                <th style={{ textAlign: 'right', color: '#b45309', fontSize: '11px', fontWeight: 600, width: '110px' }}>
+                  💰 Chi phí (USD)
+                </th>
+              )}
               <th style={{ textAlign: 'right', color: 'var(--color-text-muted)', fontSize: '11px', fontWeight: 600 }}>
                 T.trước {selectedMonth === 1 ? `(T12/${selectedYear - 1})` : `(T${selectedMonth - 1}/${selectedYear})`}
               </th>
@@ -369,6 +379,18 @@ export default function InputPage() {
                       </div>
                     )}
                   </td>
+                  {activeScope !== 'scope_3' && (
+                    <td>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="tuỳ chọn"
+                        value={row.costUsd}
+                        onChange={e => updateCost(i, e.target.value)}
+                        style={{ width: '100%', textAlign: 'right', fontSize: '12px', color: '#b45309', borderColor: row.costUsd ? '#fcd34d' : undefined }}
+                      />
+                    </td>
+                  )}
                   <td style={{ textAlign: 'right', fontSize: '13px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-display)' }}>
                     {prev !== undefined && prev > 0 ? prev.toFixed(2) : '—'}
                   </td>
@@ -383,6 +405,14 @@ export default function InputPage() {
                 {totalEmissions > 0 ? totalEmissions.toFixed(2) : '0'}
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>tCO₂e</span>
               </td>
+              {activeScope !== 'scope_3' && (() => {
+                const totalCost = rows.reduce((s, r) => s + (parseFloat(r.costUsd) || 0), 0);
+                return (
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: '#b45309', borderTop: '2px solid var(--color-border)', paddingTop: 'var(--space-md)' }}>
+                    {totalCost > 0 ? `$${totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
+                  </td>
+                );
+              })()}
               <td style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: '14px', color: 'var(--color-text-muted)', borderTop: '2px solid var(--color-border)', paddingTop: 'var(--space-md)' }}>
                 {Object.values(prevMonthData).reduce((s, v) => s + v, 0).toFixed(2)}
               </td>

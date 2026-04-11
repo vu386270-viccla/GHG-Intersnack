@@ -1,0 +1,15 @@
+{
+  "$schema": "https://rune-kit.github.io/rune/config-schema.json",
+  "version": 1,
+  "platform": "antigravity",
+  "source": "@rune-kit/rune",
+  "skills": {
+    "disabled": []
+  },
+  "extensions": {
+    "enabled": null
+  },
+  "output": {
+    "index": true
+  }
+}
