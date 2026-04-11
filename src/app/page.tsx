@@ -74,18 +74,86 @@ function ScopeDonut({ s1, s2, s3, size = 100 }: { s1: number; s2: number; s3: nu
   );
 }
 
-/* ── SBTi Progress bar ── */
-function SBTiBar({ current, base, target }: { current: number; base: number; target: number }) {
-  const pctCurrent = base > 0 ? Math.min(current / base * 100, 100) : 0;
-  const pctTarget = base > 0 ? target / base * 100 : 58;
-  const onTrack = current <= target;
+/* ── SBTi Circular Gauge ── */
+function SBTiGauge({
+  label, icon, reductionPct, current, base, targetYear, color, note
+}: {
+  label: string; icon: string; reductionPct: number;
+  current: number; base: number; targetYear: number; color: string; note?: string;
+}) {
+  const size = 130;
+  const cx = size / 2, cy = size / 2;
+  const R = 50, thick = 11;
+  const circ = 2 * Math.PI * R;
+  // How much has been reduced from baseline
+  const reducedPct = base > 0 ? Math.max(0, Math.min(100, (base - current) / base * 100)) : 0;
+  const targetPct = reductionPct; // e.g. 42 or 30
+  const onTrack = reducedPct >= (targetPct * (new Date().getFullYear() - 2021) / (targetYear - 2021));
+  // Track: grey full circle
+  // Actual reduction arc: colored
+  // Target marker at targetPct position on the arc
+  const angleOffset = -225; // start at bottom-left, sweep 270 degrees
+  const sweepDeg = 270;
+  const actualDash = (reducedPct / 100) * sweepDeg / 360 * circ;
+  const trackDash = sweepDeg / 360 * circ;
+  const targetDash = (targetPct / 100) * sweepDeg / 360 * circ;
+  // SVG arc path for partial circle (270 deg)
+  function arcPath(pct: number) {
+    const deg = angleOffset + (pct / 100) * sweepDeg;
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + R * Math.cos(rad), y: cy + R * Math.sin(rad) };
+  }
+  const startPt = arcPath(0);
+  const endPt = arcPath(100);
+  const actualPt = arcPath(reducedPct > 0 ? reducedPct : 0.01);
+  const targetPt = arcPath(targetPct);
+  function partialArc(pct: number, total = 100) {
+    if (pct <= 0) return '';
+    pct = Math.min(pct, total);
+    const start = { x: cx + R * Math.cos((angleOffset * Math.PI) / 180), y: cy + R * Math.sin((angleOffset * Math.PI) / 180) };
+    const endDeg = angleOffset + (pct / 100) * sweepDeg;
+    const end = { x: cx + R * Math.cos((endDeg * Math.PI) / 180), y: cy + R * Math.sin((endDeg * Math.PI) / 180) };
+    const large = (pct / 100) * sweepDeg > 180 ? 1 : 0;
+    return `M ${start.x} ${start.y} A ${R} ${R} 0 ${large} 1 ${end.x} ${end.y}`;
+  }
   return (
-    <div style={{ position: 'relative', height: 20, background: '#f3f4f6', borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, background: onTrack ? '#dcfce7' : '#fee2e2', borderRadius: 10 }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${pctCurrent}%`, background: onTrack ? '#22c55e' : '#ef4444', borderRadius: 10, transition: 'width 0.6s ease' }} />
-      <div style={{ position: 'absolute', top: 0, left: `${pctTarget}%`, width: 2, height: '100%', background: '#8CB92D' }} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: 8, fontSize: 10, fontWeight: 700, color: onTrack ? '#166534' : '#7f1d1d' }}>
-        {Math.round(pctCurrent)}% of baseline · {onTrack ? '✓ On track' : '✗ Over target'}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Track */}
+        <path d={partialArc(100)} fill="none" stroke="#f0f0f0" strokeWidth={thick} strokeLinecap="round" />
+        {/* Actual reduction */}
+        {reducedPct > 0 && (
+          <path d={partialArc(reducedPct)} fill="none" stroke={onTrack ? color : '#ef4444'} strokeWidth={thick} strokeLinecap="round" opacity={0.9} />
+        )}
+        {/* Target marker */}
+        {(() => {
+          const deg = angleOffset + (targetPct / 100) * sweepDeg;
+          const rad = (deg * Math.PI) / 180;
+          const px = cx + R * Math.cos(rad), py = cy + R * Math.sin(rad);
+          return <circle cx={px} cy={py} r={5} fill={color} stroke="#fff" strokeWidth={2} />;
+        })()}
+        {/* Center text */}
+        <text x={cx} y={cy - 14} textAnchor="middle" fontSize={9} fontWeight={700} fill="#888">{icon} {label}</text>
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize={22} fontWeight={900} fill={onTrack ? color : '#ef4444'}>
+          {reducedPct.toFixed(1)}%
+        </text>
+        <text x={cx} y={cy + 17} textAnchor="middle" fontSize={8} fill="#aaa">reduced</text>
+        <text x={cx} y={cy + 28} textAnchor="middle" fontSize={8} fontWeight={700} fill={color}>target: {targetPct}%</text>
+      </svg>
+      <div style={{ textAlign: 'center', lineHeight: 1.4 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: onTrack ? '#166534' : '#991b1b', background: onTrack ? '#dcfce7' : '#fee2e2', borderRadius: 6, padding: '2px 8px', display: 'inline-block' }}>
+          {onTrack ? '✓ On track' : '✗ Behind'}
+        </div>
+        <div style={{ fontSize: 9, color: '#888', marginTop: 3 }}>
+          Current: <strong>{formatTCO2e(current)}</strong> t
+        </div>
+        <div style={{ fontSize: 9, color: '#888' }}>
+          Base 2021: {formatTCO2e(base)} t
+        </div>
+        <div style={{ fontSize: 9, color: color, fontWeight: 700 }}>
+          Target {targetYear}: {formatTCO2e(Math.round(base * (1 - targetPct / 100)))} t
+        </div>
+        {note && <div style={{ fontSize: 8, color: '#bbb', marginTop: 2 }}>{note}</div>}
       </div>
     </div>
   );
@@ -149,17 +217,20 @@ export default function DashboardPage() {
 
   const prevYearTotal = scopeSummaries.reduce((s, sc) => s + sc.previousYearEmissions, 0);
   const changeVsPrev = prevYearTotal > 0 ? ((grandTotal - prevYearTotal) / prevYearTotal * 100) : 0;
-  const sbtiBase = targets[0]?.baseYearEmissions ?? 0;
-  const sbtiTarget = targets[0]?.targetEmissions ?? 0;
+  const sbtiS12 = targets.find(t => t.scope.includes('1'));
+  const sbtiS3  = targets.find(t => t.scope.includes('3'));
   const activeMonths = filteredMonthly.filter(m => m.total > 0).length;
   const monthLabel = `${activeMonths} tháng ${selectedYear}`;
-
   // per-factory RCN
   const allRCN = selectedFactory === 'ALL' ? (rcnData?.totalRCN ?? 0) : (rcnByFactory[selectedFactory]?.totalRCN ?? 0);
   const intensity = allRCN > 0 ? totals.total / allRCN : 0;
-
+  // S3 display: use previous year value if current year = 0 (S3 data is annual)
+  const s3Display = totals.s3 > 0 ? totals.s3 : (scopeSummaries.find(s => s.scope === 'scope_3')?.previousYearEmissions ?? 0);
+  const s3IsEstimated = totals.s3 === 0 && s3Display > 0;
   // Max total across factories (for bar scaling)
   const maxFacTotal = Math.max(...factorySummaries.map(fs => fs.totalEmissions), 1);
+  // S3 categories from scope summaries
+  const s3Cats = scopeSummaries.find(s => s.scope === 'scope_3')?.categories ?? [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -215,8 +286,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ══ ROW 1: 3 Scope KPIs + Donut + SBTi ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 130px 1fr', gap: 10 }}>
+      {/* ══ ROW 1: 3 Scope KPIs + Donut ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 140px', gap: 10 }}>
 
         {/* Scope 1 */}
         <Link href="/scope-1" style={{ textDecoration: 'none' }}>
@@ -264,58 +335,160 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        {/* Scope 3 */}
+        {/* Scope 3 — richer with categories */}
         <Link href="/scope-3" style={{ textDecoration: 'none' }}>
           <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_3}`, cursor: 'pointer', height: '100%' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_3, marginBottom: 4 }}>🌍 Scope 3 — Chuỗi giá trị</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: 'var(--color-text)' }}>
-              {formatTCO2e(totals.s3)}
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_3, marginBottom: 4 }}>
+              🌍 Scope 3 — Chuỗi giá trị
+              {s3IsEstimated && <span style={{ fontWeight: 500, color: '#bbb', marginLeft: 4 }}>(năm trước)</span>}
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: s3IsEstimated ? '#aaa' : 'var(--color-text)' }}>
+              {formatTCO2e(s3Display)}
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>tCO₂e</span>
             </div>
-            <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-text-muted)' }}>
-              <span style={{ fontWeight: 700, color: S_COLOR.scope_3 }}>{totals.total > 0 ? Math.round(totals.s3 / totals.total * 100) : 0}% of total</span>
-              {scopeSummaries.find(s => s.scope === 'scope_3') && (
-                <span style={{ color: scopeSummaries.find(s => s.scope === 'scope_3')!.changePercent < 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
-                  {scopeSummaries.find(s => s.scope === 'scope_3')!.changePercent < 0 ? '↓' : '↑'}
-                  {Math.abs(scopeSummaries.find(s => s.scope === 'scope_3')!.changePercent)}%
-                </span>
-              )}
-            </div>
-            <div style={{ marginTop: 6, height: 4, background: '#f3f4f6', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${totals.total > 0 ? totals.s3 / totals.total * 100 : 0}%`, background: S_COLOR.scope_3, borderRadius: 2 }} />
-            </div>
+            {/* Category breakdown */}
+            {s3Cats.length > 0 ? (
+              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {s3Cats.slice(0, 3).map(cat => (
+                  <div key={cat.category} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: '#888' }}>
+                    <div style={{ height: 3, width: `${cat.percentOfScope}%`, minWidth: 4, background: S_COLOR.scope_3, borderRadius: 2, opacity: 0.6 + cat.percentOfScope / 200 }} />
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{cat.label.split('—').pop()?.trim()}</span>
+                    <span style={{ color: S_COLOR.scope_3, fontWeight: 700, marginLeft: 'auto', flexShrink: 0 }}>{formatNumber(cat.emissions)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginTop: 6, fontSize: 9, color: '#bbb' }}>Cat.1 Nguyên liệu · Cat.3 WTT · Cat.4 Vận chuyển</div>
+            )}
           </div>
         </Link>
 
-        {/* Scope Donut */}
-        <div className="card" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-          <ScopeDonut s1={totals.s1} s2={totals.s2} s3={totals.s3} size={86} />
+        {/* Donut + Intensity compact */}
+        <div className="card" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <ScopeDonut s1={totals.s1} s2={totals.s2} s3={s3Display} size={90} />
           <div style={{ fontSize: 9, color: '#aaa', textAlign: 'center', lineHeight: 1.6 }}>
             <span style={{ color: S_COLOR.scope_1, fontWeight: 700 }}>●</span> S1&nbsp;
             <span style={{ color: S_COLOR.scope_2, fontWeight: 700 }}>●</span> S2&nbsp;
             <span style={{ color: S_COLOR.scope_3, fontWeight: 700 }}>●</span> S3
           </div>
-        </div>
-
-        {/* SBTi + RCN Intensity */}
-        <div className="card" style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#6366f1', marginBottom: 2 }}>🎯 SBTi Progress</div>
-          {sbtiBase > 0 && (
-            <>
-              <SBTiBar current={totals.total} base={sbtiBase} target={sbtiTarget} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888' }}>
-                <span>Base 2021: <strong>{formatTCO2e(sbtiBase)}</strong></span>
-                <span style={{ color: '#8CB92D', fontWeight: 700 }}>Target: {formatTCO2e(sbtiTarget)}</span>
-              </div>
-            </>
-          )}
-          <div style={{ marginTop: 2, borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.6px' }}>📊 Intensity</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: '#6366f1', lineHeight: 1.2 }}>
-              {intensity.toFixed(3)}
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#888', marginLeft: 4 }}>tCO₂e/MT RCN</span>
+          {allRCN > 0 && (
+            <div style={{ borderTop: '1px solid #f0f0f0', width: '100%', paddingTop: 6, textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#6366f1' }}>{intensity.toFixed(3)}</div>
+              <div style={{ fontSize: 8, color: '#aaa' }}>tCO₂e/MT RCN</div>
             </div>
-            {allRCN > 0 && <div style={{ fontSize: 10, color: '#aaa' }}>🥜 {formatNumber(allRCN)} MT RCN</div>}
+          )}
+        </div>
+      </div>
+
+      {/* ══ SBTi TARGETS ROW — 2 circular gauges ══ */}
+      <div className="card" style={{ padding: '14px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text)' }}>🎯 Mục tiêu SBTi — Commitment #40003759</div>
+            <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>Giảm phát thải so với năm gốc 2021 · Target year: 2032</div>
+          </div>
+          <Link href="/targets" style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none', padding: '5px 12px', border: '1.5px solid var(--color-primary)', borderRadius: 8 }}>Chi tiết →</Link>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+
+          {/* Gauge: Scope 1+2 */}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            {sbtiS12 && (
+              <SBTiGauge
+                label="Scope 1+2" icon="🏭"
+                reductionPct={42}
+                current={sbtiS12.currentEmissions}
+                base={sbtiS12.baseYearEmissions}
+                targetYear={2032}
+                color="#E32314"
+                note="Phát thải vận hành trực tiếp"
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 8 }}>Scope 1 — Đốt nhiên liệu trực tiếp</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                <div style={{ flex: 1, background: '#fff7f7', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px' }}>
+                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Năm gốc 2021</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#E32314' }}>{formatTCO2e(sbtiS12?.baseYearEmissions ?? 0)}</div>
+                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e</div>
+                </div>
+                <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px' }}>
+                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Target 2032</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{formatTCO2e(sbtiS12 ? Math.round(sbtiS12.baseYearEmissions * 0.58) : 0)}</div>
+                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e (−42%)</div>
+                </div>
+                <div style={{ flex: 1, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px' }}>
+                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Hiện tại</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#F5A623' }}>{formatTCO2e(sbtiS12?.currentEmissions ?? 0)}</div>
+                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e</div>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>Tiến độ giảm phát thải</div>
+              <div style={{ position: 'relative', height: 16, background: '#f3f4f6', borderRadius: 8, overflow: 'hidden' }}>
+                {sbtiS12 && (() => {
+                  const reducedPct = sbtiS12.baseYearEmissions > 0 ? Math.max(0, (sbtiS12.baseYearEmissions - sbtiS12.currentEmissions) / sbtiS12.baseYearEmissions * 100) : 0;
+                  return <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${reducedPct}%`, background: reducedPct >= 0 ? '#22c55e' : '#ef4444', borderRadius: 8 }} />;
+                })()}
+                <div style={{ position: 'absolute', left: '42%', top: 0, width: 2, height: '100%', background: '#E32314' }} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: 6, fontSize: 9, fontWeight: 700, color: '#555' }}>
+                  {sbtiS12 ? `${((sbtiS12.baseYearEmissions - sbtiS12.currentEmissions) / sbtiS12.baseYearEmissions * 100).toFixed(1)}% giảm / target 42%` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', borderLeft: '1px solid #f0f0f0', paddingLeft: 20 }}>
+            {sbtiS3 && (
+              <SBTiGauge
+                label="Scope 3" icon="🌍"
+                reductionPct={30}
+                current={sbtiS3.currentEmissions > 0 ? sbtiS3.currentEmissions : (s3Display)}
+                base={sbtiS3.baseYearEmissions}
+                targetYear={2032}
+                color="#8CB92D"
+                note="Chuỗi giá trị: Cat.1+3+4"
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 8 }}>Scope 3 — Phát thải chuỗi giá trị</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px' }}>
+                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Năm gốc 2021</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#8CB92D' }}>{formatTCO2e(sbtiS3?.baseYearEmissions ?? 0)}</div>
+                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e</div>
+                </div>
+                <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px' }}>
+                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Target 2032</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{formatTCO2e(sbtiS3 ? Math.round(sbtiS3.baseYearEmissions * 0.7) : 0)}</div>
+                  <div style={{ fontSize: 9, color: '#aaa' }}>tCO₂e (−30%)</div>
+                </div>
+                <div style={{ flex: 1, background: '#f8fce8', border: '1px solid #d9f99d', borderRadius: 8, padding: '6px 10px' }}>
+                  <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase' }}>Gần nhất</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#8CB92D' }}>{formatTCO2e(s3Display)}</div>
+                  <div style={{ fontSize: 9, color: '#aaa' }}>{s3IsEstimated ? 'năm trước' : 'tCO₂e'}</div>
+                </div>
+              </div>
+              {/* S3 category breakdown */}
+              <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>Phân bổ theo category</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {s3Cats.length > 0 ? s3Cats.map(cat => (
+                  <div key={cat.category} style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 9 }}>
+                    <div style={{ width: `${cat.percentOfScope}%`, minWidth: 4, height: 4, background: '#8CB92D', borderRadius: 2, opacity: 0.7 }} />
+                    <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.label.split('—').pop()?.trim()}</span>
+                    <span style={{ color: '#8CB92D', fontWeight: 700, marginLeft: 'auto', flexShrink: 0 }}>{cat.percentOfScope}%</span>
+                  </div>
+                )) : (
+                  ['Cat.1 — Nguyên liệu cashew', 'Cat.3 — WTT nhiên liệu', 'Cat.4 — Vận chuyển'].map(c => (
+                    <div key={c} style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 9, color: '#bbb' }}>
+                      <div style={{ width: 20, height: 3, background: '#e5e7eb', borderRadius: 2 }} />
+                      <span>{c}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
