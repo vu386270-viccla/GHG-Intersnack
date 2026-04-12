@@ -25,7 +25,8 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -33,8 +34,7 @@ export default function LoginPage() {
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       fontFamily: 'Inter, system-ui, sans-serif',
-      position: 'relative',
-      margin: '-24px', // Counteract the potential 24px padding from main-content layout
+      zIndex: 9999, // Guarantees it covers layout margins/sidebar gaps
     }}>
       {/* Premium dark gradient overlay */}
       <div style={{
@@ -66,24 +66,17 @@ export default function LoginPage() {
         {/* Corporate Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{
-            background: '#ffffff',
-            padding: '16px 24px',
-            borderRadius: '16px',
-            display: 'inline-block',
-            marginBottom: '24px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
-          }}>
-            <img 
-              src="/intersnack-logo.png" 
-              alt="Intersnack Group Logo" 
-              style={{ width: '160px', height: 'auto', display: 'block' }} 
-            />
-          </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>
-            GHG Enterprise Dashboard
+            width: 64, height: 64, borderRadius: 16,
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 20px', fontSize: 28,
+            boxShadow: '0 12px 28px rgba(16,185,129,0.3), inset 0 2px 0 rgba(255,255,255,0.2)',
+          }}>🌿</div>
+          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>
+            Intersnack Group
           </h1>
-          <p style={{ fontSize: 14, color: '#94a3b8', marginTop: 8, fontWeight: 500 }}>
-            Sustainability & Emissions Control
+          <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Enterprise GHG Dashboard
           </p>
         </div>
 
