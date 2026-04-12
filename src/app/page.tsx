@@ -361,11 +361,11 @@ export default function DashboardPage() {
   const monthLabel = `${activeMonths} ${t('months_of')} ${selectedYear}`;
   // per-factory RCN
   const allRCN = selectedFactory === 'ALL' ? (rcnData?.totalRCN ?? 0) : (rcnByFactory[selectedFactory]?.totalRCN ?? 0);
-  const intensity = allRCN > 0 ? correctedTotal / allRCN : 0;
   // S3: use real annual data from scope3_transport_data
   const s3Display = s3Annual?.total ?? 0;
   // correctedTotal: S1+S2 from factory rows + real computed S3 (company-wide)
   const correctedTotal = totals.s1 + totals.s2 + s3Display;
+  const intensity = allRCN > 0 ? correctedTotal / allRCN : 0;
   const s3IsEstimated = s3Annual != null && s3Annual.year !== selectedYear;
   const s3Cats = s3Annual ? [
     { category: 'cat1', label: 'Cat.1 — Cashew', emissions: s3Annual.cat1, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat1 / s3Annual.total * 100) : 0 },

@@ -11,7 +11,7 @@ export default function TargetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [targets, setTargets] = useState<TargetProgress[]>([]);
-  const [annualTotals, setAnnualTotals] = useState<Record<number, { s12: number; s3: number }>>({});
+  const [annualTotals, setAnnualTotals] = useState<Record<number, { s1: number; s2: number; s3: number }>>({});
 
   const baseYear = 2021;
   const targetYear = 2032;
@@ -127,15 +127,14 @@ export default function TargetsPage() {
             const s12Target = Math.round(s12Base * (1 - 0.50 * progress));
             const s3Target = Math.round(s3Base * (1 - 0.3 * progress));
             const actual = annualTotals[year];
-            const hasActual = !!actual && (actual.s12 > 0 || actual.s3 > 0);
+            const actualS12 = actual ? actual.s1 + actual.s2 : 0;
+            const hasS12 = actualS12 > 0;
+            const hasS3  = !!actual && actual.s3 > 0;
             return {
               label: String(year),
-              values: hasActual ? [
-                { key: 'scope_1_2', value: Math.round(actual.s12), color: SCOPE_COLORS.scope_1 },
-                { key: 'scope_3', value: Math.round(actual.s3), color: SCOPE_COLORS.scope_3 },
-              ] : [
-                { key: 'scope_1_2', value: s12Target, color: '#E3231444' },
-                { key: 'scope_3', value: s3Target, color: '#8CB92D44' },
+              values: [
+                { key: 'scope_1_2', value: hasS12 ? Math.round(actualS12) : s12Target, color: hasS12 ? '#E32314' : '#E3231444' },
+                { key: 'scope_3',   value: hasS3  ? Math.round(actual.s3) : s3Target,  color: hasS3  ? '#8CB92D' : '#8CB92D44' },
               ],
             };
           })}

@@ -499,30 +499,33 @@ export async function getAnnualScopeBreakdown(
 }
 
 // ── Annual totals by scope — used by Targets page chart ──
-export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s12: number; s3: number }>> {
-  // Fetch S1+S2 from emissions_data, S3 from scope3_transport_data
+export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s1: number; s2: number; s3: number }>> {
+  // Fetch S1 and S2 separately from emissions_data, S3 from scope3_transport_data
   const [opsRes, s3Res, factoriesRes, fuelRes] = await Promise.all([
     supabase.from('emissions_data')
       .select('year,scope,emissions_tco2e')
       .gte('year', fromYear).lte('year', toYear).limit(10000),
     supabase.from('scope3_transport_data')
       .select('year,em_cashew_kg,km_ton_vessel,km_ton_road')
-      .gte('year', fromYear).lte('year', toYear),
+      .gte('year', fromYear).lte('year', toYear)
+      .limit(10000), // Fix: prevent silent 1000-row Supabase default truncation
     supabase.from('factories').select('id,country'),
     supabase.from('emissions_data')
       .select('factory_id,year,category,activity_data')
       .gte('year', fromYear).lte('year', toYear)
       .in('category', ['diesel', 'lpg', 'electricity'])
+      .limit(10000),
   ]);
 
-  const result: Record<number, { s12: number; s3: number }> = {};
+  const result: Record<number, { s1: number; s2: number; s3: number }> = {};
   const factoryCountry: Record<string, string> = {};
   for (const f of factoriesRes.data || []) factoryCountry[f.id] = f.country;
 
   for (const e of opsRes.data || []) {
-    if (!result[e.year]) result[e.year] = { s12: 0, s3: 0 };
+    if (!result[e.year]) result[e.year] = { s1: 0, s2: 0, s3: 0 };
     const val = Number(e.emissions_tco2e);
-    if (e.scope === 'scope_1' || e.scope === 'scope_2') result[e.year].s12 += val;
+    if (e.scope === 'scope_1') result[e.year].s1 += val;
+    else if (e.scope === 'scope_2') result[e.year].s2 += val;
   }
 
   // Aggregate Scope 3 from transport table (Cat.1 + Cat.4)
@@ -546,7 +549,7 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
 
   for (const [yr, val] of Object.entries(s3ByYear)) {
     const y = Number(yr);
-    if (!result[y]) result[y] = { s12: 0, s3: 0 };
+    if (!result[y]) result[y] = { s1: 0, s2: 0, s3: 0 };
     result[y].s3 = val;
   }
 
