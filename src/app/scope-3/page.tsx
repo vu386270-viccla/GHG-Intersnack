@@ -163,12 +163,17 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
   );
 }
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export default function Scope3Page() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [rows,    setRows]     = useState<Scope3YearRow[]>([]);
   const [baseline, setBaseline] = useState<Scope3YearRow | undefined>();
   const [selYear, setSelYear]  = useState<number>(new Date().getFullYear());
+
+  // A year is YTD if it's the current calendar year (data not yet complete)
+  const isYtd = (yr: number) => yr >= CURRENT_YEAR;
 
   useEffect(() => {
     getScope3SummaryData()
@@ -209,23 +214,48 @@ export default function Scope3Page() {
         </div>
 
         {/* Year pills */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
           {availYears.map(yr => (
             <button key={yr} onClick={() => setSelYear(yr)} style={{
               padding: '4px 12px', borderRadius: 16, border: '1.5px solid',
-              borderColor: selYear === yr ? GREEN : 'var(--color-border)',
-              background: selYear === yr ? GREEN : 'transparent',
-              color: selYear === yr ? '#fff' : 'var(--color-text-secondary)',
+              borderColor: selYear === yr ? GREEN : isYtd(yr) ? '#F59E0B' : 'var(--color-border)',
+              background: selYear === yr ? (isYtd(yr) ? '#F59E0B' : GREEN) : 'transparent',
+              color: selYear === yr ? '#fff' : isYtd(yr) ? '#F59E0B' : 'var(--color-text-secondary)',
               fontWeight: 600, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s',
-            }}>{yr}</button>
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+              {isYtd(yr) && <span style={{ fontSize: 10 }}>⚠️</span>}
+              {yr}
+              {isYtd(yr) && <span style={{ fontSize: 9, opacity: 0.85 }}>YTD</span>}
+            </button>
           ))}
         </div>
       </div>
 
+      {/* ── YTD Warning Banner ── */}
+      {selected && isYtd(selected.year) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: '#FEF3C720', border: '1.5px solid #F59E0B',
+          borderRadius: 8, padding: '8px 14px', marginBottom: 10,
+          fontSize: 12,
+        }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div>
+            <span style={{ fontWeight: 700, color: '#F59E0B' }}>Partial Data — YTD Q1-{selected.year}</span>
+            <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>
+              Dữ liệu {selected.year} chưa đủ năm · Chưa thể so sánh YoY · Sẽ cập nhật thêm khi có data mới
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── KPI strip ── */}
       {selected && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
-          <KBox label="Total Scope 3" value={fmt(selected.total)} color={GREEN} sub="tCO₂e" />
+          <KBox
+            label={isYtd(selected.year) ? `⚠️ Total Scope 3 (YTD)` : 'Total Scope 3'}
+            value={fmt(selected.total)} color={isYtd(selected.year) ? '#F59E0B' : GREEN} sub="tCO₂e" />
           <KBox label="🌿 Cat.1 FLAG — Cashew" value={fmt(selected.cat1_cashew)} color={DARK_GREEN} sub="at-farm LUC" />
           <KBox label="🚢 Cat.4 — Transport" value={fmt(selected.cat4_vessel + selected.cat4_road)} color="#4A9E8C" sub="ocean + road" />
           <KBox label="⚡ Cat.3 — WTT" value={fmt(selected.cat3_wtt)} color="#90BE6D" sub="diesel + LPG + điện" />
@@ -327,10 +357,11 @@ export default function Scope3Page() {
                     borderBottom: '1px solid var(--color-border-light)',
                     fontWeight: isBase ? 700 : 400,
                   }}>
-                    <td style={{ padding: '7px 10px' }}>
+                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
                       {r.year}
                       {isBase && <span style={{ marginLeft: 5, fontSize: 9, color: GREEN, background: `${GREEN}20`, padding: '1px 5px', borderRadius: 8 }}>BASE</span>}
-                      {isSelected && !isBase && <span style={{ marginLeft: 5, fontSize: 9, color: '#6366F1', background: '#6366F115', padding: '1px 5px', borderRadius: 8 }}>ACTIVE</span>}
+                      {isSelected && !isBase && !isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#6366F1', background: '#6366F115', padding: '1px 5px', borderRadius: 8 }}>ACTIVE</span>}
+                      {isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#F59E0B', background: '#F59E0B20', padding: '1px 5px', borderRadius: 8 }}>⚠️ YTD</span>}
                     </td>
                     {[r.cat1_cashew, r.cat4_vessel, r.cat4_road, r.cat3_wtt, r.totalFlag, r.totalNonFlag, r.total].map((v, vi) => (
                       <td key={vi} style={{ padding: '7px 10px', textAlign: 'right', color: vi >= 4 ? 'var(--color-text)' : 'var(--color-text-secondary)', fontWeight: vi >= 4 ? 600 : 400 }}>{fmt(v)}</td>
