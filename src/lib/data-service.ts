@@ -500,15 +500,11 @@ export async function getAnnualScopeBreakdown(
 
 // ── Annual totals by scope — used by Targets page chart ──
 export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s1: number; s2: number; s3: number }>> {
-  // Fetch S1 and S2 separately from emissions_data, S3 from scope3_transport_data
-  const [opsRes, s3Res, factoriesRes, fuelRes] = await Promise.all([
+  // Fetch S1 and S2 separately from emissions_data, S3 from static data
+  const [opsRes, factoriesRes, fuelRes] = await Promise.all([
     supabase.from('emissions_data')
       .select('year,scope,emissions_tco2e')
       .gte('year', fromYear).lte('year', toYear).limit(10000),
-    supabase.from('scope3_transport_data')
-      .select('year,em_cashew_kg,km_ton_vessel,km_ton_road')
-      .gte('year', fromYear).lte('year', toYear)
-      .limit(10000), // Fix: prevent silent 1000-row Supabase default truncation
     supabase.from('factories').select('id,country'),
     supabase.from('emissions_data')
       .select('factory_id,year,category,activity_data')
@@ -528,15 +524,14 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
     else if (e.scope === 'scope_2') result[e.year].s2 += val;
   }
 
-  // Aggregate Scope 3 from transport table (Cat.1 + Cat.4)
-  const s3ByYear: Record<number, number> = {};
-  for (const r of s3Res.data || []) {
-    const cat1 = (Number(r.em_cashew_kg) || 0) / 1000;
-    const cat4 = ((Number(r.km_ton_vessel) || 0) * 0.01604 + (Number(r.km_ton_road) || 0) * 0.07547) / 1000;
-    s3ByYear[r.year] = (s3ByYear[r.year] || 0) + cat1 + cat4;
+  // Aggregate S3 Cat.1 + Cat.4 from static data (same source as OpEx/Overview)
+  for (let yr = fromYear; yr <= toYear; yr++) {
+    const s3Static = getS3StaticCat1and4(yr);
+    if (!result[yr]) result[yr] = { s1: 0, s2: 0, s3: 0 };
+    result[yr].s3 += s3Static.cat1 + s3Static.cat4;
   }
 
-  // Add WTT (Cat.3)
+  // Add WTT (Cat.3) from fuel activity data
   for (const r of fuelRes.data || []) {
     const isIndia = factoryCountry[r.factory_id] === 'India';
     const act = Number(r.activity_data) || 0;
@@ -544,17 +539,13 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
     if (r.category === 'diesel')      wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
     else if (r.category === 'lpg')    wtt = act * WTT.lpg;
     else if (r.category === 'electricity') wtt = act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
-    s3ByYear[r.year] = (s3ByYear[r.year] || 0) + wtt;
-  }
-
-  for (const [yr, val] of Object.entries(s3ByYear)) {
-    const y = Number(yr);
-    if (!result[y]) result[y] = { s1: 0, s2: 0, s3: 0 };
-    result[y].s3 = val;
+    if (!result[r.year]) result[r.year] = { s1: 0, s2: 0, s3: 0 };
+    result[r.year].s3 += wtt;
   }
 
   return result;
 }
+
 
 // ── Re-export static constants that pages use ──
 export { SCOPE_1_CATEGORIES, SCOPE_3_CATEGORIES, SCOPE_COLORS, MONTHS_VI } from './types';
