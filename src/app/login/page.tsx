@@ -19,7 +19,7 @@ export default function LoginPage() {
       setError('Invalid credentials or unauthorized access.');
       setLoading(false);
     } else {
-      router.push('/');
+      window.location.href = '/'; // Hard redirect to ensure middleware sees correct cookies
     }
   };
 
@@ -81,7 +81,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="name@intersnack.com"
+              placeholder="Ex: admin@icc.com"
               required
               style={{
                 width: '100%', padding: '14px 16px', boxSizing: 'border-box',
@@ -145,8 +145,13 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid #f0f0f0', textAlign: 'center', fontSize: 12, color: '#757575', fontWeight: 500 }}>
-          SBTi Commitment #40003759
+        <div style={{ marginTop: 36, paddingTop: 20, borderTop: '1px solid #f0f0f0', textAlign: 'center' }}>
+          <div style={{ fontSize: 11.5, color: '#666', marginBottom: 8 }}>
+            If you need help logging in, contact: <strong>Vu.Huynh</strong>
+          </div>
+          <div style={{ fontSize: 11, color: '#9e9e9e', fontWeight: 500 }}>
+            SBTi ID #40003759
+          </div>
         </div>
       </div>
     </div>
