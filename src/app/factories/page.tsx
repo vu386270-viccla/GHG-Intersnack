@@ -12,6 +12,7 @@ export default function FactoriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [factorySummaries, setFactorySummaries] = useState<FactorySummary[]>([]);
   const [completeness, setCompleteness] = useState<Record<string, boolean[]>>({});
+  const [rcnByFactory, setRcnByFactory] = useState<Record<string, { totalRCN: number; totalCK: number }>>({});
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export default function FactoriesPage() {
       .then(data => {
         setFactorySummaries(data.factorySummaries);
         setCompleteness(data.completeness || {});
+        setRcnByFactory(data.rcnByFactory || {});
         setLoading(false);
       })
       .catch(err => {
@@ -36,7 +38,14 @@ export default function FactoriesPage() {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}><div style={{ color: 'var(--color-primary)', background: 'var(--color-primary-alpha-10)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-md)' }}>⚠️ Lỗi tải dữ liệu: {error}</div></div>;
   }
 
-  // Compute overall completeness % per factory
+  // Max RCN across factories for intensity color coding
+  const maxIntensity = Math.max(
+    ...factorySummaries.map(fs => {
+      const rcn = rcnByFactory[fs.factory.id]?.totalRCN ?? 0;
+      return rcn > 0 ? fs.totalEmissions / rcn : 0;
+    }), 0.001
+  );
+
   const totalMonthsWithData = (factId: string) =>
     (completeness[factId] || []).filter(Boolean).length;
 
@@ -59,54 +68,114 @@ export default function FactoriesPage() {
 
       {/* ── Factory cards ── */}
       <div className="grid-4 stagger-children mb-xl">
-        {factorySummaries.map((fs, ri) => (
-          <div key={fs.factory.id} className="card factory-card animate-fade-in-up">
-            <div className="factory-card-header">
-              <div className="factory-card-icon">{fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'}</div>
-              <div>
-                <div className="factory-card-name">{fs.factory.name}</div>
-                <div className="factory-card-location">{fs.factory.location}, {fs.factory.country}</div>
+        {factorySummaries.map((fs, ri) => {
+          const rcnInfo = rcnByFactory[fs.factory.id];
+          const rcnMT = rcnInfo?.totalRCN ?? 0;
+          const intensity = rcnMT > 0 ? fs.totalEmissions / rcnMT : null;
+          const cost = fs.totalCost ?? 0;
+          const costPerRcn = rcnMT > 0 && cost > 0 ? cost / rcnMT : null;
+          const intensityPct = intensity ? (intensity / maxIntensity) : 0;
+          const intensityColor = intensityPct > 0.8 ? '#ef4444' : intensityPct > 0.5 ? '#f59e0b' : '#22c55e';
+
+          return (
+            <div key={fs.factory.id} className="card factory-card animate-fade-in-up">
+              <div className="factory-card-header">
+                <div className="factory-card-icon">{fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'}</div>
+                <div>
+                  <div className="factory-card-name">{fs.factory.name}</div>
+                  <div className="factory-card-location">{fs.factory.location}, {fs.factory.country}</div>
+                </div>
+                {ri === 0 && (
+                  <div style={{ marginLeft: 'auto', fontSize: '10px', fontWeight: 700, padding: '2px 8px', background: 'var(--color-primary-alpha-10)', color: 'var(--color-primary)', borderRadius: 'var(--radius-full)', textTransform: 'uppercase' }}>Cao nhất</div>
+                )}
               </div>
-              {ri === 0 && (
-                <div style={{ marginLeft: 'auto', fontSize: '10px', fontWeight: 700, padding: '2px 8px', background: 'var(--color-primary-alpha-10)', color: 'var(--color-primary)', borderRadius: 'var(--radius-full)', textTransform: 'uppercase' }}>Cao nhất</div>
-              )}
-            </div>
-            <div className="factory-card-emissions">
-              {formatTCO2e(fs.totalEmissions)}
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>tCO₂e</span>
-            </div>
-            {fs.totalEmissions > 0 && (
-              <>
-                <div className="factory-card-bar" style={{ height: '8px' }}>
-                  <div className="factory-card-bar-segment" style={{ width: `${(fs.scope1 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_1 }} />
-                  <div className="factory-card-bar-segment" style={{ width: `${(fs.scope2 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_2 }} />
-                  <div className="factory-card-bar-segment" style={{ width: `${(fs.scope3 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_3 }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', marginTop: 'var(--space-md)', fontSize: '12px' }}>
-                  <div style={{ textAlign: 'center' }}><div style={{ color: SCOPE_COLORS.scope_1, fontWeight: 700 }}>S1</div><div style={{ fontFamily: 'var(--font-display)', fontSize: '16px' }}>{formatNumber(fs.scope1)}</div></div>
-                  <div style={{ textAlign: 'center' }}><div style={{ color: SCOPE_COLORS.scope_2, fontWeight: 700 }}>S2</div><div style={{ fontFamily: 'var(--font-display)', fontSize: '16px' }}>{formatNumber(fs.scope2)}</div></div>
-                  <div style={{ textAlign: 'center' }}><div style={{ color: SCOPE_COLORS.scope_3, fontWeight: 700 }}>S3</div><div style={{ fontFamily: 'var(--font-display)', fontSize: '16px' }}>{formatNumber(fs.scope3)}</div></div>
-                </div>
-              </>
-            )}
-            {/* Data completeness badge */}
-            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-              {(() => {
-                const months = totalMonthsWithData(fs.factory.id);
-                const pct = Math.round((months / 12) * 100);
-                const color = months === 12 ? '#22c55e' : months >= 6 ? '#f59e0b' : '#ef4444';
-                return (
-                  <>
-                    <div style={{ flex: 1, height: 4, background: '#f0f0f0', borderRadius: 2 }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width 0.3s' }} />
+
+              {/* Total emissions */}
+              <div className="factory-card-emissions">
+                {formatTCO2e(fs.totalEmissions)}
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>tCO₂e</span>
+              </div>
+
+              {fs.totalEmissions > 0 && (
+                <>
+                  {/* Scope bar */}
+                  <div className="factory-card-bar" style={{ height: '8px' }}>
+                    <div className="factory-card-bar-segment" style={{ width: `${(fs.scope1 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_1 }} />
+                    <div className="factory-card-bar-segment" style={{ width: `${(fs.scope2 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_2 }} />
+                    <div className="factory-card-bar-segment" style={{ width: `${(fs.scope3 / fs.totalEmissions) * 100}%`, background: SCOPE_COLORS.scope_3 }} />
+                  </div>
+
+                  {/* S1 / S2 / S3 split */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', marginTop: 'var(--space-md)', fontSize: '12px' }}>
+                    <div style={{ textAlign: 'center' }}><div style={{ color: SCOPE_COLORS.scope_1, fontWeight: 700 }}>S1</div><div style={{ fontFamily: 'var(--font-display)', fontSize: '16px' }}>{formatNumber(fs.scope1)}</div></div>
+                    <div style={{ textAlign: 'center' }}><div style={{ color: SCOPE_COLORS.scope_2, fontWeight: 700 }}>S2</div><div style={{ fontFamily: 'var(--font-display)', fontSize: '16px' }}>{formatNumber(fs.scope2)}</div></div>
+                    <div style={{ textAlign: 'center' }}><div style={{ color: SCOPE_COLORS.scope_3, fontWeight: 700 }}>S3</div><div style={{ fontFamily: 'var(--font-display)', fontSize: '16px' }}>{formatNumber(fs.scope3)}</div></div>
+                  </div>
+
+                  {/* ── Intensity & Cost row ── */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 10 }}>
+                    {/* Intensity tCO2e/MT RCN */}
+                    <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: '7px 10px', borderLeft: `3px solid ${intensity ? intensityColor : '#e5e7eb'}` }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>
+                        tCO₂e / MT RCN
+                      </div>
+                      {intensity !== null ? (
+                        <>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: intensityColor, lineHeight: 1 }}>
+                            {intensity.toFixed(3)}
+                          </div>
+                          <div style={{ fontSize: 9, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                            RCN: {formatNumber(rcnMT)} MT
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#ccc', fontStyle: 'italic' }}>No RCN data</div>
+                      )}
                     </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{months}/12 tháng</span>
-                  </>
-                );
-              })()}
+
+                    {/* Cost */}
+                    <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: '7px 10px', borderLeft: '3px solid #6366f1' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>
+                        Energy Cost
+                      </div>
+                      {cost > 0 ? (
+                        <>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
+                            ${cost >= 1000000 ? `${(cost / 1000000).toFixed(1)}M` : cost >= 1000 ? `${(cost / 1000).toFixed(0)}K` : cost.toFixed(0)}
+                          </div>
+                          {costPerRcn !== null && (
+                            <div style={{ fontSize: 9, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                              ${costPerRcn.toFixed(1)} / MT RCN
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#ccc', fontStyle: 'italic' }}>No cost data</div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Data completeness badge */}
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {(() => {
+                  const months = totalMonthsWithData(fs.factory.id);
+                  const pct = Math.round((months / 12) * 100);
+                  const color = months === 12 ? '#22c55e' : months >= 6 ? '#f59e0b' : '#ef4444';
+                  return (
+                    <>
+                      <div style={{ flex: 1, height: 4, background: '#f0f0f0', borderRadius: 2 }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width 0.3s' }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{months}/12 tháng</span>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Completeness heatmap ── */}
