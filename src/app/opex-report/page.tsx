@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { GRID_EMISSION_FACTORS } from '@/lib/types';
+import { ORIGIN_EF, ORIGIN_MIX, TRANSPORT_STATIC } from '@/lib/scope3-data';
 
 // ── Types ──────────────────────────────────────────────────
 interface AnnualData {
@@ -336,92 +337,6 @@ function ptSolarSaving(year: number): number {
   const mwh = PT_SOLAR_ANNUAL_MWH * Math.pow(1 - PT_SOLAR_DEGRADATION, age);
   return Math.round(mwh * PT_SOLAR_EF_VN);
 }
-
-// ── Cashew Origin EFs (kg CO₂e / kg RCN, Cat.1, FLAG) ────────
-// Source: confirmed by user — SBTi FLAG / FAOSTAT land-use data
-// Unit: kg CO₂e per kg RCN → qty(MTS) × ef = tCO₂e  [MTS×1000kg÷1000 cancels]
-const ORIGIN_EF: Record<string, { ef: number; flag: boolean; color: string }> = {
-  'Indonesia':  { ef: 24.74,    flag: true, color: '#C8281A' },  // 🔴 highest – severe deforestation
-  'Tanzania':   { ef: 14.96,    flag: true, color: '#C8281A' },  // 🔴 very high
-  'C.Ivory':    { ef: 11.2396,  flag: true, color: '#E8960E' },  // 🟠 high – Ivory Coast
-  'Vietnam':    { ef: 11.2396,  flag: true, color: '#E8960E' },  // 🟠 high (⚠️ may not apply)
-  'Guinea-B':   { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic proxy
-  'Senegal':    { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic proxy
-  'Guinea':     { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic proxy
-  'India':      { ef:  4.24971, flag: true, color: '#E8960E' },  // 🟡 medium
-  'Cambodia':   { ef:  2.7,     flag: true, color: '#3E7B3E' },  // 🟢 lower
-  'Ghana':      { ef:  2.2,     flag: true, color: '#3E7B3E' },  // 🟢 lower
-  'Benin':      { ef:  2.13,    flag: true, color: '#3E7B3E' },  // 🟢 lower
-  'Nigeria':    { ef:  1.56,    flag: true, color: '#3E7B3E' },  // 🟢 lowest
-};
-
-// Origin procurement mix per year (MTs shipped — ACTUAL from raw data CSV)
-// Source: Google Drive raw data (scope3 origin dataset), aggregated India + VN regions
-// Updated: 2026-04-10
-const ORIGIN_MIX: Record<number, Record<string, number>> = {
-  2021: {
-    'C.Ivory':  35412,  // IVORY COAST: India 10,999 + VN 24,413
-    'Guinea-B': 12655,  // BISSAU: India 12,655
-    'Ghana':    14786,  // GHANA: India 5,128 + VN 9,658
-    'Cambodia':  4789,  // CAMBODIA: VN 4,789
-    'Tanzania':  4054,  // TANZANIA: VN 4,054
-    'Benin':     4219,  // BENIN: India 4,219
-    'India':     1174,  // INDIA domestic: India 1,174
-  },
-  2022: {
-    'C.Ivory':  32182,  // IVORY COAST: India 21,272 + VN 10,910
-    'Guinea-B': 20903,  // BISSAU: India 15,844.051 + VN 5,058.493 = 20,902.544 → 20903
-    'Tanzania': 13735,  // TANZANIA: VN 13,735
-    'Ghana':     9917,  // GHANA: VN 9,917
-    'Cambodia':  3219,  // CAMBODIA: VN 3,219
-    'Senegal':   2015,  // SENEGAL: VN 2,015
-    'Guinea':    1062,  // CONAKRY: VN 1,062
-  },
-  2023: {
-    'C.Ivory':  22889,  // IVORY COAST: India 11,220 + VN 11,669
-    'Tanzania': 15381,  // TANZANIA: VN 15,381
-    'Cambodia':  8358,  // CAMBODIA: VN 8,358
-    'Guinea-B':  7321,  // BISSAU: VN 7,321
-    'Ghana':     5597,  // GHANA: India 5,097 + VN 500
-    'Indonesia': 1455,  // INDONESIA: VN 1,455
-    'Senegal':   1069,  // SENEGAL: VN 1,069
-    'Vietnam':   1026,  // VIETNAM: VN 1,026
-  },
-  2024: {
-    'C.Ivory':  11463,  // IVORY COAST: India 2,461 + VN 9,001
-    'Tanzania': 15588,  // TANZANIA: India 2,409 + VN 13,179
-    'Guinea-B': 16541,  // BISSAU: India 11,897 + VN 4,645
-    'Indonesia':  4098,  // INDONESIA: VN 4,098
-    'Ghana':     3034,  // GHANA: India 1,543 + VN 1,491
-    'Cambodia':  2429,  // CAMBODIA: VN 2,429
-    'Senegal':   1316,  // SENEGAL: VN 1,316
-    'Vietnam':    484,  // VIETNAM: VN 484
-  },
-  2025: {
-    'C.Ivory':  16530,  // IVORY COAST: India 5,541 + VN 10,989
-    'Tanzania': 15492,  // TANZANIA: India 2,105 + VN 13,387
-    'Guinea-B': 15308,  // BISSAU: India 7,836 + VN 7,472
-    'Ghana':     7788,  // GHANA: India 4,809 + VN 2,979
-    'Senegal':   3321,  // SENEGAL: VN 3,321
-    'Cambodia':  3241,  // CAMBODIA: VN 3,241
-    'Nigeria':   2200,  // NIGERIA: India 1,060 + VN 1,140
-    'Guinea':    1276,  // CONAKRY: VN 1,276
-    'Indonesia':  984,  // INDONESIA: VN 984
-    'Vietnam':    205,  // VIETNAM: VN 205
-  },
-};
-
-// ── Static Transport Data (actual KM×Tons from raw CSV) ───────
-// Source: Google Drive raw data — exact shipping records, India + VN combined
-// Used for Cat.4 Upstream Transport (vessel + road) calculation
-// EFs: vessel = 0.01604 kg/km·ton (IMO Tier 2), road = 0.07547 kg/km·ton (GHG Protocol)
-const TRANSPORT_STATIC: Record<number, { vessel: number; road: number; qty: number }> = {
-  2021: { vessel: 1_161_599_654, road:  9_993_561, qty:  77090 },
-  2022: { vessel: 1_185_494_849, road:  8_861_755, qty:  83032 },
-  2023: { vessel:   756_317_036, road:  6_770_330, qty:  63097 },
-  2024: { vessel:   541_928_701, road: 11_311_107, qty:  54954 },
-  2025: { vessel:   806_825_797, road:  6_748_142, qty:  66346 },
-};
 
 // ── OriginDetailTable sub-component ─────────────────────────
 type ScaledRow = { origin: string; ef: number; color: string; qty: number; emS: number; pct: number; volPct: number };

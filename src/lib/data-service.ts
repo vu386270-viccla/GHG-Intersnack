@@ -5,6 +5,7 @@ import {
   TargetProgress, SCOPE_COLORS, MONTHS_VI,
   SCOPE_1_CATEGORIES, SCOPE_3_CATEGORIES,
 } from './types';
+import { getS3StaticCat1and4 } from './scope3-data';
 
 // ── Chart Helpers ──
 export function formatNumber(n: number): string {
@@ -118,9 +119,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   const totalS1Cost = byScopeCost['scope_1'] || 0;
   const totalS2Cost = byScopeCost['scope_2'] || 0;
 
-  // ── Pull real Scope 3 from scope3_transport_data ──────────────────────────
-  // emissions_data has virtually no scope_3 rows — actual Cat.1 + Cat.4 data
-  // lives in scope3_transport_data; Cat.3 (WTT) is derived from fuel activity.
+  // ── Pull real Scope 3 (Cat 1 & 4) from scope3-data logic ──────────────────────────
   const WTT_FAC = {
     diesel_VN: 0.00055, diesel_IN: 0.0008058,
     lpg: 0.392,
@@ -129,28 +128,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   const facCtry: Record<string, string> = Object.fromEntries(
     factories.map(f => [f.id, (f as any).country || ''])
   );
-  const sumS3Trans = (rows: any[] | null) => {
-    let cat1 = 0, cat4 = 0;
-    for (const r of rows || []) {
-      cat1 += (Number(r.em_cashew_kg) || 0) / 1000;
-      cat4 += ((Number(r.km_ton_vessel) || 0) * 0.01604
-             + (Number(r.km_ton_road)   || 0) * 0.07547) / 1000;
-    }
-    return { cat1, cat4 };
-  };
-
-  const [s3TransRes, s3Trans2021Res] = await Promise.all([
-    supabase.from('scope3_transport_data')
-      .select('em_cashew_kg,km_ton_vessel,km_ton_road').eq('year', year),
-    year !== 2021
-      ? supabase.from('scope3_transport_data')
-          .select('em_cashew_kg,km_ton_vessel,km_ton_road').eq('year', 2021)
-      : Promise.resolve({ data: null as any, error: null }),
-  ]);
-  // Non-fatal: S3 will show 0 if transport table is unavailable
-  if (s3TransRes.error) console.warn(`[DB] scope3_transport_data (${year}):`, s3TransRes.error.message);
-  if (s3Trans2021Res.error) console.warn('[DB] scope3_transport_data (2021):', s3Trans2021Res.error.message);
-
+  
   let s3Cat3Wtt = 0;
   for (const e of emissions) {
     const isIndia = facCtry[e.factory_id] === 'India';
@@ -160,11 +138,11 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     else if (e.category === 'electricity') s3Cat3Wtt += act * (isIndia ? WTT_FAC.elec_IN   : WTT_FAC.elec_VN);
   }
 
-  const s3Cur  = sumS3Trans(s3TransRes.data);
+  const s3Cur = getS3StaticCat1and4(year);
   const s3Real = s3Cur.cat1 + s3Cur.cat4 + s3Cat3Wtt;
-  if (s3Real > totalS3) totalS3 = s3Real; // prefer transport data over sparse emissions_data entries
+  if (s3Real > totalS3) totalS3 = s3Real;
 
-  const s3Base2021Trans = sumS3Trans(s3Trans2021Res.data);
+  const s3Base2021Trans = getS3StaticCat1and4(2021);
 
   const grandTotal = totalS1 + totalS2 + totalS3;
 
@@ -609,13 +587,7 @@ export async function getScope3SummaryData(): Promise<{
   const YEARS: number[] = [];
   for (let y = START_YEAR; y <= END_YEAR; y++) YEARS.push(y);
 
-  // 1. Fetch Cat.1 + Cat.4 from scope3_transport_data (annual, VN+India combined)
-  const { data: s3raw } = await supabase
-    .from('scope3_transport_data')
-    .select('year,shipped_qty_mts,km_ton_vessel,km_ton_road,em_cashew_kg')
-    .in('year', YEARS);
-
-  // 2. Fetch fuel activity data for WTT (Cat.3) — all years, all factories
+  // 1. Fetch fuel activity data for WTT (Cat.3) — all years, all factories
   const { data: factories } = await supabase.from('factories').select('id,country');
   const factoryCountry: Record<string, string> = {};
   for (const f of factories || []) factoryCountry[f.id] = f.country;
@@ -626,15 +598,6 @@ export async function getScope3SummaryData(): Promise<{
     .in('year', YEARS)
     .in('category', ['diesel', 'lpg', 'electricity'])
     .limit(10000);
-
-  // Aggregate Cat.1 + Cat.4 per year
-  const byYear: Record<number, { cashew: number; vessel: number; road: number }> = {};
-  for (const yr of YEARS) byYear[yr] = { cashew: 0, vessel: 0, road: 0 };
-  for (const r of s3raw || []) {
-    byYear[r.year].cashew += (Number(r.em_cashew_kg) || 0) / 1000; // kg → tCO2e
-    byYear[r.year].vessel += (Number(r.km_ton_vessel) || 0) * 0.01604 / 1000; // kg → t
-    byYear[r.year].road   += (Number(r.km_ton_road)   || 0) * 0.07547 / 1000;
-  }
 
   // Aggregate WTT (Cat.3) per year
   const wttByYear: Record<number, number> = {};
@@ -651,11 +614,11 @@ export async function getScope3SummaryData(): Promise<{
   }
 
   const rows: Scope3YearRow[] = YEARS.map(yr => {
-    const d = byYear[yr];
-    const cat1  = Math.round(d.cashew);
+    const s3 = getS3StaticCat1and4(yr);
+    const cat1  = Math.round(s3.cat1);
     const cat3  = Math.round(wttByYear[yr] || 0);
-    const cat4v = Math.round(d.vessel);
-    const cat4r = Math.round(d.road);
+    const cat4v = Math.round(s3.cat4v);
+    const cat4r = Math.round(s3.cat4r);
     return {
       year: yr,
       cat1_cashew: cat1,
