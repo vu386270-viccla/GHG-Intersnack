@@ -313,9 +313,8 @@ export default function FinancialsPage() {
       };
     }).sort((a, b) => b.eff - a.eff);
 
-    const latestYear = years[years.length - 1] || selectedYear;
-    const prevYear = latestYear - 1;
-    const ytdCost = costY[latestYear] || 0;
+    const prevYear = selectedYear - 1;
+    const ytdCost = costY[selectedYear] || 0;
     const prevYtdCost = costY[prevYear] || 0;
     const yoyPct = prevYtdCost > 0 ? (ytdCost - prevYtdCost) / prevYtdCost * 100 : null;
 
@@ -325,11 +324,11 @@ export default function FinancialsPage() {
     return {
       years, costY, effChartData, ranking,
       coveragePct, withCostCount: withCost.length, totalCount: emissions.length,
-      latestYear, ytdCost, yoyPct, totalCo2ForYear, totalCostForYear,
+      ytdCost, yoyPct, totalCo2ForYear, totalCostForYear,
     };
   }, [rawData, selectedYear]);
 
-  if (loading || !metrics || !rawData) {
+  if (loading || !metrics || !rawData || !selectedYear) {
     return (
       <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#222' }}>Financials — Chi phí & Carbon</h1>
@@ -386,7 +385,7 @@ export default function FinancialsPage() {
         {/* Card 1: Total energy cost */}
         <div className="animate-fade-in-up" style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #111' }}>
           <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
-            Tổng chi phí Năng lượng ({metrics.latestYear})
+            Tổng chi phí Năng lượng ({selectedYear})
           </div>
           <div style={{ fontSize: '30px', fontWeight: 800, color: '#111', letterSpacing: '-0.8px' }}>
             {metrics.ytdCost > 1_000_000
@@ -402,7 +401,7 @@ export default function FinancialsPage() {
               }}>
                 {metrics.yoyPct > 0 ? '▲' : '▼'} {Math.abs(metrics.yoyPct).toFixed(1)}%
               </span>
-              <span style={{ color: '#aaa' }}>so với {metrics.latestYear - 1}</span>
+              <span style={{ color: '#aaa' }}>so với {selectedYear - 1}</span>
             </div>
           )}
         </div>
