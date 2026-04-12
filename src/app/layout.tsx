@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import { AuthProvider } from '@/lib/auth-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +24,15 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <div className="app-layout">
-          <Sidebar />
-          <Header />
-          <main className="main-content">
-            {children}
-          </main>
-        </div>
+        <AuthProvider>
+          <div className="app-layout">
+            <Sidebar />
+            <Header />
+            <main className="main-content">
+              {children}
+            </main>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { useAuth } from '@/lib/auth-context';
 
 const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
   '/': { title: 'Tổng quan', accent: 'GHG Emissions' },
@@ -33,6 +34,8 @@ function HeaderInner() {
     if (current) params.delete(key); else params.set(key, '1');
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
+
+  const { user, role, signOut } = useAuth();
 
   return (
     <header className="header">
@@ -66,6 +69,37 @@ function HeaderInner() {
               activeColor="#C8281A"
               activeBg="#fff0f0"
             />
+          </div>
+        )}
+
+        {/* ── User badge + logout ── */}
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '4px 10px', borderRadius: 8,
+              background: role === 'admin' ? '#fef3c7' : '#f0fdf4',
+              border: `1px solid ${role === 'admin' ? '#fcd34d' : '#bbf7d0'}`,
+              fontSize: 11, fontWeight: 600,
+              color: role === 'admin' ? '#92400e' : '#166534',
+            }}>
+              <span>{role === 'admin' ? '🔑' : '👁'}</span>
+              <span>{user.email?.split('@')[0]}</span>
+              <span style={{ fontWeight: 400, opacity: 0.7 }}>{role}</span>
+            </div>
+            <button
+              onClick={signOut}
+              title="Đăng xuất"
+              style={{
+                padding: '4px 10px', borderRadius: 8, border: '1px solid #e5e7eb',
+                background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                color: '#6b7280', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { (e.target as HTMLElement).style.background = '#fee2e2'; (e.target as HTMLElement).style.color = '#dc2626'; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.background = '#fff'; (e.target as HTMLElement).style.color = '#6b7280'; }}
+            >
+              Đăng xuất
+            </button>
           </div>
         )}
       </div>
