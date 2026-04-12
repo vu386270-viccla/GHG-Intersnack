@@ -73,98 +73,168 @@ function ScopeDonut({ s1, s2, s3, size = 100 }: { s1: number; s2: number; s3: nu
   );
 }
 
-/* ── NEW: SBTi Progress Card (clean horizontal bar, no half-donut) ── */
-function SBTiProgressCard({ label, icon, targetPct, current, base, color, isFactoryFiltered, t, breakdown, footer }:
-  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; isFactoryFiltered?: boolean; t: (k: string) => string; breakdown?: { name: string; value: number; pct: number }[]; footer?: React.ReactNode }
+/* ── SBTi Progress Card — year-aware, 3 modes ── */
+function SBTiProgressCard({ label, icon, targetPct, current, base, color, selectedYear, isFactoryFiltered, t, breakdown, footer }:
+  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; selectedYear: number; isFactoryFiltered?: boolean; t: (k: string) => string; breakdown?: { name: string; value: number; pct: number }[]; footer?: React.ReactNode }
 ) {
-  const currentYear = new Date().getFullYear();
-  const yearsElapsed = currentYear - 2021;
-  const totalYears = 2032 - 2021; // 11 years
-  const requiredPctNow = targetPct * (yearsElapsed / totalYears); // linear interpolation
-  const reducedPct = base > 0 ? Math.max(0, (base - current) / base * 100) : 0;
+  const BASELINE_YEAR = 2021;
+  const TARGET_YEAR = 2032;
+  const totalYears = TARGET_YEAR - BASELINE_YEAR; // 11 years
   const targetVal = Math.round(base * (1 - targetPct / 100));
-  const onTrack = reducedPct >= requiredPctNow;
+  const reducedPct = base > 0 ? Math.max(0, (base - current) / base * 100) : 0;
+
+  // ── mode detection ──
+  const isPreBaseline  = selectedYear < BASELINE_YEAR;
+  const isBaselineYear = selectedYear === BASELINE_YEAR;
+  const yearsElapsed   = Math.max(0, selectedYear - BASELINE_YEAR);
+  const requiredPctNow = targetPct * (yearsElapsed / totalYears); // linear interpolation
+  const onTrack        = !isPreBaseline && reducedPct >= requiredPctNow;
+
+  // ── badge ──
+  let badge: React.ReactNode;
+  if (isPreBaseline) {
+    badge = (
+      <div style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: '#f3f4f6', color: '#6b7280' }}>
+        📂 Historical
+      </div>
+    );
+  } else if (isBaselineYear) {
+    badge = (
+      <div style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: '#eff6ff', color: '#1d4ed8' }}>
+        📌 Baseline Year
+      </div>
+    );
+  } else {
+    badge = (
+      <div style={{ fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
+        background: onTrack ? '#dcfce7' : '#fee2e2',
+        color: onTrack ? '#166534' : '#991b1b'
+      }}>
+        {onTrack ? t('on_track') : t('behind')}
+      </div>
+    );
+  }
 
   return (
     <div style={{
-      flex: 1, background: 'var(--color-card-bg)',
-      border: `1.5px solid ${color}22`, borderRadius: 14,
+      flex: 1, background: isPreBaseline ? '#fafafa' : 'var(--color-card-bg)',
+      border: `1.5px solid ${isPreBaseline ? '#e5e7eb' : color + '22'}`, borderRadius: 14,
       padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
-      borderLeft: `5px solid ${color}`,
+      borderLeft: `5px solid ${isPreBaseline ? '#d1d5db' : color}`,
+      opacity: isPreBaseline ? 0.85 : 1,
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color, letterSpacing: '0.3px' }}>{icon} {label}</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: isPreBaseline ? '#6b7280' : color, letterSpacing: '0.3px' }}>{icon} {label}</div>
           <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>Target 2032: −{targetPct}% vs 2021 {t('baseline').toLowerCase()}</div>
         </div>
-        <div style={{
-          fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
-          background: onTrack ? '#dcfce7' : '#fee2e2',
-          color: onTrack ? '#166534' : '#991b1b'
-        }}>
-          {onTrack ? t('on_track') : t('behind')}
-        </div>
+        {badge}
       </div>
+
+      {/* Pre-baseline notice */}
+      {isPreBaseline && (
+        <div style={{ padding: '8px 12px', background: '#f1f5f9', borderRadius: 8, borderLeft: '3px solid #94a3b8' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', marginBottom: 2 }}>📅 Pre-Baseline Reference Data ({selectedYear})</div>
+          <div style={{ fontSize: 9, color: '#64748b', lineHeight: 1.5 }}>
+            SBTi baseline is locked to <strong>2021</strong>. Data from {selectedYear} is shown for historical comparison only — On Track / Behind tracking starts from 2022 onwards.
+          </div>
+        </div>
+      )}
 
       {/* Key metrics row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
         <div>
-          <div style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{t('baseline')} 2021</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: '#555', marginTop: 2 }}>{formatTCO2e(base)}</div>
+          <div style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+            {t('baseline')} {BASELINE_YEAR}
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: isBaselineYear ? '#1d4ed8' : '#555', marginTop: 2 }}>
+            {formatTCO2e(base)}
+          </div>
+          {isBaselineYear && (
+            <div style={{ fontSize: 8, color: '#1d4ed8', fontWeight: 600, marginTop: 1 }}>← This year</div>
+          )}
         </div>
         <div>
-          <div style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{t('current')} {currentYear}</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: onTrack ? color : '#ef4444', marginTop: 2 }}>{formatTCO2e(current)}</div>
+          <div style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+            {selectedYear === new Date().getFullYear() ? t('current') : isPreBaseline ? '📂 Actual' : 'Actual'} {selectedYear}
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 900, marginTop: 2,
+            color: isPreBaseline ? '#6b7280' : isBaselineYear ? '#1d4ed8' : onTrack ? color : '#ef4444'
+          }}>
+            {formatTCO2e(current)}
+          </div>
+          {isPreBaseline && (
+            <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 1 }}>
+              {current > base ? `${((current - base) / base * 100).toFixed(1)}% above baseline` : `${((base - current) / base * 100).toFixed(1)}% below baseline`}
+            </div>
+          )}
         </div>
         <div>
           <div style={{ fontSize: 9, color, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{t('target_2032')}</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color, marginTop: 2 }}>{formatTCO2e(targetVal)}</div>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: onTrack ? color : '#ef4444' }}>
-            {reducedPct.toFixed(1)}% {t('reduced_so_far')}
-          </span>
-          <span style={{ fontSize: 10, color: '#aaa' }}>
-            {t('need_to_reduce')}: {targetPct}%
-          </span>
-        </div>
-        <div style={{ position: 'relative', height: 10, background: '#f3f4f6', borderRadius: 6, overflow: 'visible' }}>
-          {/* Actual progress */}
-          <div style={{
-            height: '100%', width: `${Math.min(reducedPct / targetPct * 100, 100)}%`,
-            background: onTrack ? color : '#ef4444', borderRadius: 6, transition: 'width 0.6s ease',
-            opacity: 0.85,
-          }} />
-          {/* Linear benchmark marker */}
-          <div style={{
-            position: 'absolute', left: `${Math.min(requiredPctNow / targetPct * 100, 100)}%`, top: -3,
-            width: 2, height: 16, background: '#666', borderRadius: 1,
-          }} />
-          <div style={{
-            position: 'absolute', left: `${Math.min(requiredPctNow / targetPct * 100, 100)}%`, top: -16,
-            fontSize: 8, color: '#666', fontWeight: 700, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
-          }}>
-            {requiredPctNow.toFixed(0)}%
+          <div style={{ fontSize: 20, fontWeight: 900, color: isPreBaseline ? '#9ca3af' : color, marginTop: 2 }}>
+            {formatTCO2e(targetVal)}
           </div>
         </div>
-        {/* Scale markers */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#ccc', marginTop: 2 }}>
-          <span>0%</span>
-          <span>−{targetPct}% target</span>
-        </div>
       </div>
 
-      {/* Explanation footnote */}
-      <div style={{ fontSize: 9, color: '#aaa', lineHeight: 1.5, borderTop: '1px solid #f5f5f5', paddingTop: 8 }}>
-        📐 {t('track_explain')}
-        <br/>
-        <span style={{ fontWeight: 600 }}>│</span> = {t('linear_benchmark')} {currentYear}: −{requiredPctNow.toFixed(1)}% {t('target_vs_baseline')}
-      </div>
+      {/* Progress bar — only meaningful for post-baseline years */}
+      {!isPreBaseline && !isBaselineYear && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: onTrack ? color : '#ef4444' }}>
+              {reducedPct.toFixed(1)}% {t('reduced_so_far')}
+            </span>
+            <span style={{ fontSize: 10, color: '#aaa' }}>
+              {t('need_to_reduce')}: {targetPct}%
+            </span>
+          </div>
+          <div style={{ position: 'relative', height: 10, background: '#f3f4f6', borderRadius: 6, overflow: 'visible' }}>
+            {/* Actual progress */}
+            <div style={{
+              height: '100%', width: `${Math.min(reducedPct / targetPct * 100, 100)}%`,
+              background: onTrack ? color : '#ef4444', borderRadius: 6, transition: 'width 0.6s ease', opacity: 0.85,
+            }} />
+            {/* Linear benchmark marker */}
+            <div style={{
+              position: 'absolute', left: `${Math.min(requiredPctNow / targetPct * 100, 100)}%`, top: -3,
+              width: 2, height: 16, background: '#666', borderRadius: 1,
+            }} />
+            <div style={{
+              position: 'absolute', left: `${Math.min(requiredPctNow / targetPct * 100, 100)}%`, top: -16,
+              fontSize: 8, color: '#666', fontWeight: 700, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
+            }}>
+              {requiredPctNow.toFixed(0)}%
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#ccc', marginTop: 2 }}>
+            <span>0%</span>
+            <span>−{targetPct}% target</span>
+          </div>
+        </div>
+      )}
+
+      {/* Baseline year: show a simple reference bar */}
+      {isBaselineYear && (
+        <div>
+          <div style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 700, marginBottom: 4 }}>
+            📌 This is the SBTi baseline year. All future tracking is measured from this point.
+          </div>
+          <div style={{ height: 6, background: '#dbeafe', borderRadius: 6, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: '100%', background: '#93c5fd', borderRadius: 6 }} />
+          </div>
+          <div style={{ fontSize: 8, color: '#93c5fd', marginTop: 2 }}>Target: reach {formatTCO2e(targetVal)} by 2032</div>
+        </div>
+      )}
+
+      {/* Explanation footnote — only for active tracking years */}
+      {!isPreBaseline && !isBaselineYear && (
+        <div style={{ fontSize: 9, color: '#aaa', lineHeight: 1.5, borderTop: '1px solid #f5f5f5', paddingTop: 8 }}>
+          📐 {t('track_explain')}
+          <br/>
+          <span style={{ fontWeight: 600 }}>│</span> = {t('linear_benchmark')} {selectedYear}: −{requiredPctNow.toFixed(1)}% {t('target_vs_baseline')}
+        </div>
+      )}
 
       {/* S3 factory-filter note */}
       {isFactoryFiltered && (
@@ -191,6 +261,7 @@ function SBTiProgressCard({ label, icon, targetPct, current, base, color, isFact
     </div>
   );
 }
+
 
 // ── Factory abbreviation map ──
 function factoryAbbr(name: string, country: string): string {
@@ -386,6 +457,7 @@ export default function DashboardPage() {
               : sbtiS12.currentEmissions}
             base={sbtiS12.baseYearEmissions}
             color="#E32314"
+            selectedYear={selectedYear}
             t={t}
             footer={<Link href="/targets" style={{ fontSize: 9, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}>SBTi #40003759 →</Link>}
           />
@@ -398,6 +470,7 @@ export default function DashboardPage() {
             current={s3Display > 0 ? s3Display : sbtiS3.currentEmissions}
             base={sbtiS3.baseYearEmissions}
             color="#8CB92D"
+            selectedYear={selectedYear}
             isFactoryFiltered={isFactoryFiltered}
             t={t}
             breakdown={s3Cats.map(c => ({ name: c.label.split('—').pop()?.trim() ?? c.label, value: c.emissions, pct: c.percentOfScope }))}
