@@ -5,8 +5,26 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { SCOPE_1_CATEGORIES, GRID_EMISSION_FACTORS, MONTHS_VI } from '@/lib/types';
 import type { Factory } from '@/lib/types';
+import { getS3StaticCat1and4 } from '@/lib/scope3-data';
 
 const COMMON_EF = 0.8041;
+
+// WTT factors (Cat.3 — Well-to-Tank)
+const WTT = { diesel_VN: 0.00055, diesel_IN: 0.0008058, lpg: 0.392, elec_VN: 0.00006, elec_IN: 0.00012 };
+
+function computeS3(year: number, rows: { factory_id: string; category: string; activity_data: number }[], facCountry: Record<string, string>): number {
+  const s3Stat = getS3StaticCat1and4(year);
+  let wtt = 0;
+  for (const r of rows) {
+    const isIndia = facCountry[r.factory_id] === 'India';
+    const act = Number(r.activity_data) || 0;
+    const cat = (r.category || '').toLowerCase();
+    if (cat === 'diesel')           wtt += act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
+    else if (cat === 'lpg')         wtt += act * WTT.lpg;
+    else if (cat === 'electricity') wtt += act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
+  }
+  return s3Stat.cat1 + s3Stat.cat4 + wtt;
+}
 const S1_COLORS = ['#E32314', '#FF6B35', '#F5A623', '#FFD93D', '#6BCB77', '#4D96FF', '#9B72CF', '#FF6B9D'];
 const FAC_COLORS = ['#E32314', '#F5A623', '#6366F1', '#8CB92D'];
 const FAC_COLORS_LIGHT = ['#FF8A80', '#FFD180', '#B388FF', '#CCFF90'];
@@ -155,17 +173,20 @@ export default function OverviewPage() {
         : [factoryA, factoryB];
 
     // Compute base for selected factories only
+    const facCountry = Object.fromEntries(factories.map(f => [f.id, f.country]));
     const baseRowsSel = baseRows2021.filter(e => selIds.includes(e.factory_id));
     const baseTotalSel = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021);
 
-    // Re-calc base with S3
-    const baseTotalSelFull = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021) + calcS3(baseRowsSel);
+    // Re-calc base with S3 — use computed S3 (company-wide static data + WTT)
+    const baseTotalSelFull = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021) + computeS3(2021, baseRows2021, facCountry);
 
     return years.map(yr => {
       const yrRows = allEmissions.filter(e => e.year === yr && selIds.includes(e.factory_id));
       const s1Total = calcS1(yrRows);
       const s2Total = calcS2(yrRows, yr);
-      const s3Total = calcS3(yrRows);
+      // S3 is company-wide (supply chain), not split per factory — use all factories' fuel data for WTT
+      const allYrRows = allEmissions.filter(e => e.year === yr);
+      const s3Total = computeS3(yr, allYrRows, facCountry);
       const actual = s1Total + s2Total + s3Total;
       // Linear SBTi target: from base → -50% by 2032 vs baseline 2021
       const target = baseTotalSelFull * (1 - 0.50 * ((yr - 2021) / 11));
@@ -178,8 +199,7 @@ export default function OverviewPage() {
           const fData = yrRows.filter(e => e.factory_id === f.id);
           const s1 = calcS1(fData);
           const s2 = calcS2(fData, yr, f);
-          const s3 = calcS3(fData);
-          return { factory: f, s1, s2, s3, total: s1 + s2 + s3 };
+          return { factory: f, s1, s2, s3: 0, total: s1 + s2 };
         });
 
       // RCN for this year (selected factories)
@@ -358,10 +378,15 @@ export default function OverviewPage() {
     return data.factoryBlocks.filter(b => b.factory.id === factoryA || b.factory.id === factoryB);
   }, [viewMode, factoryA, factoryB, data.factoryBlocks]);
 
-  const dispTotal = displayBlocks.reduce((s, b) => s + b.total, 0);
   const dispS1 = displayBlocks.reduce((s, b) => s + b.s1, 0);
   const dispS2 = displayBlocks.reduce((s, b) => s + b.s2, 0);
-  const dispS3 = displayBlocks.reduce((s, b) => s + b.s3, 0);
+  // S3 is company-wide (supply chain), compute from static data + WTT using ALL factories
+  const dispS3 = Math.round(computeS3(
+    selectedYear,
+    allEmissions.filter(e => e.year === selectedYear),
+    Object.fromEntries(factories.map(f => [f.id, f.country])),
+  ));
+  const dispTotal = dispS1 + dispS2 + dispS3;
   const maxMonthly = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.total)), 1);
 
   if (loading) return (

@@ -291,6 +291,7 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFactory, setSelectedFactory] = useState<string>('ALL');
   const [s3Annual, setS3Annual] = useState<{ year: number; total: number; cat1: number; cat3: number; cat4: number } | null>(null);
+  const [s3PrevTotal, setS3PrevTotal] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [baselineEstimated, setBaselineEstimated] = useState(false);
 
@@ -316,6 +317,8 @@ export default function DashboardPage() {
       if (s3Row) {
         setS3Annual({ year: s3Row.year, total: s3Row.total, cat1: s3Row.cat1_cashew, cat3: s3Row.cat3_wtt, cat4: s3Row.cat4_vessel + s3Row.cat4_road });
       }
+      const s3PrevRow = s3Data.rows.find(r => r.year === selectedYear - 1);
+      setS3PrevTotal(s3PrevRow?.total ?? 0);
       setLoading(false);
     });
   }, [selectedYear]);
@@ -349,7 +352,8 @@ export default function DashboardPage() {
     </div>
   );
 
-  const prevYearTotal = scopeSummaries.reduce((s, sc) => s + sc.previousYearEmissions, 0);
+  const prevS12Total = scopeSummaries.reduce((s, sc) => sc.scope === 'scope_3' ? s : s + sc.previousYearEmissions, 0);
+  const prevYearTotal = prevS12Total + s3PrevTotal;
   const changeVsPrev = prevYearTotal > 0 ? ((grandTotal - prevYearTotal) / prevYearTotal * 100) : 0;
   const sbtiS12 = targets.find(t => t.scope.includes('1'));
   const sbtiS3  = targets.find(t => t.scope.includes('3'));
@@ -357,9 +361,11 @@ export default function DashboardPage() {
   const monthLabel = `${activeMonths} ${t('months_of')} ${selectedYear}`;
   // per-factory RCN
   const allRCN = selectedFactory === 'ALL' ? (rcnData?.totalRCN ?? 0) : (rcnByFactory[selectedFactory]?.totalRCN ?? 0);
-  const intensity = allRCN > 0 ? totals.total / allRCN : 0;
+  const intensity = allRCN > 0 ? correctedTotal / allRCN : 0;
   // S3: use real annual data from scope3_transport_data
   const s3Display = s3Annual?.total ?? 0;
+  // correctedTotal: S1+S2 from factory rows + real computed S3 (company-wide)
+  const correctedTotal = totals.s1 + totals.s2 + s3Display;
   const s3IsEstimated = s3Annual != null && s3Annual.year !== selectedYear;
   const s3Cats = s3Annual ? [
     { category: 'cat1', label: 'Cat.1 — Cashew', emissions: s3Annual.cat1, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat1 / s3Annual.total * 100) : 0 },
@@ -401,7 +407,7 @@ export default function DashboardPage() {
             )}
           </div>
           <div style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-display)', lineHeight: 1.1, color: 'var(--color-text)' }}>
-            {formatTCO2e(totals.total)}
+            {formatTCO2e(correctedTotal)}
             <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 6 }}>tCO₂e</span>
             <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 10,
               color: changeVsPrev < 0 ? '#22c55e' : '#ef4444',
@@ -491,7 +497,7 @@ export default function DashboardPage() {
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>tCO₂e</span>
             </div>
             <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-text-muted)' }}>
-              <span style={{ fontWeight: 700, color: S_COLOR.scope_1 }}>{totals.total > 0 ? Math.round(totals.s1 / totals.total * 100) : 0}% {t('of_total')}</span>
+              <span style={{ fontWeight: 700, color: S_COLOR.scope_1 }}>{correctedTotal > 0 ? Math.round(totals.s1 / correctedTotal * 100) : 0}% {t('of_total')}</span>
               {scopeSummaries.find(s => s.scope === 'scope_1') && (
                 <span style={{ color: scopeSummaries.find(s => s.scope === 'scope_1')!.changePercent < 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
                   {scopeSummaries.find(s => s.scope === 'scope_1')!.changePercent < 0 ? '↓' : '↑'}
@@ -500,7 +506,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div style={{ marginTop: 6, height: 4, background: '#f3f4f6', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${totals.total > 0 ? totals.s1 / totals.total * 100 : 0}%`, background: S_COLOR.scope_1, borderRadius: 2 }} />
+              <div style={{ height: '100%', width: `${correctedTotal > 0 ? totals.s1 / correctedTotal * 100 : 0}%`, background: S_COLOR.scope_1, borderRadius: 2 }} />
             </div>
           </div>
         </Link>
@@ -514,7 +520,7 @@ export default function DashboardPage() {
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>tCO₂e</span>
             </div>
             <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-text-muted)' }}>
-              <span style={{ fontWeight: 700, color: S_COLOR.scope_2 }}>{totals.total > 0 ? Math.round(totals.s2 / totals.total * 100) : 0}% {t('of_total')}</span>
+              <span style={{ fontWeight: 700, color: S_COLOR.scope_2 }}>{correctedTotal > 0 ? Math.round(totals.s2 / correctedTotal * 100) : 0}% {t('of_total')}</span>
               {scopeSummaries.find(s => s.scope === 'scope_2') && (
                 <span style={{ color: scopeSummaries.find(s => s.scope === 'scope_2')!.changePercent < 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
                   {scopeSummaries.find(s => s.scope === 'scope_2')!.changePercent < 0 ? '↓' : '↑'}
@@ -523,7 +529,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div style={{ marginTop: 6, height: 4, background: '#f3f4f6', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${totals.total > 0 ? totals.s2 / totals.total * 100 : 0}%`, background: S_COLOR.scope_2, borderRadius: 2 }} />
+              <div style={{ height: '100%', width: `${correctedTotal > 0 ? totals.s2 / correctedTotal * 100 : 0}%`, background: S_COLOR.scope_2, borderRadius: 2 }} />
             </div>
           </div>
         </Link>
