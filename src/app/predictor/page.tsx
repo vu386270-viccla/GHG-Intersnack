@@ -251,6 +251,13 @@ export default function PredictorPage() {
     };
   }, [pts]);
 
+  // ── Detect utilities with no data (all zeros in baseline) ──
+  const hasData = useMemo((): Record<Utility, boolean> => ({
+    firewood:    pts.some(p => p.firewood > 0),
+    diesel:      pts.some(p => p.diesel > 0),
+    electricity: pts.some(p => p.electricity > 0),
+  }), [pts]);
+
   const rcn = parseFloat(rcnInput) || 0;
 
   const predicted = useMemo((): Record<Utility, number> => ({
@@ -395,29 +402,48 @@ export default function PredictorPage() {
         {UTILITIES.map(u => {
           const reg = regs[u];
           const info = EF[u];
+          const hasActivity = hasData[u];
           return (
-            <div key={u} className="card" style={{ padding: '11px 13px' }}>
+            <div key={u} className="card" style={{ padding: '11px 13px', position: 'relative', opacity: hasActivity ? 1 : 0.6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: info.color }}>{info.iconLabel} {info.label}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: `${r2Color(reg.r2)}22`, color: r2Color(reg.r2) }}>
-                  R² = {reg.r2.toFixed(3)}
-                </div>
-              </div>
-              <div style={{ fontSize: 9.5, color: 'var(--color-text-muted)', marginBottom: 6, fontFamily: 'monospace' }}>
-                y = {fmtNum(reg.m, 2)}·RCN {reg.b >= 0 ? '+' : '−'} {fmtNum(Math.abs(reg.b), 0)}
-              </div>
-              <ScatterPlot points={reg.points} m={reg.m} b={reg.b} label={info.label} color={info.color} xLabel="RCN (MT)" yLabel={info.unit} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3, marginTop: 6, fontSize: 9.5 }}>
-                {[{ v: String(reg.n), l: 'pts' }, { v: String(reg.outliers), l: 'outliers', warn: reg.outliers > 0 }, { v: reg.rmse >= 1000 ? `${(reg.rmse / 1000).toFixed(1)}K` : fmtNum(reg.rmse, 0), l: 'RMSE' }].map((item, i) => (
-                  <div key={i} style={{ background: 'var(--color-bg-secondary)', borderRadius: 5, padding: '3px 5px', textAlign: 'center' }}>
-                    <div style={{ fontWeight: 700, color: item.warn ? '#F59E0B' : 'var(--color-text)' }}>{item.v}</div>
-                    <div style={{ color: 'var(--color-text-muted)' }}>{item.l}</div>
+                {hasActivity ? (
+                  <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: `${r2Color(reg.r2)}22`, color: r2Color(reg.r2) }}>
+                    R² = {reg.r2.toFixed(3)}
                   </div>
-                ))}
+                ) : (
+                  <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#9ca3af22', color: '#9ca3af' }}>
+                    No data
+                  </div>
+                )}
               </div>
-              <div style={{ marginTop: 5, fontSize: 9, fontWeight: 600, color: r2Color(reg.r2), padding: '2px 5px', background: `${r2Color(reg.r2)}12`, borderRadius: 5, textAlign: 'center' }}>
-                {r2Label(reg.r2)}
-              </div>
+              {hasActivity ? (
+                <>
+                  <div style={{ fontSize: 9.5, color: 'var(--color-text-muted)', marginBottom: 6, fontFamily: 'monospace' }}>
+                    y = {fmtNum(reg.m, 2)}·RCN {reg.b >= 0 ? '+' : '−'} {fmtNum(Math.abs(reg.b), 0)}
+                  </div>
+                  <ScatterPlot points={reg.points} m={reg.m} b={reg.b} label={info.label} color={info.color} xLabel="RCN (MT)" yLabel={info.unit} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 3, marginTop: 6, fontSize: 9.5 }}>
+                    {[{ v: String(reg.n), l: 'pts' }, { v: String(reg.outliers), l: 'outliers', warn: reg.outliers > 0 }, { v: reg.rmse >= 1000 ? `${(reg.rmse / 1000).toFixed(1)}K` : fmtNum(reg.rmse, 0), l: 'RMSE' }].map((item, i) => (
+                      <div key={i} style={{ background: 'var(--color-bg-secondary)', borderRadius: 5, padding: '3px 5px', textAlign: 'center' }}>
+                        <div style={{ fontWeight: 700, color: item.warn ? '#F59E0B' : 'var(--color-text)' }}>{item.v}</div>
+                        <div style={{ color: 'var(--color-text-muted)' }}>{item.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: 9, fontWeight: 600, color: r2Color(reg.r2), padding: '2px 5px', background: `${r2Color(reg.r2)}12`, borderRadius: 5, textAlign: 'center' }}>
+                    {r2Label(reg.r2)}
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 28 }}>🚫</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textAlign: 'center' }}>
+                    Not used at {factoryName}<br />
+                    <span style={{ fontSize: 9.5, fontWeight: 400 }}>No {info.label.toLowerCase()} data in baseline period</span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -456,23 +482,36 @@ export default function PredictorPage() {
                 const val  = predicted[u];
                 const emV  = predictedEm[u];
                 const conf = reg.r2 >= 0.85 ? '±10%' : reg.r2 >= 0.65 ? '±20%' : '±35%+';
+                const active = hasData[u];
                 return (
                   <div key={u} style={{
-                    padding: '8px 11px', borderRadius: 10, background: `${info.color}0d`,
-                    border: `1.5px solid ${info.color}30`,
+                    padding: '8px 11px', borderRadius: 10,
+                    background: active ? `${info.color}0d` : 'var(--color-bg-secondary)',
+                    border: `1.5px solid ${active ? info.color + '30' : 'var(--color-border)'}`,
+                    opacity: active ? 1 : 0.55,
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 12, color: info.color }}>{info.iconLabel} {info.label}</div>
-                        <div style={{ fontSize: 9.5, color: 'var(--color-text-muted)' }}>
-                          {fmtNum(emV, 2)} tCO₂e · R²={reg.r2.toFixed(2)} {conf}
-                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 12, color: active ? info.color : '#9ca3af' }}>{info.iconLabel} {info.label}</div>
+                        {active ? (
+                          <div style={{ fontSize: 9.5, color: 'var(--color-text-muted)' }}>
+                            {fmtNum(emV, 2)} tCO₂e · R²={reg.r2.toFixed(2)} {conf}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 9.5, color: '#9ca3af', fontStyle: 'italic' }}>Not used at this factory</div>
+                        )}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: info.color }}>
-                          {val >= 1_000_000 ? `${(val / 1_000_000).toFixed(2)}M` : val >= 1000 ? `${(val / 1000).toFixed(1)}K` : fmtNum(val, 0)}
-                        </div>
-                        <div style={{ fontSize: 9.5, color: 'var(--color-text-muted)' }}>{info.unit}</div>
+                        {active ? (
+                          <>
+                            <div style={{ fontSize: 17, fontWeight: 800, color: info.color }}>
+                              {val >= 1_000_000 ? `${(val / 1_000_000).toFixed(2)}M` : val >= 1000 ? `${(val / 1000).toFixed(1)}K` : fmtNum(val, 0)}
+                            </div>
+                            <div style={{ fontSize: 9.5, color: 'var(--color-text-muted)' }}>{info.unit}</div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af' }}>N/A</div>
+                        )}
                       </div>
                     </div>
                   </div>
