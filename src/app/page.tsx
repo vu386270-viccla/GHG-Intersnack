@@ -29,12 +29,11 @@ function MiniStackedBar({ monthly, height = 80 }: { monthly: MonthlyData[]; heig
         const x = 2 + i * gap;
         const h1 = (m.scope1 / maxV) * (H - 4);
         const h2 = (m.scope2 / maxV) * (H - 4);
-        const h3 = (m.scope3 / maxV) * (H - 4);
+        // S3 not shown per-month (transport data only has annual totals)
         return (
           <g key={m.month}>
             <rect x={x} y={H - 2 - h1} width={barW} height={Math.max(h1, 0.5)} fill={S_COLOR.scope_1} opacity={0.8} rx={1} />
             <rect x={x} y={H - 2 - h1 - h2} width={barW} height={Math.max(h2, 0.5)} fill={S_COLOR.scope_2} opacity={0.85} rx={1} />
-            {h3 > 0 && <rect x={x} y={H - 2 - h1 - h2 - h3} width={barW} height={Math.max(h3, 0.5)} fill={S_COLOR.scope_3} opacity={0.85} rx={1} />}
             <text x={x + barW / 2} y={H - 1} textAnchor="middle" fontSize={5.5} fill="#aaa">{MONTHS_VI[m.month - 1]?.slice(0, 3)}</text>
           </g>
         );
@@ -404,6 +403,7 @@ export default function DashboardPage() {
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_3, marginBottom: 4 }}>
               🌍 Scope 3 — Chuỗi giá trị
               {s3IsEstimated && <span style={{ fontWeight: 500, color: '#bbb', marginLeft: 4 }}>(năm trước)</span>}
+              <span style={{ fontWeight: 400, fontSize: 9, color: '#bbb', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>* annual, không phân bổ theo nhà máy</span>
             </div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: s3IsEstimated ? '#aaa' : 'var(--color-text)' }}>
               {formatTCO2e(s3Display)}
@@ -477,12 +477,13 @@ export default function DashboardPage() {
         <div className="card" style={{ padding: '12px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>Phát thải theo tháng {selectedYear}</div>
-            <div style={{ display: 'flex', gap: 10, fontSize: 10, color: '#888' }}>
-              {[['S1', S_COLOR.scope_1], ['S2', S_COLOR.scope_2], ['S3', S_COLOR.scope_3]].map(([lbl, col]) => (
+            <div style={{ display: 'flex', gap: 10, fontSize: 10, color: '#888', alignItems: 'center' }}>
+              {[['S1', S_COLOR.scope_1], ['S2', S_COLOR.scope_2]].map(([lbl, col]) => (
                 <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                   <span style={{ width: 8, height: 8, background: col as string, borderRadius: 2, display: 'inline-block' }} />{lbl}
                 </span>
               ))}
+              <span style={{ fontSize: 9, color: '#bbb', marginLeft: 4 }}>S3 xem KPI card ↗</span>
             </div>
           </div>
           <MiniStackedBar monthly={filteredMonthly} height={110} />
@@ -497,7 +498,7 @@ export default function DashboardPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: '1.5px solid #f0f0f0' }}>
-                {['Nhà máy', 'S1', 'S2', 'S3', 'Total', 'tCO₂e/MT'].map(h => (
+                {['Nhà máy', 'S1', 'S2', 'Total', 'tCO₂e/MT'].map(h => (
                   <th key={h} style={{ textAlign: h === 'Nhà máy' ? 'left' : 'right', padding: '3px 6px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#aaa', letterSpacing: '0.5px' }}>{h}</th>
                 ))}
               </tr>
@@ -519,8 +520,7 @@ export default function DashboardPage() {
                     </td>
                     <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_1, fontWeight: 600 }}>{formatNumber(fs.scope1)}</td>
                     <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_2, fontWeight: 600 }}>{formatNumber(fs.scope2)}</td>
-                    <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_3, fontWeight: 600 }}>{formatNumber(fs.scope3)}</td>
-                    <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 800, color: 'var(--color-text)' }}>{formatNumber(fs.totalEmissions)}</td>
+                    <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 800, color: 'var(--color-text)' }}>{formatNumber(fs.scope1 + fs.scope2)}</td>
                     <td style={{ textAlign: 'right', padding: '5px 6px', color: '#6366f1', fontWeight: 700 }}>{fIntensity}</td>
                   </tr>
                 );
@@ -530,10 +530,9 @@ export default function DashboardPage() {
                 <td style={{ padding: '5px 6px', fontWeight: 800, fontSize: 11 }}>🏭 Tổng</td>
                 <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_1, fontWeight: 800 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope1, 0))}</td>
                 <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_2, fontWeight: 800 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope2, 0))}</td>
-                <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_3, fontWeight: 800 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope3, 0))}</td>
-                <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 900 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.totalEmissions, 0))}</td>
+                <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 900 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope1 + f.scope2, 0))}</td>
                 <td style={{ textAlign: 'right', padding: '5px 6px', color: '#6366f1', fontWeight: 800 }}>
-                  {allRCN > 0 ? (factorySummaries.reduce((s, f) => s + f.totalEmissions, 0) / allRCN).toFixed(3) : '—'}
+                  {allRCN > 0 ? (factorySummaries.reduce((s, f) => s + f.scope1 + f.scope2, 0) / allRCN).toFixed(3) : '—'}
                 </td>
               </tr>
             </tbody>
@@ -549,10 +548,11 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {factorySummaries.map(fs => {
-            const pct = fs.totalEmissions / maxFacTotal * 100;
-            const s1Pct = fs.totalEmissions > 0 ? fs.scope1 / fs.totalEmissions * pct : 0;
-            const s2Pct = fs.totalEmissions > 0 ? fs.scope2 / fs.totalEmissions * pct : 0;
-            const s3Pct = fs.totalEmissions > 0 ? fs.scope3 / fs.totalEmissions * pct : 0;
+            const s12 = fs.scope1 + fs.scope2;
+            const maxS12 = Math.max(...factorySummaries.map(f => f.scope1 + f.scope2), 1);
+            const pct = s12 / maxS12 * 100;
+            const s1Pct = s12 > 0 ? fs.scope1 / s12 * pct : 0;
+            const s2Pct = s12 > 0 ? fs.scope2 / s12 * pct : 0;
             const isSelected = selectedFactory === fs.factory.id;
             return (
               <div key={fs.factory.id}
@@ -565,10 +565,9 @@ export default function DashboardPage() {
                   <div style={{ flex: 1, height: 18, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
                     <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${s1Pct}%`, background: S_COLOR.scope_1, transition: 'width 0.5s' }} />
                     <div style={{ position: 'absolute', left: `${s1Pct}%`, top: 0, height: '100%', width: `${s2Pct}%`, background: S_COLOR.scope_2, transition: 'width 0.5s' }} />
-                    <div style={{ position: 'absolute', left: `${s1Pct + s2Pct}%`, top: 0, height: '100%', width: `${s3Pct}%`, background: S_COLOR.scope_3, transition: 'width 0.5s' }} />
                   </div>
                   <div style={{ width: 70, fontSize: 11, fontWeight: 800, textAlign: 'right', color: 'var(--color-text)', flexShrink: 0 }}>
-                    {formatNumber(fs.totalEmissions)} t
+                    {formatNumber(s12)} t
                   </div>
                   <div style={{ width: 34, fontSize: 10, color: '#aaa', textAlign: 'right', flexShrink: 0 }}>
                     {Math.round(pct)}%
