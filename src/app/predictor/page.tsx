@@ -229,7 +229,7 @@ export default function PredictorPage() {
         if (e.category === 'diesel')      { pt.diesel      += Number(e.activity_data); pt.dsEm += Number(e.emissions_tco2e); }
         if (e.category === 'electricity') { pt.electricity += Number(e.activity_data); pt.elEm += Number(e.emissions_tco2e); }
       }
-      setRawPoints([...map.values()].filter(p => p.rcn > 0));
+      setRawPoints([...map.values()].filter(p => p.rcn > 0 && (p.firewood > 0 || p.diesel > 0 || p.electricity > 0)));
       setLoading(false);
     }).catch(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
