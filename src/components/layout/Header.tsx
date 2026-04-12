@@ -60,9 +60,30 @@ function HeaderInner() {
 
   return (
     <header className="header">
-      <div className="header-title">
-        {translatedTitle}
-        {pageInfo.accent && <> &mdash; <span>{pageInfo.accent}</span></>}
+      <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {pathname !== '/' && pathname !== '/overview' && pathname !== '/login' && (
+          <button
+            onClick={() => router.push('/')}
+            title={t('nav_dashboard')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: '50%', border: 'none',
+              background: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)',
+              cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-secondary)'; }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+          </button>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+          {translatedTitle}
+          {pageInfo.accent && <> &mdash; <span style={{ marginLeft: '4px' }}>{pageInfo.accent}</span></>}
+        </div>
       </div>
 
       <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
