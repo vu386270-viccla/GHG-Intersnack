@@ -56,11 +56,87 @@ const translations: Record<string, Record<Lang, string>> = {
   'factory_compare': { en: 'Factory Compare', vi: 'Factory Compare' },
   'opex_report': { en: 'OpEx Report', vi: 'OpEx Report' },
   'reference_ef': { en: 'Reference & EF', vi: 'Reference & EF' },
+  'logout': { en: 'Logout', vi: 'Đăng xuất' },
   // S3 categories
   'cat4_transport': { en: 'Transport', vi: 'Vận chuyển' },
   'cat1_materials': { en: 'Materials', vi: 'Nguyên liệu' },
+  // Sidebar Sections
+  'nav_overview': { en: 'Overview', vi: 'Tổng quan' },
+  'nav_scopes': { en: 'Emission Scopes', vi: 'Phạm vi phát thải' },
+  'nav_factories': { en: 'Factories', vi: 'Nhà máy' },
+  'nav_management': { en: 'Management', vi: 'Quản lý' },
+  // Sidebar Items
+  'nav_dashboard': { en: 'Dashboard', vi: 'Dashboard' },
+  'nav_overview_ppt': { en: 'Overview (PPT)', vi: 'Overview (PPT)' },
+  'nav_scope1': { en: 'Scope 1 — Direct', vi: 'Scope 1 — Trực tiếp' },
+  'nav_scope2': { en: 'Scope 2 — Energy', vi: 'Scope 2 — Năng lượng' },
+  'nav_scope3': { en: 'Scope 3 — Value Chain', vi: 'Scope 3 — Chuỗi giá trị' },
+  'nav_all_factories': { en: 'All Factories', vi: 'Tất cả nhà máy' },
+  'nav_input': { en: 'Data Entry', vi: 'Nhập dữ liệu' },
+  'nav_targets': { en: 'SBTi Targets', vi: 'Mục tiêu SBTi' },
+  'nav_initiatives': { en: 'Reduction Initiatives', vi: 'Sáng kiến giảm phát thải' },
+  'nav_predictor': { en: 'Emission Predictor', vi: 'Dự báo Phát thải' },
+  'nav_opex_report': { en: 'Opex Report', vi: 'Opex Report' },
+  'nav_financials': { en: 'Financials', vi: 'Financials' },
+  'nav_reference': { en: 'Reference & EF', vi: 'Reference & EF' },
+  // nearest year data
   // nearest year data
   'nearest_year_s3': { en: 'Nearest year data — S3 annual', vi: 'Dữ liệu năm gần nhất — S3 annual' },
+  // ─── GUIDE TEXTS ───
+  'guide_title': { en: 'Page Guide', vi: 'Hướng dẫn Trang' },
+  'guide_/': { 
+    en: 'Welcome to the GHG Dashboard. This overview displays the total carbon emissions (Scope 1, 2, 3) compared to our 2032 targets. You can filter data by specific months.', 
+    vi: 'Chào mừng bạn đến với GHG Dashboard. Trang tổng quan này hiển thị tổng lượng phát thải carbon (Scope 1, 2, 3) so với mục tiêu năm 2032. Bạn có thể lọc dữ liệu theo từng tháng.' 
+  },
+  'guide_/overview': {
+    en: 'Overview (PPT Slide) provides a high-level summary suitable for presentations, consolidating all emissions and costs on one screen.',
+    vi: 'Tổng quan (PPT Slide) cung cấp tóm tắt cấp cao phù hợp cho các buổi thuyết trình, kết hợp tất cả dữ liệu phát thải và chi phí trên một màn hình.'
+  },
+  'guide_/scope-1': { 
+    en: 'Scope 1 tracks our direct emissions from owned sources (e.g., Boilers, Diesel generators). Here you can see emissions broken down by fuel type and factory.', 
+    vi: 'Scope 1 theo dõi phát thải trực tiếp từ các nguồn nội bộ (VD: Lò hơi, Máy phát Diesel). Tại đây bạn thấy chiết tính lượng phát thải theo loại nhiên liệu và nhà máy.' 
+  },
+  'guide_/scope-2': { 
+    en: 'Scope 2 tracks indirect emissions from purchased electricity. The system applies grid emission factors (EF) to calculate our carbon footprint from power usage.', 
+    vi: 'Scope 2 theo dõi phát thải gián tiếp từ điện năng mua ngoài. Hệ thống áp dụng hệ số phát thải (EF) của lưới điện để tính toán dấu chân carbon từ việc sử dụng điện.' 
+  },
+  'guide_/scope-3': { 
+    en: 'Scope 3 covers our value chain emissions (Transportation, Purchased Materials). Note: Scope 3 is tracked at the company level, not per individual factory.', 
+    vi: 'Scope 3 bao gồm phát thải chuỗi giá trị (Vận chuyển, Nguyên vật liệu mua vào). Lưu ý: Scope 3 được theo dõi ở cấp độ toàn công ty, không chia theo từng nhà máy.' 
+  },
+  'guide_/factories': { 
+    en: 'Analyze and compare specific factories (NM, DA, DC, TN). You can drill down to identify which site is contributing the most to our overall emissions.', 
+    vi: 'Phân tích và so sánh các nhà máy cụ thể (NM, DA, DC, TN). Bạn có thể xem chi tiết để xác định nhà máy nào đang đóng góp nhiều nhất vào tổng lượng phát thải.' 
+  },
+  'guide_/targets': { 
+    en: 'Tracks our Science Based Targets initiative (SBTi) progress. It displays our current emission trajectory against the required 42% reduction pathway by 2032.', 
+    vi: 'Theo dõi tiến trình Sáng kiến Mục tiêu Dựa trên Cơ sở Khoa học (SBTi). Trang này hiển thị quỹ đạo phát thải hiện tại so với lộ trình giảm 42% yêu cầu vào năm 2032.' 
+  },
+  'guide_/opex-report': { 
+    en: 'Summarizes operational costs versus emissions in an annual view. Critical for executives to visualize the financial correlations with carbon emissions.', 
+    vi: 'Tổng hợp chi phí vận hành so với lượng phát thải theo dạng xem thường niên. Quan trọng cho ban quản lý để hình dung mối tương quan tài chính với phát thải carbon.' 
+  },
+  'guide_/financials': { 
+    en: 'Deep dive into financial metrics, highlighting Carbon cost impacts and actual spending on various energy types across our facilities.', 
+    vi: 'Đi sâu vào các chỉ số phân tích tài chính, nhấn mạnh tác động của chi phí Carbon và mức chi thực tế cho các loại năng lượng khác nhau tại các cơ sở.' 
+  },
+  'guide_/input': { 
+    en: 'Data Entry form for authorized users. Input monthly consumption data here; it automatically calculates tCO2e based on predefined emission factors.', 
+    vi: 'Biểu mẫu nhập liệu dành cho người dùng được cấp quyền. Việc nhập dữ liệu tiêu thụ hàng tháng ở đây sẽ tự động tính tCO2e dựa trên các hệ số gốc đã định sẵn.' 
+  },
+  'guide_/predictor': { 
+    en: 'Uses historical data patterns to forecast our carbon emissions through year-end, helping to identify potential gap-to-target risks early.', 
+    vi: 'Sử dụng các mô hình dữ liệu quá khứ để dự báo lượng phát thải carbon đến cuối năm, giúp nhận diện sớm các nguy cơ sai lệch so với mục tiêu.' 
+  },
+  'guide_/initiatives': { 
+    en: 'Track active emissions-reduction projects (e.g., Solar panels, Biomass upgrade) and review their estimated carbon savings and ROI.', 
+    vi: 'Theo dõi các dự án giảm phát thải đang triển khai (VD: Điện mặt trời, nâng cấp Sinh khối) và xem xét mức carbon dự kiến tiết kiệm được cùng ROI.' 
+  },
+  'guide_/reference': { 
+    en: 'A centralized lookup table for all Emission Factors (EF), Global Warming Potentials (GWP), and unit conversions used mathematically across the system.', 
+    vi: 'Bảng tra cứu tập trung tất cả Hệ số Phát thải (EF), Tiềm năng Nóng lên Toàn cầu (GWP), và quy đổi đơn vị được sử dụng trên toàn hệ thống tính toán.' 
+  },
+  // ─── END GUIDE TEXTS ───
 };
 
 interface I18nCtx {

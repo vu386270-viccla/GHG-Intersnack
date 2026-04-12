@@ -2,45 +2,47 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
-const navItems = [
-  {
-    section: 'Tổng quan',
-    items: [
-      { href: '/', label: 'Dashboard', icon: '📊' },
-      { href: '/overview', label: 'Overview (PPT)', icon: '📽️' },
-    ],
-  },
-  {
-    section: 'Phạm vi phát thải',
-    items: [
-      { href: '/scope-1', label: 'Scope 1 — Trực tiếp', icon: '🔥', scopeClass: 'scope-1' },
-      { href: '/scope-2', label: 'Scope 2 — Năng lượng', icon: '⚡', scopeClass: 'scope-2' },
-      { href: '/scope-3', label: 'Scope 3 — Chuỗi giá trị', icon: '🌍', scopeClass: 'scope-3' },
-    ],
-  },
-  {
-    section: 'Nhà máy',
-    items: [
-      { href: '/factories', label: 'Tất cả nhà máy', icon: '🏭' },
-    ],
-  },
-  {
-    section: 'Quản lý',
-    items: [
-      { href: '/input', label: 'Nhập dữ liệu', icon: '📝' },
-      { href: '/targets', label: 'Mục tiêu SBTi', icon: '🎯' },
-      { href: '/initiatives', label: 'Sáng kiến giảm phát thải', icon: '🌱' },
-      { href: '/predictor', label: 'Emission Predictor', icon: '🔮' },
-      { href: '/opex-report', label: 'Opex Report', icon: '📋' },
-      { href: '/financials', label: 'Financials', icon: '💰' },
-      { href: '/reference', label: 'Reference & EF', icon: '📚' },
-    ],
-  },
-];
+import { useI18n } from '@/lib/i18n';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { t } = useI18n();
+
+  const navItems = [
+    {
+      section: t('nav_overview'),
+      items: [
+        { href: '/', label: t('nav_dashboard'), icon: '📊' },
+        { href: '/overview', label: t('nav_overview_ppt'), icon: '📽️' },
+      ],
+    },
+    {
+      section: t('nav_scopes'),
+      items: [
+        { href: '/scope-1', label: t('nav_scope1'), icon: '🔥', scopeClass: 'scope-1' },
+        { href: '/scope-2', label: t('nav_scope2'), icon: '⚡', scopeClass: 'scope-2' },
+        { href: '/scope-3', label: t('nav_scope3'), icon: '🌍', scopeClass: 'scope-3' },
+      ],
+    },
+    {
+      section: t('nav_factories'),
+      items: [
+        { href: '/factories', label: t('nav_all_factories'), icon: '🏭' },
+      ],
+    },
+    {
+      section: t('nav_management'),
+      items: [
+        { href: '/input', label: t('nav_input'), icon: '📝' },
+        { href: '/targets', label: t('nav_targets'), icon: '🎯' },
+        { href: '/initiatives', label: t('nav_initiatives'), icon: '🌱' },
+        { href: '/predictor', label: t('nav_predictor'), icon: '🔮' },
+        { href: '/opex-report', label: t('nav_opex_report'), icon: '📋' },
+        { href: '/financials', label: t('nav_financials'), icon: '💰' },
+        { href: '/reference', label: t('nav_reference'), icon: '📚' },
+      ],
+    },
+  ];
 
   if (pathname === '/login') return null;
 

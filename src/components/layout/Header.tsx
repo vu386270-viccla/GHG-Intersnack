@@ -1,35 +1,17 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
-
-const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
-  '/': { title: 'Tổng quan', accent: 'GHG Emissions' },
-  '/scope-1': { title: 'Scope 1', accent: 'Phát thải trực tiếp' },
-  '/scope-2': { title: 'Scope 2', accent: 'Năng lượng mua' },
-  '/scope-3': { title: 'Scope 3', accent: 'Chuỗi giá trị' },
-  '/factories': { title: 'Nhà máy', accent: 'So sánh' },
-  '/input': { title: 'Nhập dữ liệu', accent: 'Emissions Data' },
-  '/targets': { title: 'Mục tiêu', accent: 'SBTi Progress' },
-  '/opex-report': { title: 'Opex Report', accent: 'SBTi Annual' },
-  '/reference': { title: 'Reference', accent: 'Emission Factors' },
-  '/overview': { title: 'Overview', accent: 'PPT Slide' },
-  '/initiatives': { title: 'Sáng kiến', accent: 'Giảm phát thải' },
-  '/financials': { title: 'Financials', accent: 'Chi phí & Carbon' },
-};
 
 function HeaderInner() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pageInfo = PAGE_TITLES[pathname] || PAGE_TITLES['/'];
   const isOpex = pathname === '/opex-report';
   const showIntensity = searchParams.get('intensity') === '1';
   const showOrigin    = searchParams.get('origin')    === '1';
-
-  if (pathname === '/login') return null;
 
   const toggle = (key: string, current: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -38,12 +20,48 @@ function HeaderInner() {
   };
 
   const { user, role, signOut } = useAuth();
-  const { lang, toggle: toggleLang } = useI18n();
+  const { lang, t, toggle: toggleLang } = useI18n();
+
+  const [showGuide, setShowGuide] = useState(false);
+  const guideRef = useRef<HTMLDivElement>(null);
+
+  const PAGE_TITLES: Record<string, { titleKey: string; accent?: string }> = {
+    '/': { titleKey: 'nav_dashboard', accent: 'GHG Emissions' },
+    '/scope-1': { titleKey: 'nav_scope1', accent: 'Phát thải trực tiếp' },
+    '/scope-2': { titleKey: 'nav_scope2', accent: 'Năng lượng mua' },
+    '/scope-3': { titleKey: 'nav_scope3', accent: 'Chuỗi giá trị' },
+    '/factories': { titleKey: 'nav_all_factories', accent: 'So sánh' },
+    '/input': { titleKey: 'nav_input', accent: 'Emissions Data' },
+    '/targets': { titleKey: 'nav_targets', accent: 'SBTi Progress' },
+    '/opex-report': { titleKey: 'nav_opex_report', accent: 'SBTi Annual' },
+    '/reference': { titleKey: 'nav_reference', accent: 'Emission Factors' },
+    '/overview': { titleKey: 'nav_overview_ppt', accent: 'PPT Slide' },
+    '/initiatives': { titleKey: 'nav_initiatives', accent: 'Giảm phát thải' },
+    '/financials': { titleKey: 'nav_financials', accent: 'Chi phí & Carbon' },
+  };
+
+  const pageInfo = PAGE_TITLES[pathname] || PAGE_TITLES['/'];
+  const translatedTitle = t(pageInfo.titleKey);
+
+  if (pathname === '/login') return null;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (guideRef.current && !guideRef.current.contains(e.target as Node)) {
+        setShowGuide(false);
+      }
+    };
+    if (showGuide) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showGuide]);
+
+  const guideText = t(`guide_${pathname}`);
+  const hasGuide = guideText !== `guide_${pathname}`;
 
   return (
     <header className="header">
       <div className="header-title">
-        {pageInfo.title}
+        {translatedTitle}
         {pageInfo.accent && <> &mdash; <span>{pageInfo.accent}</span></>}
       </div>
 
@@ -60,6 +78,38 @@ function HeaderInner() {
         >
           {lang === 'en' ? '🇻🇳 VI' : '🇬🇧 EN'}
         </button>
+
+        {/* Page Guide Toggle */}
+        {hasGuide && (
+          <div ref={guideRef} style={{ position: 'relative' }}>
+            <button
+              className="guide-button"
+              onClick={() => setShowGuide(!showGuide)}
+              title={t('guide_title')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </button>
+            {showGuide && (
+              <div className="guide-popover">
+                <div className="guide-popover-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                  {t('guide_title')}
+                </div>
+                <div className="guide-popover-text">
+                  {guideText}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {isOpex && (
           /* ── Pill-style toggle group ── */
           <div style={{
@@ -104,7 +154,7 @@ function HeaderInner() {
             </div>
             <button
               onClick={signOut}
-              title="Đăng xuất"
+              title={t('logout')}
               style={{
                 padding: '4px 10px', borderRadius: 8, border: '1px solid #e5e7eb',
                 background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600,
@@ -113,7 +163,7 @@ function HeaderInner() {
               onMouseEnter={e => { (e.target as HTMLElement).style.background = '#fee2e2'; (e.target as HTMLElement).style.color = '#dc2626'; }}
               onMouseLeave={e => { (e.target as HTMLElement).style.background = '#fff'; (e.target as HTMLElement).style.color = '#6b7280'; }}
             >
-              Đăng xuất
+              {t('logout')}
             </button>
           </div>
         )}
