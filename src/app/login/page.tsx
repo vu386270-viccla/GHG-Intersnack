@@ -62,7 +62,6 @@ export default function LoginPage() {
             src="/intersnack-logo.jpg" 
             alt="Intersnack Group Logo" 
             style={{ width: '180px', height: 'auto', display: 'inline-block', marginBottom: '24px' }} 
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
           />
           <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.5px', color: '#1a1a1a', textTransform: 'uppercase' }}>
             Intersnack Cashew Vietnam
