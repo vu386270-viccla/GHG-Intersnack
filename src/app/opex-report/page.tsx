@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import { GRID_EMISSION_FACTORS } from '@/lib/types';
 import { ORIGIN_EF, ORIGIN_MIX, TRANSPORT_STATIC } from '@/lib/scope3-data';
@@ -473,6 +474,7 @@ function OriginDonut({ rows, scaledTotal }: { rows: ScaledRow[]; scaledTotal: nu
 
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
+  const { lang, t } = useI18n();
   const searchParams = useSearchParams();
   const showIntensity = searchParams.get('intensity') === '1';  // driven by Header toggle
   const showOrigin    = searchParams.get('origin')    === '1';  // driven by Header toggle
@@ -859,7 +861,7 @@ export default function OpexReportPage() {
         }}>
           {/* LEFT: Title */}
           <h1 style={{ margin: 0, fontSize: 'clamp(15px, 2.5vw, 22px)', fontWeight: 900, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-            <span style={{ color: '#C8281A' }}>Reduce CO₂</span>
+            <span style={{ color: '#C8281A' }}>{lang === 'vi' ? 'Giảm Phát thải CO₂' : 'Reduce CO₂'}</span>
             <span style={{ color: '#444', fontWeight: 500, fontSize: '0.75em', marginLeft: 6 }}>SBTi Annual 2025</span>
           </h1>
 
@@ -870,11 +872,11 @@ export default function OpexReportPage() {
             <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: '8px', padding: '3px', border: '1px solid #e2e2e2' }}>
               <button className={`opex-pill-btn${selectedScope === 'ops' ? ' active-red' : ''}`}
                 onClick={() => setSelectedScope('ops')}>
-                🔥 Operations
+                🔥 {lang === 'vi' ? 'Vận hành' : 'Operations'}
               </button>
               <button className={`opex-pill-btn${selectedScope === 'supply' ? ' active-green' : ''}`}
                 onClick={() => setSelectedScope('supply')}>
-                🌍 Supply Chain
+                🌍 {lang === 'vi' ? 'Chuỗi cung ứng' : 'Supply Chain'}
               </button>
             </div>
 
@@ -914,8 +916,8 @@ export default function OpexReportPage() {
           animation: 'fadeSlideIn 0.45s 0.1s ease both',
         }}>
           {selectedScope === 'ops'
-            ? '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)'
-            : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)'}
+            ? (lang === 'vi' ? '🎯 Mục tiêu: −50% Phát thải Vận hành so với năm cơ sở 2021 (SBTi Ngắn hạn)' : '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)')
+            : (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')}
         </div>
 
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
@@ -1007,14 +1009,14 @@ export default function OpexReportPage() {
                   </p>
                 )}
                 <p style={{ margin: '0 0 5px' }}>
-                  <strong>{s1BeyondTarget ? '🏆' : '📋'} Scope 1 SBTi Performance (2025):</strong> Total volume stands at{' '}
+                  <strong>{s1BeyondTarget ? '🏆' : '📋'} {lang === 'vi' ? 'Hiệu suất SBTi Scope 1 (2025):' : 'Scope 1 SBTi Performance (2025):'}</strong> {lang === 'vi' ? 'Tổng khối lượng ở mức' : 'Total volume stands at'}{' '}
                   <strong style={{ color: s1BeyondTarget ? '#3E7B3E' : '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
                   {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 Base Year).
-                  {' '}SBTi Target Variance:{' '}
+                  {' '}{lang === 'vi' ? 'Chênh lệch so với SBTi:' : 'SBTi Target Variance:'}{' '}
                   <span style={{ color: pct1_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
                     {pct1_vs_target > 0 ? '+' : ''}{pct1_vs_target}%
                   </span>.
-                  {' '}YoY 2024→2025 Shift:{' '}
+                  {' '}{lang === 'vi' ? 'Mức thay đổi YoY 2024→2025:' : 'YoY 2024→2025 Shift:'}{' '}
                   <strong style={{ color: yoy2025_s1 <= 0 ? '#3E7B3E' : '#C8281A' }}>
                     {yoy2025_s1 > 0 ? '+' : ''}{fmt(yoy2025_s1)} tCO₂e
                   </strong>.
@@ -1047,7 +1049,7 @@ export default function OpexReportPage() {
                   </p>
                 )}
 
-                <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
+                <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'Vietnam') && (
                     <li>
@@ -1141,14 +1143,14 @@ export default function OpexReportPage() {
                 {/* PT Solar announcement banner */}
                 {isSolarFactory && (
                   <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#f0fdf4', borderLeft: '3px solid #22c55e', borderRadius: '4px', fontSize: '11px' }}>
-                    <strong style={{ color: '#166534' }}>🌞 Planned: PT Rooftop Solar (vận hành cuối 2026)</strong> —{' '}
-                    Tiết kiệm dự kiến <strong style={{ color: '#166534' }}>{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong> (2027){' '}
+                    <strong style={{ color: '#166534' }}>🌞 {lang === 'vi' ? 'Dự kiến: ĐMT Áp mái PT (vận hành cuối 2026)' : 'Planned: PT Rooftop Solar (online late 2026)'}</strong> —{' '}
+                    {lang === 'vi' ? 'Tiết kiệm dự kiến' : 'Projected savings'} <strong style={{ color: '#166534' }}>{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong> (2027){' '}
                     | {ptSolarSaving(2028).toLocaleString()} tCO₂e (2028) | {ptSolarSaving(2029).toLocaleString()} tCO₂e (2029).{' '}
-                    Đã tích hợp vào kế hoạch giảm Scope 2 phía dưới.
+                    {lang === 'vi' ? 'Đã tích hợp vào kế hoạch giảm Scope 2 phía dưới.' : 'Integrated into the Scope 2 reduction plan below.'}
                   </p>
                 )}
                 <p style={{ margin: '0 0 5px' }}>
-                  <strong>{s2BeyondTarget ? '🏆' : '⚠️'} Scope 2 SBTi Performance (2025):</strong> Electricity-driven footprint recorded at{' '}
+                  <strong>{s2BeyondTarget ? '🏆' : '⚠️'} {lang === 'vi' ? 'Hiệu suất SBTi Scope 2 (2025):' : 'Scope 2 SBTi Performance (2025):'}</strong> {lang === 'vi' ? 'Phát thải điện tiêu thụ ở mức' : 'Electricity-driven footprint recorded at'}{' '}
                   <strong style={{ color: s2BeyondTarget ? '#3E7B3E' : '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
                   {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 Base Year).
                   {' '}SBTi Target Variance:{' '}
@@ -1176,7 +1178,7 @@ export default function OpexReportPage() {
                   {' '}<em>{intGrowth > 0 ? "Grid power usage is scaling worse than production growth. Priority intervention required." : "Grid efficiency improved relative to production throughput."}</em>
                 </p>
 
-                <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>Strategic Mitigation Plan:</strong></p>
+                <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   {/* PT Solar — chỉ hiện khi ALL hoặc Phan Thiet */}
                   {isSolarFactory && (
