@@ -202,7 +202,7 @@ export default function PredictorPage() {
         .in('year', years).eq('category', 'rcn_input').limit(5000),
       supabase.from('emissions_data')
         .select('factory_id,year,month,category,activity_data,emissions_tco2e')
-        .in('year', years).in('category', ['firewood', 'diesel', 'electricity']).limit(20000),
+        .in('year', years).in('category', ['wood_logs', 'diesel', 'electricity']).limit(20000),
     ]).then(([fRes, prodRes, emRes]) => {
       const facs = (fRes.data || []) as Factory[];
       setFactories(facs);
@@ -225,7 +225,7 @@ export default function PredictorPage() {
         const key = `${e.factory_id}|${e.year}|${e.month}`;
         if (!map.has(key)) continue;
         const pt = map.get(key)!;
-        if (e.category === 'firewood')    { pt.firewood    += Number(e.activity_data); pt.fwEm += Number(e.emissions_tco2e); }
+        if (e.category === 'wood_logs')   { pt.firewood    += Number(e.activity_data); pt.fwEm += Number(e.emissions_tco2e); }
         if (e.category === 'diesel')      { pt.diesel      += Number(e.activity_data); pt.dsEm += Number(e.emissions_tco2e); }
         if (e.category === 'electricity') { pt.electricity += Number(e.activity_data); pt.elEm += Number(e.emissions_tco2e); }
       }
