@@ -5,6 +5,7 @@ import { getDashboardData, formatTCO2e, formatNumber, getScope3SummaryData } fro
 import { SCOPE_COLORS, MONTHS_VI } from '@/lib/types';
 import type { ScopeSummary, FactorySummary, MonthlyData, TargetProgress } from '@/lib/types';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
 
 type ScopeFilter = 'ALL' | 'scope_1' | 'scope_2' | 'scope_3';
 
@@ -29,7 +30,6 @@ function MiniStackedBar({ monthly, height = 80 }: { monthly: MonthlyData[]; heig
         const x = 2 + i * gap;
         const h1 = (m.scope1 / maxV) * (H - 4);
         const h2 = (m.scope2 / maxV) * (H - 4);
-        // S3 not shown per-month (transport data only has annual totals)
         return (
           <g key={m.month}>
             <rect x={x} y={H - 2 - h1} width={barW} height={Math.max(h1, 0.5)} fill={S_COLOR.scope_1} opacity={0.8} rx={1} />
@@ -73,81 +73,106 @@ function ScopeDonut({ s1, s2, s3, size = 100 }: { s1: number; s2: number; s3: nu
   );
 }
 
-/* ── SBTi Target Card ── */
-function SBTiCard({ label, icon, targetPct, current, base, color, breakdown, footer }:
-  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; breakdown?: { name: string; value: number; pct: number }[]; footer?: React.ReactNode }
+/* ── NEW: SBTi Progress Card (clean horizontal bar, no half-donut) ── */
+function SBTiProgressCard({ label, icon, targetPct, current, base, color, isFactoryFiltered, t, breakdown, footer }:
+  { label: string; icon: string; targetPct: number; current: number; base: number; color: string; isFactoryFiltered?: boolean; t: (k: string) => string; breakdown?: { name: string; value: number; pct: number }[]; footer?: React.ReactNode }
 ) {
+  const currentYear = new Date().getFullYear();
+  const yearsElapsed = currentYear - 2021;
+  const totalYears = 2032 - 2021; // 11 years
+  const requiredPctNow = targetPct * (yearsElapsed / totalYears); // linear interpolation
   const reducedPct = base > 0 ? Math.max(0, (base - current) / base * 100) : 0;
-  const targetVal  = Math.round(base * (1 - targetPct / 100));
-  const onTrack    = reducedPct >= (targetPct * (new Date().getFullYear() - 2021) / (2032 - 2021));
-  // Half-donut SVG (180° arc, left to right)
-  const W = 160, H = 85, cx = W / 2, cy = H - 8, R = 68, thick = 14;
-  function halfArc(pct: number) {
-    const clamp = Math.min(Math.max(pct, 0), 100);
-    const endAngle = Math.PI * (clamp / 100); // 0..PI = left..right
-    const ex = cx - R * Math.cos(endAngle);   // mirror: left=0% right=100%
-    const ey = cy - R * Math.sin(endAngle);
-    const large = clamp > 50 ? 1 : 0;
-    if (clamp <= 0) return '';
-    if (clamp >= 100) return `M ${cx - R} ${cy} A ${R} ${R} 0 1 1 ${cx + R} ${cy}`;
-    return `M ${cx - R} ${cy} A ${R} ${R} 0 ${large} 1 ${ex} ${ey}`;
-  }
-  const targetAngle = Math.PI * (targetPct / 100);
-  const tx = cx - R * Math.cos(targetAngle), ty = cy - R * Math.sin(targetAngle);
+  const targetVal = Math.round(base * (1 - targetPct / 100));
+  const onTrack = reducedPct >= requiredPctNow;
+
   return (
-    <div style={{ flex: 1, background: 'var(--color-card-bg)', border: `1.5px solid ${color}22`, borderRadius: 14, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{
+      flex: 1, background: 'var(--color-card-bg)',
+      border: `1.5px solid ${color}22`, borderRadius: 14,
+      padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
+      borderLeft: `5px solid ${color}`,
+    }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: '0.5px' }}>{icon} {label}</div>
-          <div style={{ fontSize: 10, color: '#aaa', marginTop: 1 }}>Target 2032: −{targetPct}% vs 2021</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color, letterSpacing: '0.3px' }}>{icon} {label}</div>
+          <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>Target 2032: −{targetPct}% vs 2021 {t('baseline').toLowerCase()}</div>
         </div>
-        <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+        <div style={{
+          fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
           background: onTrack ? '#dcfce7' : '#fee2e2',
-          color: onTrack ? '#166534' : '#991b1b' }}>
-          {onTrack ? '✓ On track' : '✗ Behind'}
+          color: onTrack ? '#166534' : '#991b1b'
+        }}>
+          {onTrack ? t('on_track') : t('behind')}
         </div>
       </div>
-      {/* Half-donut arc */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ flexShrink: 0, overflow: 'visible' }}>
-          {/* Track */}
-          <path d={halfArc(100)} fill="none" stroke="#f0f0f0" strokeWidth={thick} strokeLinecap="round" />
-          {/* Actual */}
-          {reducedPct > 0 && <path d={halfArc(reducedPct)} fill="none" stroke={onTrack ? color : '#ef4444'} strokeWidth={thick} strokeLinecap="round" opacity={0.85} />}
-          {/* Target marker */}
-          <circle cx={tx} cy={ty} r={6} fill={color} stroke="#fff" strokeWidth={2.5} />
-          {/* Center labels */}
-          <text x={cx} y={cy - R - 6} textAnchor="middle" fontSize={22} fontWeight={900} fill={onTrack ? color : '#ef4444'}>{reducedPct.toFixed(1)}%</text>
-          <text x={cx} y={cy - R + 8} textAnchor="middle" fontSize={8} fill="#bbb">reduced so far</text>
-          <text x={cx - R - 2} y={cy + 14} textAnchor="middle" fontSize={8} fill="#aaa">0%</text>
-          <text x={cx + R + 2} y={cy + 14} textAnchor="middle" fontSize={8} fill="#aaa">100%</text>
-          <text x={tx} y={ty - 10} textAnchor="middle" fontSize={8} fontWeight={700} fill={color}>T</text>
-        </svg>
-        {/* Key numbers */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase' }}>Baseline 2021</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#555' }}>{formatTCO2e(base)}</span>
-          </div>
-          <div style={{ height: 1, background: '#f0f0f0' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase' }}>Hiện tại</span>
-            <span style={{ fontSize: 16, fontWeight: 900, color: onTrack ? color : '#ef4444' }}>{formatTCO2e(current)}</span>
-          </div>
-          <div style={{ height: 1, background: '#f0f0f0' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 9, color: color, textTransform: 'uppercase', fontWeight: 700 }}>Target 2032</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color }}>{formatTCO2e(targetVal)}</span>
-          </div>
-          {/* thin progress bar */}
-          <div style={{ position: 'relative', height: 6, background: '#f3f4f6', borderRadius: 4, overflow: 'visible', marginTop: 2 }}>
-            <div style={{ height: '100%', width: `${reducedPct}%`, background: onTrack ? color : '#ef4444', borderRadius: 4, transition: 'width 0.5s' }} />
-            <div style={{ position: 'absolute', left: `${targetPct}%`, top: -2, width: 2, height: 10, background: color, borderRadius: 1 }} />
-          </div>
-          <div style={{ fontSize: 8, color: '#bbb' }}>|——— target {targetPct}%</div>
+
+      {/* Key metrics row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
+        <div>
+          <div style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{t('baseline')} 2021</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#555', marginTop: 2 }}>{formatTCO2e(base)}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{t('current')} {currentYear}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: onTrack ? color : '#ef4444', marginTop: 2 }}>{formatTCO2e(current)}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{t('target_2032')}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color, marginTop: 2 }}>{formatTCO2e(targetVal)}</div>
         </div>
       </div>
+
+      {/* Progress bar */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: onTrack ? color : '#ef4444' }}>
+            {reducedPct.toFixed(1)}% {t('reduced_so_far')}
+          </span>
+          <span style={{ fontSize: 10, color: '#aaa' }}>
+            {t('need_to_reduce')}: {targetPct}%
+          </span>
+        </div>
+        <div style={{ position: 'relative', height: 10, background: '#f3f4f6', borderRadius: 6, overflow: 'visible' }}>
+          {/* Actual progress */}
+          <div style={{
+            height: '100%', width: `${Math.min(reducedPct / targetPct * 100, 100)}%`,
+            background: onTrack ? color : '#ef4444', borderRadius: 6, transition: 'width 0.6s ease',
+            opacity: 0.85,
+          }} />
+          {/* Linear benchmark marker */}
+          <div style={{
+            position: 'absolute', left: `${Math.min(requiredPctNow / targetPct * 100, 100)}%`, top: -3,
+            width: 2, height: 16, background: '#666', borderRadius: 1,
+          }} />
+          <div style={{
+            position: 'absolute', left: `${Math.min(requiredPctNow / targetPct * 100, 100)}%`, top: -16,
+            fontSize: 8, color: '#666', fontWeight: 700, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
+          }}>
+            {requiredPctNow.toFixed(0)}%
+          </div>
+        </div>
+        {/* Scale markers */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#ccc', marginTop: 2 }}>
+          <span>0%</span>
+          <span>−{targetPct}% target</span>
+        </div>
+      </div>
+
+      {/* Explanation footnote */}
+      <div style={{ fontSize: 9, color: '#aaa', lineHeight: 1.5, borderTop: '1px solid #f5f5f5', paddingTop: 8 }}>
+        📐 {t('track_explain')}
+        <br/>
+        <span style={{ fontWeight: 600 }}>│</span> = {t('linear_benchmark')} {currentYear}: −{requiredPctNow.toFixed(1)}% {t('target_vs_baseline')}
+      </div>
+
+      {/* S3 factory-filter note */}
+      {isFactoryFiltered && (
+        <div style={{ fontSize: 9, color: '#f59e0b', fontWeight: 600, background: '#fffbeb', padding: '4px 8px', borderRadius: 6 }}>
+          {t('scope3_combined')}
+        </div>
+      )}
+
       {/* Breakdown rows */}
       {breakdown && breakdown.length > 0 && (
         <div style={{ borderTop: '1px solid #f5f5f5', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -162,7 +187,7 @@ function SBTiCard({ label, icon, targetPct, current, base, color, breakdown, foo
           ))}
         </div>
       )}
-      {footer && <div style={{ marginTop: 4 }}>{footer}</div>}
+      {footer && <div style={{ marginTop: 2 }}>{footer}</div>}
     </div>
   );
 }
@@ -183,6 +208,7 @@ function factoryAbbr(name: string, country: string): string {
 }
 
 export default function DashboardPage() {
+  const { t, lang } = useI18n();
   const [loading, setLoading] = useState(true);
   const [grandTotal, setGrandTotal] = useState(0);
   const [scopeSummaries, setScopeSummaries] = useState<ScopeSummary[]>([]);
@@ -190,7 +216,7 @@ export default function DashboardPage() {
   const [monthlyTotals, setMonthlyTotals] = useState<MonthlyData[]>([]);
   const [targets, setTargets] = useState<TargetProgress[]>([]);
   const [rcnData, setRcnData] = useState<{ totalRCN: number; totalCK: number; intensity: number; monthlyIntensity: number[] } | null>(null);
-  const [rcnByFactory, setRcnByFactory] = useState<Record<string, { totalRCN: number; totalCK: number; monthlyRCN: number[] }>>({}); 
+  const [rcnByFactory, setRcnByFactory] = useState<Record<string, { totalRCN: number; totalCK: number; monthlyRCN: number[] }>>({});
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFactory, setSelectedFactory] = useState<string>('ALL');
   const [s3Annual, setS3Annual] = useState<{ year: number; total: number; cat1: number; cat3: number; cat4: number } | null>(null);
@@ -248,7 +274,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: 12 }}>
       <div className="loading-spinner" />
-      <span style={{ color: 'var(--color-text-muted)' }}>Đang tải dữ liệu...</span>
+      <span style={{ color: 'var(--color-text-muted)' }}>{t('loading')}</span>
     </div>
   );
 
@@ -257,7 +283,7 @@ export default function DashboardPage() {
   const sbtiS12 = targets.find(t => t.scope.includes('1'));
   const sbtiS3  = targets.find(t => t.scope.includes('3'));
   const activeMonths = filteredMonthly.filter(m => m.total > 0).length;
-  const monthLabel = `${activeMonths} tháng ${selectedYear}`;
+  const monthLabel = `${activeMonths} ${t('months_of')} ${selectedYear}`;
   // per-factory RCN
   const allRCN = selectedFactory === 'ALL' ? (rcnData?.totalRCN ?? 0) : (rcnByFactory[selectedFactory]?.totalRCN ?? 0);
   const intensity = allRCN > 0 ? totals.total / allRCN : 0;
@@ -267,15 +293,15 @@ export default function DashboardPage() {
   const s3Cats = s3Annual ? [
     { category: 'cat1', label: 'Cat.1 — Cashew', emissions: s3Annual.cat1, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat1 / s3Annual.total * 100) : 0 },
     { category: 'cat3', label: 'Cat.3 — WTT', emissions: s3Annual.cat3, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat3 / s3Annual.total * 100) : 0 },
-    { category: 'cat4', label: 'Cat.4 — Vận chuyển', emissions: s3Annual.cat4, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat4 / s3Annual.total * 100) : 0 },
+    { category: 'cat4', label: `Cat.4 — ${t('cat4_transport')}`, emissions: s3Annual.cat4, percentOfScope: s3Annual.total > 0 ? Math.round(s3Annual.cat4 / s3Annual.total * 100) : 0 },
   ].filter(c => c.emissions > 0) : [];
   // Max total across factories (for bar scaling)
   const maxFacTotal = Math.max(...factorySummaries.map(fs => fs.totalEmissions), 1);
-
+  const isFactoryFiltered = selectedFactory !== 'ALL';
 
   // Format last-updated timestamp
   const lastUpdatedFmt = lastUpdated
-    ? new Date(lastUpdated).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(lastUpdated).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
 
   return (
@@ -286,8 +312,8 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 10, fontSize: 12 }}>
           <span style={{ fontSize: 18 }}>⚠️</span>
           <div>
-            <span style={{ fontWeight: 700, color: '#92400e' }}>Baseline 2021 chưa có dữ liệu thực.</span>
-            <span style={{ color: '#78350f', marginLeft: 6 }}>Hệ thống đang dùng ước tính (×1.25) — SBTi target tracking có thể không chính xác. Hãy nhập dữ liệu năm 2021.</span>
+            <span style={{ fontWeight: 700, color: '#92400e' }}>{t('baseline_warning_title')}</span>
+            <span style={{ color: '#78350f', marginLeft: 6 }}>{t('baseline_warning_body')}</span>
           </div>
         </div>
       )}
@@ -296,10 +322,10 @@ export default function DashboardPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            Tổng quan — GHG Emissions
+            {t('overview')}
             {lastUpdatedFmt && (
               <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--color-text-muted)', background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: 20, letterSpacing: 0 }}>
-                Dữ liệu tới {lastUpdatedFmt}
+                {t('data_until')} {lastUpdatedFmt}
               </span>
             )}
           </div>
@@ -310,7 +336,7 @@ export default function DashboardPage() {
               color: changeVsPrev < 0 ? '#22c55e' : '#ef4444',
               background: changeVsPrev < 0 ? '#dcfce7' : '#fee2e2',
               padding: '2px 8px', borderRadius: 20 }}>
-              {changeVsPrev < 0 ? '↓' : '↑'} {Math.abs(changeVsPrev).toFixed(1)}% vs năm trước
+              {changeVsPrev < 0 ? '↓' : '↑'} {Math.abs(changeVsPrev).toFixed(1)}% {t('vs_prev_year')}
             </span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>{monthLabel}</div>
@@ -325,7 +351,7 @@ export default function DashboardPage() {
               style={{ padding: '4px 10px', borderRadius: 7, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 background: selectedFactory === 'ALL' ? 'var(--color-primary)' : 'transparent',
                 color: selectedFactory === 'ALL' ? '#fff' : 'var(--color-text-muted)',
-              }}>🏭 Tất cả</button>
+              }}>{t('all_factories')}</button>
             {factorySummaries.map(fs => (
               <button key={fs.factory.id}
                 onClick={() => setSelectedFactory(selectedFactory === fs.factory.id ? 'ALL' : fs.factory.id)}
@@ -343,9 +369,41 @@ export default function DashboardPage() {
             {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           <Link href="/overview" style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--color-primary)', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            📊 PPT View
+            {t('ppt_view')}
           </Link>
         </div>
+      </div>
+
+      {/* ══ SBTi TARGETS ROW (MOVED TO TOP) ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {sbtiS12 && (
+          <SBTiProgressCard
+            label={t('sbti_s12')}
+            icon="🏭"
+            targetPct={50}
+            current={isFactoryFiltered
+              ? totals.s1 + totals.s2  // scoped to selected factory
+              : sbtiS12.currentEmissions}
+            base={sbtiS12.baseYearEmissions}
+            color="#E32314"
+            t={t}
+            footer={<Link href="/targets" style={{ fontSize: 9, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}>SBTi #40003759 →</Link>}
+          />
+        )}
+        {sbtiS3 && (
+          <SBTiProgressCard
+            label={t('sbti_s3')}
+            icon="🌍"
+            targetPct={30}
+            current={s3Display > 0 ? s3Display : sbtiS3.currentEmissions}
+            base={sbtiS3.baseYearEmissions}
+            color="#8CB92D"
+            isFactoryFiltered={isFactoryFiltered}
+            t={t}
+            breakdown={s3Cats.map(c => ({ name: c.label.split('—').pop()?.trim() ?? c.label, value: c.emissions, pct: c.percentOfScope }))}
+            footer={s3IsEstimated ? <span style={{ fontSize: 9, color: '#aaa' }}>{t('nearest_year_s3')}</span> : undefined}
+          />
+        )}
       </div>
 
       {/* ══ ROW 1: 3 Scope KPIs + Donut ══ */}
@@ -354,13 +412,13 @@ export default function DashboardPage() {
         {/* Scope 1 */}
         <Link href="/scope-1" style={{ textDecoration: 'none' }}>
           <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_1}`, cursor: 'pointer', height: '100%' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_1, marginBottom: 4 }}>🔥 Scope 1 — Trực tiếp</div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_1, marginBottom: 4 }}>🔥 {t('scope1_label')}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: 'var(--color-text)' }}>
               {formatTCO2e(totals.s1)}
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>tCO₂e</span>
             </div>
             <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-text-muted)' }}>
-              <span style={{ fontWeight: 700, color: S_COLOR.scope_1 }}>{totals.total > 0 ? Math.round(totals.s1 / totals.total * 100) : 0}% of total</span>
+              <span style={{ fontWeight: 700, color: S_COLOR.scope_1 }}>{totals.total > 0 ? Math.round(totals.s1 / totals.total * 100) : 0}% {t('of_total')}</span>
               {scopeSummaries.find(s => s.scope === 'scope_1') && (
                 <span style={{ color: scopeSummaries.find(s => s.scope === 'scope_1')!.changePercent < 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
                   {scopeSummaries.find(s => s.scope === 'scope_1')!.changePercent < 0 ? '↓' : '↑'}
@@ -377,13 +435,13 @@ export default function DashboardPage() {
         {/* Scope 2 */}
         <Link href="/scope-2" style={{ textDecoration: 'none' }}>
           <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_2}`, cursor: 'pointer', height: '100%' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_2, marginBottom: 4 }}>⚡ Scope 2 — Năng lượng</div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_2, marginBottom: 4 }}>⚡ {t('scope2_label')}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: 'var(--color-text)' }}>
               {formatTCO2e(totals.s2)}
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>tCO₂e</span>
             </div>
             <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-text-muted)' }}>
-              <span style={{ fontWeight: 700, color: S_COLOR.scope_2 }}>{totals.total > 0 ? Math.round(totals.s2 / totals.total * 100) : 0}% of total</span>
+              <span style={{ fontWeight: 700, color: S_COLOR.scope_2 }}>{totals.total > 0 ? Math.round(totals.s2 / totals.total * 100) : 0}% {t('of_total')}</span>
               {scopeSummaries.find(s => s.scope === 'scope_2') && (
                 <span style={{ color: scopeSummaries.find(s => s.scope === 'scope_2')!.changePercent < 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
                   {scopeSummaries.find(s => s.scope === 'scope_2')!.changePercent < 0 ? '↓' : '↑'}
@@ -401,9 +459,9 @@ export default function DashboardPage() {
         <Link href="/scope-3" style={{ textDecoration: 'none' }}>
           <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_3}`, cursor: 'pointer', height: '100%' }}>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_3, marginBottom: 4 }}>
-              🌍 Scope 3 — Chuỗi giá trị
-              {s3IsEstimated && <span style={{ fontWeight: 500, color: '#bbb', marginLeft: 4 }}>(năm trước)</span>}
-              <span style={{ fontWeight: 400, fontSize: 9, color: '#bbb', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>* annual, không phân bổ theo nhà máy</span>
+              🌍 {t('scope3_label')}
+              {s3IsEstimated && <span style={{ fontWeight: 500, color: '#bbb', marginLeft: 4 }}>{t('prev_year')}</span>}
+              <span style={{ fontWeight: 400, fontSize: 9, color: '#bbb', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>{t('annual_not_per_factory')}</span>
             </div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: s3IsEstimated ? '#aaa' : 'var(--color-text)' }}>
               {formatTCO2e(s3Display)}
@@ -421,7 +479,13 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div style={{ marginTop: 6, fontSize: 9, color: '#bbb' }}>Cat.1 Nguyên liệu · Cat.3 WTT · Cat.4 Vận chuyển</div>
+              <div style={{ marginTop: 6, fontSize: 9, color: '#bbb' }}>Cat.1 {t('cat1_materials')} · Cat.3 WTT · Cat.4 {t('cat4_transport')}</div>
+            )}
+            {/* Factory filter note for S3 */}
+            {isFactoryFiltered && (
+              <div style={{ marginTop: 4, fontSize: 8, color: '#f59e0b', fontWeight: 600, background: '#fffbeb', padding: '2px 6px', borderRadius: 4 }}>
+                ⚠ {t('scope3_combined')}
+              </div>
             )}
           </div>
         </Link>
@@ -443,47 +507,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ══ SBTi TARGETS ROW ── 2-col grid ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {sbtiS12 && (
-          <SBTiCard
-            label="Scope 1+2 — Vận hành"
-            icon="🏭"
-            targetPct={50}
-            current={sbtiS12.currentEmissions}
-            base={sbtiS12.baseYearEmissions}
-            color="#E32314"
-            footer={<Link href="/targets" style={{ fontSize: 9, color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}>SBTi #40003759 →</Link>}
-          />
-        )}
-        {sbtiS3 && (
-          <SBTiCard
-            label="Scope 3 — Chuỗi giá trị"
-            icon="🌍"
-            targetPct={30}
-            current={s3Display > 0 ? s3Display : sbtiS3.currentEmissions}
-            base={sbtiS3.baseYearEmissions}
-            color="#8CB92D"
-            breakdown={s3Cats.map(c => ({ name: c.label.split('—').pop()?.trim() ?? c.label, value: c.emissions, pct: c.percentOfScope }))}
-            footer={s3IsEstimated ? <span style={{ fontSize: 9, color: '#aaa' }}>Dữ liệu năm gần nhất — S3 annual</span> : undefined}
-          />
-        )}
-      </div>
-
       {/* ══ ROW 2: Monthly Chart + Factory Table ══ */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10, minHeight: 0 }}>
 
         {/* Monthly Stacked Bar */}
         <div className="card" style={{ padding: '12px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>Phát thải theo tháng {selectedYear}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>{t('monthly_emissions')} {selectedYear}</div>
             <div style={{ display: 'flex', gap: 10, fontSize: 10, color: '#888', alignItems: 'center' }}>
               {[['S1', S_COLOR.scope_1], ['S2', S_COLOR.scope_2]].map(([lbl, col]) => (
                 <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                   <span style={{ width: 8, height: 8, background: col as string, borderRadius: 2, display: 'inline-block' }} />{lbl}
                 </span>
               ))}
-              <span style={{ fontSize: 9, color: '#bbb', marginLeft: 4 }}>S3 xem KPI card ↗</span>
+              <span style={{ fontSize: 9, color: '#bbb', marginLeft: 4 }}>{t('s3_see_kpi')}</span>
             </div>
           </div>
           <MiniStackedBar monthly={filteredMonthly} height={110} />
@@ -492,14 +529,14 @@ export default function DashboardPage() {
         {/* Factory Comparison Table */}
         <div className="card" style={{ padding: '12px 16px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>So sánh nhà máy</div>
-            <Link href="/factories" style={{ fontSize: 10, color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}>Xem chi tiết →</Link>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>{t('factory_comparison')}</div>
+            <Link href="/factories" style={{ fontSize: 10, color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}>{t('view_detail')}</Link>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: '1.5px solid #f0f0f0' }}>
-                {['Nhà máy', 'S1', 'S2', 'Total', 'tCO₂e/MT'].map(h => (
-                  <th key={h} style={{ textAlign: h === 'Nhà máy' ? 'left' : 'right', padding: '3px 6px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#aaa', letterSpacing: '0.5px' }}>{h}</th>
+                {[t('factory'), 'S1', 'S2', 'Total', 'tCO₂e/MT'].map(h => (
+                  <th key={h} style={{ textAlign: h === t('factory') ? 'left' : 'right', padding: '3px 6px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#aaa', letterSpacing: '0.5px' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -527,7 +564,7 @@ export default function DashboardPage() {
               })}
               {/* Total row */}
               <tr style={{ borderTop: '1.5px solid #eee', background: '#f8f8f8' }}>
-                <td style={{ padding: '5px 6px', fontWeight: 800, fontSize: 11 }}>🏭 Tổng</td>
+                <td style={{ padding: '5px 6px', fontWeight: 800, fontSize: 11 }}>{t('total_label')}</td>
                 <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_1, fontWeight: 800 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope1, 0))}</td>
                 <td style={{ textAlign: 'right', padding: '5px 6px', color: S_COLOR.scope_2, fontWeight: 800 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope2, 0))}</td>
                 <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 900 }}>{formatNumber(factorySummaries.reduce((s, f) => s + f.scope1 + f.scope2, 0))}</td>
@@ -543,7 +580,7 @@ export default function DashboardPage() {
       {/* ══ ROW 3: Factory mini-bars (visual share) ══ */}
       <div className="card" style={{ padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>Phân bổ phát thải theo nhà máy</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>{t('factory_distribution')}</div>
           <div style={{ fontSize: 10, color: '#aaa' }}>Stacked: S1 · S2 · S3 (tCO₂e)</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -582,13 +619,13 @@ export default function DashboardPage() {
       {/* ══ ROW 4: Quick Links ══ */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {[
-          { href: '/scope-1', icon: '🔥', label: 'Scope 1 Detail', color: S_COLOR.scope_1 },
-          { href: '/scope-2', icon: '⚡', label: 'Scope 2 Detail', color: S_COLOR.scope_2 },
-          { href: '/scope-3', icon: '🌍', label: 'Scope 3 Detail', color: S_COLOR.scope_3 },
-          { href: '/targets', icon: '🎯', label: 'SBTi Targets', color: '#6366f1' },
-          { href: '/factories', icon: '🏭', label: 'Factory Compare', color: '#0ea5e9' },
-          { href: '/opex-report', icon: '📋', label: 'OpEx Report', color: '#8b5cf6' },
-          { href: '/reference', icon: '📖', label: 'Reference & EF', color: '#6b7280' },
+          { href: '/scope-1', icon: '🔥', label: t('scope1_detail'), color: S_COLOR.scope_1 },
+          { href: '/scope-2', icon: '⚡', label: t('scope2_detail'), color: S_COLOR.scope_2 },
+          { href: '/scope-3', icon: '🌍', label: t('scope3_detail'), color: S_COLOR.scope_3 },
+          { href: '/targets', icon: '🎯', label: t('sbti_targets_link'), color: '#6366f1' },
+          { href: '/factories', icon: '🏭', label: t('factory_compare'), color: '#0ea5e9' },
+          { href: '/opex-report', icon: '📋', label: t('opex_report'), color: '#8b5cf6' },
+          { href: '/reference', icon: '📖', label: t('reference_ef'), color: '#6b7280' },
         ].map(link => (
           <Link key={link.href} href={link.href} style={{ textDecoration: 'none' }}>
             <div style={{

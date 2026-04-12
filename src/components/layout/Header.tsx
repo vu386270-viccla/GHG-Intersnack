@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { useI18n } from '@/lib/i18n';
 
 const PAGE_TITLES: Record<string, { title: string; accent?: string }> = {
   '/': { title: 'Tổng quan', accent: 'GHG Emissions' },
@@ -37,6 +38,7 @@ function HeaderInner() {
   };
 
   const { user, role, signOut } = useAuth();
+  const { lang, toggle: toggleLang } = useI18n();
 
   return (
     <header className="header">
@@ -46,6 +48,18 @@ function HeaderInner() {
       </div>
 
       <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Language toggle */}
+        <button
+          onClick={toggleLang}
+          title={lang === 'en' ? 'Switch to Vietnamese' : 'Chuyển sang tiếng Anh'}
+          style={{
+            padding: '4px 10px', borderRadius: 8, border: '1px solid #e5e7eb',
+            background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+            color: '#6b7280', transition: 'all 0.15s', letterSpacing: '0.5px',
+          }}
+        >
+          {lang === 'en' ? '🇻🇳 VI' : '🇬🇧 EN'}
+        </button>
         {isOpex && (
           /* ── Pill-style toggle group ── */
           <div style={{

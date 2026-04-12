@@ -3,6 +3,7 @@ import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { AuthProvider } from '@/lib/auth-context';
+import { I18nProvider } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,17 +23,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    <html lang="en">
       <body>
-        <AuthProvider>
-          <div className="app-layout">
-            <Sidebar />
-            <Header />
-            <main className="main-content">
-              {children}
-            </main>
-          </div>
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <div className="app-layout">
+              <Sidebar />
+              <Header />
+              <main className="main-content">
+                {children}
+              </main>
+            </div>
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );
