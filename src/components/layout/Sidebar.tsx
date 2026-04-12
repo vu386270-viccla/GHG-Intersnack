@@ -41,6 +41,8 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
 
+  if (pathname === '/login') return null;
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border-light)' }}>

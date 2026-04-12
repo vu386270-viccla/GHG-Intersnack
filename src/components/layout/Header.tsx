@@ -24,10 +24,11 @@ function HeaderInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pageInfo = PAGE_TITLES[pathname] || PAGE_TITLES['/'];
-
   const isOpex = pathname === '/opex-report';
   const showIntensity = searchParams.get('intensity') === '1';
   const showOrigin    = searchParams.get('origin')    === '1';
+
+  if (pathname === '/login') return null;
 
   const toggle = (key: string, current: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
