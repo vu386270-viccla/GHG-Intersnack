@@ -570,6 +570,8 @@ export interface Scope3YearRow {
   totalFlag: number;     // Cat.1
   totalNonFlag: number;  // Cat.3 + Cat.4
   total: number;
+  isEstimated?: boolean; // true when Cat.1/Cat.4 come from a fallback year
+  resolvedYear?: number; // the actual year used for Cat.1/Cat.4 static data
 }
 
 // WTT emission factors (kg CO2e per activity unit)
@@ -631,6 +633,8 @@ export async function getScope3SummaryData(): Promise<{
       totalFlag: cat1,
       totalNonFlag: cat3 + cat4v + cat4r,
       total: cat1 + cat3 + cat4v + cat4r,
+      isEstimated: s3.isEstimated,
+      resolvedYear: s3.resolvedYear,
     };
   }).filter(r => r.total > 0);
 

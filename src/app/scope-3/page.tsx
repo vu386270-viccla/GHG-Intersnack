@@ -250,6 +250,23 @@ export default function Scope3Page() {
         </div>
       )}
 
+      {/* ── Estimated Cat.1/Cat.4 Banner (when fallback year used) ── */}
+      {selected && selected.isEstimated && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: '#EBF8FF', border: '1.5px solid #4A9E8C',
+          borderRadius: 8, padding: '8px 14px', marginBottom: 10, fontSize: 12,
+        }}>
+          <span style={{ fontSize: 18 }}>📋</span>
+          <div>
+            <span style={{ fontWeight: 700, color: '#4A9E8C' }}>Cat.1 & Cat.4 — Estimated from {selected.resolvedYear} data</span>
+            <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>
+              Full procurement data not yet available for {selected.year}. Showing nearest year ({selected.resolvedYear}) as reference.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── KPI strip ── */}
       {selected && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
