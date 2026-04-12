@@ -523,16 +523,23 @@ export async function getAnnualScopeBreakdown(
 // ── Annual totals by scope — used by Targets page chart ──
 export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s12: number; s3: number }>> {
   // Fetch S1+S2 from emissions_data, S3 from scope3_transport_data
-  const [opsRes, s3Res] = await Promise.all([
+  const [opsRes, s3Res, factoriesRes, fuelRes] = await Promise.all([
     supabase.from('emissions_data')
       .select('year,scope,emissions_tco2e')
       .gte('year', fromYear).lte('year', toYear).limit(10000),
     supabase.from('scope3_transport_data')
       .select('year,em_cashew_kg,km_ton_vessel,km_ton_road')
       .gte('year', fromYear).lte('year', toYear),
+    supabase.from('factories').select('id,country'),
+    supabase.from('emissions_data')
+      .select('factory_id,year,category,activity_data')
+      .gte('year', fromYear).lte('year', toYear)
+      .in('category', ['diesel', 'lpg', 'electricity'])
   ]);
 
   const result: Record<number, { s12: number; s3: number }> = {};
+  const factoryCountry: Record<string, string> = {};
+  for (const f of factoriesRes.data || []) factoryCountry[f.id] = f.country;
 
   for (const e of opsRes.data || []) {
     if (!result[e.year]) result[e.year] = { s12: 0, s3: 0 };
@@ -547,6 +554,18 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
     const cat4 = ((Number(r.km_ton_vessel) || 0) * 0.01604 + (Number(r.km_ton_road) || 0) * 0.07547) / 1000;
     s3ByYear[r.year] = (s3ByYear[r.year] || 0) + cat1 + cat4;
   }
+
+  // Add WTT (Cat.3)
+  for (const r of fuelRes.data || []) {
+    const isIndia = factoryCountry[r.factory_id] === 'India';
+    const act = Number(r.activity_data) || 0;
+    let wtt = 0;
+    if (r.category === 'diesel')      wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
+    else if (r.category === 'lpg')    wtt = act * WTT.lpg;
+    else if (r.category === 'electricity') wtt = act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
+    s3ByYear[r.year] = (s3ByYear[r.year] || 0) + wtt;
+  }
+
   for (const [yr, val] of Object.entries(s3ByYear)) {
     const y = Number(yr);
     if (!result[y]) result[y] = { s12: 0, s3: 0 };
