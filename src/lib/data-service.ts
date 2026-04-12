@@ -52,11 +52,20 @@ async function fetchData(year: number) {
     supabase.from('factories').select('*'),
     supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e,cost_usd')
       .eq('year', year)
-      .limit(5000),  // Supabase default cap is 1000; 4 plants × 12 months × ~25 categories = ~1200/yr
+      .limit(5000),
   ]);
 
-  const factories = (factoriesRes.data || []) as Factory[];
-  const emissions = (emissionsRes.data || []) as RawEmission[];
+  // Surface Supabase errors immediately — silent fallback to [] would
+  // make the dashboard show all-zeros instead of a visible error.
+  if (factoriesRes.error) {
+    throw new Error(`[DB] factories: ${factoriesRes.error.message}`);
+  }
+  if (emissionsRes.error) {
+    throw new Error(`[DB] emissions_data (${year}): ${emissionsRes.error.message}`);
+  }
+
+  const factories = (factoriesRes.data ?? []) as Factory[];
+  const emissions = (emissionsRes.data ?? []) as RawEmission[];
 
   _cache = { factories, emissions, year, timestamp: Date.now() };
   return _cache;
@@ -64,12 +73,14 @@ async function fetchData(year: number) {
 
 // ── Get previous year data for comparison ──
 async function fetchPrevYear(year: number) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('emissions_data')
     .select('scope,emissions_tco2e')
     .eq('year', year - 1)
     .limit(5000);
-  return (data || []) as { scope: string; emissions_tco2e: number }[];
+  // Non-fatal: prev-year comparison just shows 0% change on error
+  if (error) console.warn(`[DB] emissions_data prev year (${year - 1}):`, error.message);
+  return (data ?? []) as { scope: string; emissions_tco2e: number }[];
 }
 
 // ── Main data function ──
@@ -134,8 +145,11 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     year !== 2021
       ? supabase.from('scope3_transport_data')
           .select('em_cashew_kg,km_ton_vessel,km_ton_road').eq('year', 2021)
-      : Promise.resolve({ data: null as any }),
+      : Promise.resolve({ data: null as any, error: null }),
   ]);
+  // Non-fatal: S3 will show 0 if transport table is unavailable
+  if (s3TransRes.error) console.warn(`[DB] scope3_transport_data (${year}):`, s3TransRes.error.message);
+  if (s3Trans2021Res.error) console.warn('[DB] scope3_transport_data (2021):', s3Trans2021Res.error.message);
 
   let s3Cat3Wtt = 0;
   for (const e of emissions) {
