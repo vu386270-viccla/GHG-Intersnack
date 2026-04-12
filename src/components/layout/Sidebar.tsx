@@ -46,9 +46,9 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border-light)' }}>
-        {/* Intersnack logo — place intersnack-logo.png in public/ */}
+        {/* Intersnack logo */}
         <img
-          src="/intersnack-logo.png"
+          src="/intersnack-logo.jpg"
           alt="Intersnack"
           style={{ width: '120px', height: 'auto', display: 'block', objectFit: 'contain' }}
         />

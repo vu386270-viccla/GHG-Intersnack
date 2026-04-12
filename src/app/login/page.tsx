@@ -30,59 +30,51 @@ export default function LoginPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundImage: 'url(/bg-sustainability.png)',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
+      /* Corporate clean background with subtle warmth */
+      background: 'url(/bg-sustainability.png) center/cover no-repeat',
       fontFamily: 'Inter, system-ui, sans-serif',
       zIndex: 9999, // Guarantees it covers layout margins/sidebar gaps
     }}>
-      {/* Premium dark gradient overlay */}
+      {/* Light overlay to match corporate clean style */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(5,150,105,0.4) 100%)',
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         zIndex: 1
       }} />
 
       <div style={{
-        width: 440,
-        padding: '56px 48px',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: 24,
-        backdropFilter: 'blur(40px)',
-        WebkitBackdropFilter: 'blur(40px)',
-        boxShadow: '0 30px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
         zIndex: 2,
-        color: '#fff',
+        width: 460,
+        padding: '56px 48px',
+        background: '#ffffff',
+        border: '1px solid rgba(0,0,0,0.08)',
+        borderRadius: 16,
+        boxShadow: '0 24px 64px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06)',
+        borderTop: '6px solid #E30613', // Intersnack Corporate Red
+        color: '#1a1a1a',
         position: 'relative'
       }}>
-        {/* Glow effect behind the card */}
-        <div style={{
-           position: 'absolute', width: 250, height: 250, 
-           background: '#10b981', filter: 'blur(100px)', 
-           opacity: 0.15, top: '10%', left: '20%', zIndex: -1, borderRadius: '50%'
-        }} />
-
         {/* Corporate Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 16,
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 20px', fontSize: 28,
-            boxShadow: '0 12px 28px rgba(16,185,129,0.3), inset 0 2px 0 rgba(255,255,255,0.2)',
-          }}>🌿</div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>
-            Intersnack Group
+          <img 
+            src="/intersnack-logo.jpg" 
+            alt="Intersnack Group Logo" 
+            style={{ width: '180px', height: 'auto', display: 'inline-block', marginBottom: '24px' }} 
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.5px', color: '#1a1a1a', textTransform: 'uppercase' }}>
+            Intersnack Cashew Vietnam
           </h1>
-          <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+          <p style={{ fontSize: 13, color: '#e30613', marginTop: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
             Enterprise GHG Dashboard
           </p>
         </div>
 
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#cbd5e1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#4a4a4a', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Work Email
             </label>
             <input
@@ -93,17 +85,17 @@ export default function LoginPage() {
               required
               style={{
                 width: '100%', padding: '14px 16px', boxSizing: 'border-box',
-                background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, color: '#fff', fontSize: 15, outline: 'none',
+                background: '#f9f9f9', border: '1px solid #e0e0e0',
+                borderRadius: 8, color: '#1a1a1a', fontSize: 15, outline: 'none',
                 transition: 'all 0.25s ease',
               }}
-              onFocus={e => { e.target.style.borderColor = '#10b981'; e.target.style.background = 'rgba(0,0,0,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.15)'; }}
-              onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(0,0,0,0.25)'; e.target.style.boxShadow = 'none'; }}
+              onFocus={e => { e.target.style.borderColor = '#e30613'; e.target.style.background = '#ffffff'; e.target.style.boxShadow = '0 0 0 3px rgba(227,6,19,0.1)'; }}
+              onBlur={e => { e.target.style.borderColor = '#e0e0e0'; e.target.style.background = '#f9f9f9'; e.target.style.boxShadow = 'none'; }}
             />
           </div>
 
           <div style={{ marginBottom: 32 }}>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#cbd5e1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#4a4a4a', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Password
             </label>
             <input
@@ -114,21 +106,21 @@ export default function LoginPage() {
               required
               style={{
                 width: '100%', padding: '14px 16px', boxSizing: 'border-box',
-                background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, color: '#fff', fontSize: 15, outline: 'none',
+                background: '#f9f9f9', border: '1px solid #e0e0e0',
+                borderRadius: 8, color: '#1a1a1a', fontSize: 15, outline: 'none',
                 transition: 'all 0.25s ease',
               }}
-              onFocus={e => { e.target.style.borderColor = '#10b981'; e.target.style.background = 'rgba(0,0,0,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.15)'; }}
-              onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(0,0,0,0.25)'; e.target.style.boxShadow = 'none'; }}
+              onFocus={e => { e.target.style.borderColor = '#e30613'; e.target.style.background = '#ffffff'; e.target.style.boxShadow = '0 0 0 3px rgba(227,6,19,0.1)'; }}
+              onBlur={e => { e.target.style.borderColor = '#e0e0e0'; e.target.style.background = '#f9f9f9'; e.target.style.boxShadow = 'none'; }}
             />
           </div>
 
           {error && (
             <div style={{
-              padding: '12px 16px', borderRadius: 10, marginBottom: 20,
-              background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
-              color: '#fca5a5', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
-              backdropFilter: 'blur(10px)'
+              padding: '12px 16px', borderRadius: 8, marginBottom: 20,
+              background: '#fff5f5', border: '1px solid #ffebea',
+              color: '#d32f2f', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+              fontWeight: 500
             }}>
               <span>⚠️</span> {error}
             </div>
@@ -138,20 +130,22 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             style={{
-              width: '100%', padding: '15px', borderRadius: 12,
-              background: loading ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)',
-              color: '#fff', fontWeight: 700, fontSize: 15, border: 'none',
+              width: '100%', padding: '15px', borderRadius: 8,
+              background: loading ? '#e0e0e0' : '#e30613',
+              color: loading ? '#9e9e9e' : '#fff', fontWeight: 700, fontSize: 15, border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s', letterSpacing: '0.5px',
-              boxShadow: loading ? 'none' : '0 8px 20px rgba(16,185,129,0.4)',
+              boxShadow: loading ? 'none' : '0 4px 12px rgba(227,6,19,0.25)',
               position: 'relative', overflow: 'hidden'
             }}
+            onMouseOver={(e) => { if(!loading) e.currentTarget.style.background = '#c20511'; }}
+            onMouseOut={(e) => { if(!loading) e.currentTarget.style.background = '#e30613'; }}
           >
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
 
-        <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>
+        <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid #f0f0f0', textAlign: 'center', fontSize: 12, color: '#757575', fontWeight: 500 }}>
           SBTi Commitment #40003759
         </div>
       </div>
