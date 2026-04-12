@@ -360,7 +360,7 @@ export default function FinancialsPage() {
             Phân tích Tài chính
           </h1>
           <p style={{ margin: 0, color: '#888', fontSize: '13px' }}>
-            Chi phí năng lượng · Hiệu suất USD/tRCN · Rủi ro thuế carbon
+            Chi phí năng lượng · Hiệu suất USD/tRCN · Kịch bản rủi ro carbon
           </p>
         </div>
 
@@ -406,18 +406,27 @@ export default function FinancialsPage() {
           )}
         </div>
 
-        {/* Card 2: Carbon liability */}
-        <div className="animate-fade-in-up" style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #3E7B3E' }}>
-          <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
-            Nợ thuế carbon ước tính ({selectedYear})
+        {/* Card 2: Carbon risk scenario */}
+        <div className="animate-fade-in-up" style={{ background: '#fff', padding: '22px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderLeft: '4px solid #6B7280' }}>
+          <div style={{ color: '#888', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>
+            Rủi ro Carbon — Kịch bản ({selectedYear})
           </div>
-          <div style={{ fontSize: '30px', fontWeight: 800, color: '#111', letterSpacing: '-0.8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', flexShrink: 0 }}>
+              ⚠ Kịch bản — chưa áp dụng tại VN
+            </span>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: '#6B7280', letterSpacing: '-0.8px' }}>
             {$$(metrics.totalCo2ForYear * 25)}
           </div>
-          <div style={{ marginTop: '10px', fontSize: '12px', color: '#aaa', lineHeight: 1.5 }}>
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#aaa', lineHeight: 1.6 }}>
             {fmt(metrics.totalCo2ForYear, 0)} tCO₂e × $25/t
-            <span style={{ display: 'inline-block', background: '#f0fdf4', color: '#166534', borderRadius: '4px', padding: '1px 6px', marginLeft: '6px', fontWeight: 600 }}>
+            <span style={{ display: 'inline-block', background: '#f5f5f5', color: '#666', borderRadius: '4px', padding: '1px 6px', marginLeft: '6px', fontWeight: 600 }}>
               @EU ETS ref.
+            </span>
+            <br />
+            <span style={{ fontSize: '10.5px', color: '#bbb', fontStyle: 'italic' }}>
+              Việt Nam chưa có thuế carbon — số này là kịch bản tham khảo để quản lý rủi ro tương lai.
             </span>
           </div>
         </div>

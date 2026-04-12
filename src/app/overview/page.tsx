@@ -159,57 +159,62 @@ export default function OverviewPage() {
     return { factory: fac, s1, s2, s3, total: s1 + s2 + s3, kWh, s1ByCat, monthly };
   };
 
-  /* ── Multi-year SBTi roadmap data ── (filters by selected factories) */
-  const roadmapData = useMemo(() => {
+  /* ── Multi-year SBTi roadmap data — split S1+S2 vs S3 ── */
+  const { roadmapS12, roadmapS3 } = useMemo(() => {
     const years = [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032];
-    // Base year = 2021, ALL factories (for consistent baseline)
     const baseRows2021 = allEmissions.filter(e => e.year === 2021);
 
-    // Selected factory IDs based on current viewMode
     const selIds = viewMode === 'ALL'
       ? factories.map(f => f.id)
       : viewMode === 'SINGLE'
         ? [factoryA]
         : [factoryA, factoryB];
 
-    // Compute base for selected factories only
     const facCountry = Object.fromEntries(factories.map(f => [f.id, f.country]));
     const baseRowsSel = baseRows2021.filter(e => selIds.includes(e.factory_id));
-    const baseTotalSel = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021);
 
-    // Re-calc base with S3 — use computed S3 (company-wide static data + WTT)
-    const baseTotalSelFull = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021) + computeS3(2021, baseRows2021, facCountry);
+    // Base S1+S2 (operations) — SBTi Near-term target: -50% by 2032
+    const baseS12 = calcS1(baseRowsSel) + calcS2(baseRowsSel, 2021);
+    // Base S3 (value chain) — SBTi Near-term target: -42% by 2032 (SBTi separate commitment)
+    const baseS3 = computeS3(2021, baseRows2021, facCountry);
 
-    return years.map(yr => {
+    const s12 = years.map(yr => {
       const yrRows = allEmissions.filter(e => e.year === yr && selIds.includes(e.factory_id));
-      const s1Total = calcS1(yrRows);
-      const s2Total = calcS2(yrRows, yr);
-      // S3 is company-wide (supply chain), not split per factory — use all factories' fuel data for WTT
-      const allYrRows = allEmissions.filter(e => e.year === yr);
-      const s3Total = computeS3(yr, allYrRows, facCountry);
-      const actual = s1Total + s2Total + s3Total;
-      // Linear SBTi target: from base → -50% by 2032 vs baseline 2021
-      const target = baseTotalSelFull * (1 - 0.50 * ((yr - 2021) / 11));
-      const monthsActive = new Set(yrRows.map(e => e.month)).size;
-
-      // Per-factory breakdown (only selected)
+      const s1 = calcS1(yrRows);
+      const s2 = calcS2(yrRows, yr);
+      const actual = s1 + s2;
+      const target = baseS12 * (1 - 0.50 * ((yr - 2021) / 11));
       const perFactory = factories
         .filter(f => selIds.includes(f.id))
         .map(f => {
           const fData = yrRows.filter(e => e.factory_id === f.id);
-          const s1 = calcS1(fData);
-          const s2 = calcS2(fData, yr, f);
-          return { factory: f, s1, s2, s3: 0, total: s1 + s2 };
+          return { factory: f, s1: calcS1(fData), s2: calcS2(fData, yr, f) };
         });
-
-      // RCN for this year (selected factories)
       const yrRCN = prodData
         .filter(p => p.year === yr && selIds.includes(p.factory_id) && p.category === 'rcn_input')
         .reduce((s, p) => s + Number(p.quantity), 0);
-
-      return { year: yr, actual, s1: s1Total, s2: s2Total, s3: s3Total, target, baseTotal: baseTotalSelFull, monthsActive, perFactory, onTrack: actual <= target, rcn: yrRCN };
+      return { year: yr, actual, s1, s2, target, baseTotal: baseS12, onTrack: actual <= target, perFactory, rcn: yrRCN };
     });
+
+    const s3 = years.map(yr => {
+      const allYrRows = allEmissions.filter(e => e.year === yr);
+      const actual = computeS3(yr, allYrRows, facCountry);
+      const target = baseS3 * (1 - 0.42 * ((yr - 2021) / 11));
+      return { year: yr, actual, target, baseTotal: baseS3, onTrack: actual <= target };
+    });
+
+    return { roadmapS12: s12, roadmapS3: s3 };
   }, [allEmissions, factories, viewMode, factoryA, factoryB, useCommonEF, prodData]);
+
+  // Legacy alias for SINGLE mode and other consumers that still reference roadmapData
+  const roadmapData = useMemo(() => roadmapS12.map((d, i) => ({
+    ...d,
+    s3: roadmapS3[i]?.actual ?? 0,
+    actual: d.actual + (roadmapS3[i]?.actual ?? 0),
+    target: d.target + (roadmapS3[i]?.target ?? 0),
+    baseTotal: d.baseTotal + (roadmapS3[i]?.baseTotal ?? 0),
+    monthsActive: 0,
+  })), [roadmapS12, roadmapS3]);
 
   /* ── SINGLE mode: YoY insight analysis (intensity-based) ── */
   const singleInsight = useMemo(() => {
@@ -593,11 +598,12 @@ export default function OverviewPage() {
 
           {/* RIGHT */}
           <div className="ov-right">
-            {/* ── SBTi ROADMAP — Single unified SVG: bars + intensity track ── */}
-            <div className="ov-roadmap-full">
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+            {/* ── SBTi ROADMAP — 2 charts side-by-side ── */}
+            <div className="ov-roadmap-full" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {/* Row header */}
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
                 <div className="ov-chart-title" style={{ margin: 0, flex: 1 }}>
-                  🎯 SBTi Roadmap — Scope 1+2+3 · 2021 → 2032
+                  🎯 SBTi Roadmap · 2021 → 2032
                   {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
                     <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
                       {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
@@ -609,248 +615,238 @@ export default function OverviewPage() {
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 10, fontSize: 8, color: '#aaa', alignItems: 'center', flexShrink: 0 }}>
-                  {viewMode === 'ALL' && factories.map((f, i) => (
-                    <span key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: 2, background: FAC_COLORS[i % FAC_COLORS.length], display: 'inline-block' }} />
-                      {f.name.split(' ')[0]}
-                    </span>
-                  ))}
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span style={{ borderBottom: '2px dashed #8CB92D', width: 14, display: 'inline-block', verticalAlign: 'middle' }} />
-                    SBTi −50%
-                  </span>
-                  {viewMode === 'SINGLE' && singleFacTarget !== null && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <span style={{ borderBottom: '1.5px dashed #E32314', width: 14, display: 'inline-block', verticalAlign: 'middle' }} />
-                      Target
-                    </span>
-                  )}
-                  <span>✓ OK · ✗ Over</span>
-                </div>
+                <span style={{ fontSize: 7.5, color: '#bbb' }}>✓ On track · ✗ Over target</span>
               </div>
 
-              {/* ── UNIFIED SVG: bars (top) + intensity track (bottom) ── */}
-              {(() => {
-                // Layout constants
-                const W = 740;
-                const PL = 52, PR = 14;
-                const plotW = W - PL - PR;
-                // Bar chart zone
-                const BAR_T = 16, BAR_H = 130, BAR_B = 22;
-                // Intensity zone (below bars)
-                const INT_T = BAR_T + BAR_H + BAR_B + 8; // y-start of intensity strip
-                const INT_H = 48; // height of intensity mini-chart
-                const TOTAL_H = INT_T + INT_H + 12;
-                const n = roadmapData.length;
-                const maxVal = Math.max(...roadmapData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
-                const actualWithRCN = roadmapData.filter(d => d.actual > 0 && d.rcn > 0);
-                const maxInt = actualWithRCN.length > 0 ? Math.max(...actualWithRCN.map(d => d.actual / d.rcn)) * 1.2 : 1;
-                const BAR_W = 28;
+              {/* Two charts side by side */}
+              <div style={{ display: 'flex', gap: 8 }}>
 
-                // Shared x-position per year column
-                const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
-                const xFuture = xOf(6);
+                {/* ── CHART A: Scope 1 + 2 (Operations) ── */}
+                {(() => {
+                  const chartData = roadmapS12;
+                  const W = 358, PL = 44, PR = 10;
+                  const BAR_T = 20, BAR_H = 110, BAR_B = 22;
+                  const INT_T = BAR_T + BAR_H + BAR_B + 4;
+                  const INT_H = 38;
+                  const TOTAL_H = INT_T + INT_H + 10;
+                  const n = chartData.length;
+                  const maxVal = Math.max(...chartData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
+                  const plotW = W - PL - PR;
+                  const BAR_W = 20;
+                  const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
+                  const xFuture = xOf(6);
+                  const actualWithRCN = chartData.filter(d => d.actual > 0 && d.rcn > 0);
+                  const maxInt = actualWithRCN.length > 0 ? Math.max(...actualWithRCN.map(d => d.actual / d.rcn)) * 1.3 : 1;
+                  const singleFacTarget12 = viewMode === 'SINGLE' && chartData.length > 0 && chartData[0].baseTotal > 0
+                    ? chartData[0].baseTotal * 0.5 : null;
 
-                return (
-                  <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
-                    {/* ── BAR CHART ZONE ── */}
-                    {/* Future zone bg */}
-                    <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={3} opacity={0.7} />
-                    <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 10} textAnchor="middle" fontSize="8" fill="#ccc" fontWeight="600">PROJECTED</text>
+                  return (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <div style={{ fontSize: 8.5, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                          🔥⚡ Scope 1+2 — Operations
+                        </div>
+                        <div style={{ background: '#fee2e2', color: '#991b1b', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
+                          −50% by 2032
+                        </div>
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
+                        {/* Future bg */}
+                        <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={2} opacity={0.7} />
+                        <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 9} textAnchor="middle" fontSize="7" fill="#ccc" fontWeight="600">PROJECTED</text>
 
-                    {/* Grid lines */}
-                    {[0, 0.25, 0.5, 0.75, 1].map((p, gi) => (
-                      <g key={gi}>
-                        <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
-                          stroke={p === 0 ? '#ccc' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
-                        <text x={PL - 5} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="8" fill="#ccc" fontWeight="500">
-                          {p > 0 ? fmt(maxVal * p) : ''}
-                        </text>
-                      </g>
-                    ))}
+                        {/* Grid */}
+                        {[0, 0.5, 1].map((p, gi) => (
+                          <g key={gi}>
+                            <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
+                              stroke={p === 0 ? '#ccc' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
+                            {p > 0 && <text x={PL - 4} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="7" fill="#ccc" fontWeight="500">{fmt(maxVal * p)}</text>}
+                          </g>
+                        ))}
 
-                    {/* SBTi Pathway dashed line */}
-                    {(() => {
-                      const pts = roadmapData.map((d, i) => {
-                        const x = xOf(i);
-                        const y = BAR_T + BAR_H * (1 - d.target / maxVal);
-                        return `${x},${y}`;
-                      });
-                      return <polyline points={pts.join(' ')} fill="none" stroke="#8CB92D" strokeWidth={2} strokeDasharray="6,3" opacity={0.9} />;
-                    })()}
+                        {/* SBTi pathway */}
+                        <polyline
+                          points={chartData.map((d, i) => `${xOf(i)},${BAR_T + BAR_H * (1 - d.target / maxVal)}`).join(' ')}
+                          fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.9}
+                        />
+                        {/* 2032 target label */}
+                        {(() => {
+                          const last = chartData[n - 1];
+                          const x = xOf(n - 1);
+                          const y = BAR_T + BAR_H * (1 - last.target / maxVal);
+                          return <><circle cx={x} cy={y} r={3} fill="#8CB92D" /><text x={x - 4} y={y - 5} textAnchor="end" fontSize="7" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t</text></>;
+                        })()}
 
-                    {/* 2032 target label */}
-                    {(() => {
-                      const last = roadmapData[roadmapData.length - 1];
-                      const x = xOf(n - 1);
-                      const y = BAR_T + BAR_H * (1 - last.target / maxVal);
-                      return (
-                        <g>
-                          <circle cx={x} cy={y} r={4} fill="#8CB92D" opacity={0.9} />
-                          <text x={x - 6} y={y - 6} textAnchor="end" fontSize="8" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t −50%</text>
-                        </g>
-                      );
-                    })()}
+                        {/* Factory target line SINGLE mode */}
+                        {singleFacTarget12 !== null && (() => {
+                          const ty = BAR_T + BAR_H * (1 - singleFacTarget12 / maxVal);
+                          return <><line x1={PL} y1={ty} x2={W - PR} y2={ty} stroke="#E32314" strokeWidth={1.2} strokeDasharray="4,3" opacity={0.7} /><text x={PL + 3} y={ty - 2} fontSize="7.5" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget12)}t</text></>;
+                        })()}
 
-                    {/* Factory 2032 target line (SINGLE mode) */}
-                    {singleFacTarget !== null && (() => {
-                      const ty = BAR_T + BAR_H * (1 - singleFacTarget / maxVal);
-                      return (
-                        <g>
-                          <line x1={PL} y1={ty} x2={W - PR} y2={ty} stroke="#E32314" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.7} />
-                          <text x={PL + 4} y={ty - 3} fontSize="8.5" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget)}t</text>
-                        </g>
-                      );
-                    })()}
+                        {/* Bars */}
+                        {chartData.map((d, i) => {
+                          const x = xOf(i);
+                          const bx = x - BAR_W / 2;
+                          const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
+                          const isCurrent = d.year === selectedYear;
+                          const onTrack = singleFacTarget12 !== null ? d.actual <= singleFacTarget12 : d.onTrack;
+                          const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
 
-                    {/* Year bars */}
-                    {roadmapData.map((d, i) => {
-                      const x = xOf(i);
-                      const bx = x - BAR_W / 2;
-                      const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
-                      const isCurrent = d.year === selectedYear;
-                      const onTrack = singleFacTarget !== null ? d.actual <= singleFacTarget : d.onTrack;
-                      const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
+                          return (
+                            <g key={d.year}>
+                              {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
+                              {!isFuture && d.actual > 0 && (() => {
+                                const layers = [
+                                  { val: d.s1, col: viewMode !== 'SINGLE' ? '#E32314' : (onTrack ? '#27AE60' : '#E32314') },
+                                  { val: d.s2, col: viewMode !== 'SINGLE' ? '#F5A623' : (onTrack ? '#5BB974' : '#F26B3B') },
+                                ];
+                                let cumH = 0;
+                                return layers.map((layer, li) => {
+                                  if (layer.val <= 0) return null;
+                                  const h = maxVal > 0 ? (layer.val / maxVal) * BAR_H : 0;
+                                  const y = BAR_T + BAR_H - cumH - h;
+                                  cumH += h;
+                                  return <rect key={li} x={bx} y={y} width={BAR_W} height={Math.max(h, 0.5)} rx={li === 1 ? 2 : 0} fill={layer.col} opacity={isCurrent ? 0.92 : 0.5} stroke={isCurrent ? 'rgba(0,0,0,0.12)' : 'none'} strokeWidth={0.5} />;
+                                });
+                              })()}
+                              {d.actual > 0 && (() => {
+                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? '#E32314' : '#999'}>{fmt(d.actual)}</text>;
+                              })()}
+                              {isCurrent && d.actual > 0 && (() => {
+                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
+                                const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
+                              })()}
+                              <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#E32314' : isFuture ? '#ccc' : '#888'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
+                              {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{d.onTrack ? '✓' : '✗'}</text>}
 
-                      return (
-                        <g key={d.year}>
-                          {/* Projected outline */}
-                          {isFuture && (
-                            <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)}
-                              rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.8} strokeDasharray="3,2" opacity={0.3} />
-                          )}
-                          {/* Actual stacked bars: S1 (bottom) + S2 (middle) + S3 (top) */}
-                          {!isFuture && d.actual > 0 && (() => {
-                            const S3_COLOR = '#8CB92D';
-                            const stackLayers = [
-                              { val: d.s1, colorSingle: '#E32314', colorTrack: 'S1' },
-                              { val: d.s2, colorSingle: '#F5A623', colorTrack: 'S2' },
-                              { val: d.s3, colorSingle: S3_COLOR,  colorTrack: 'S3' },
-                            ];
-                            let cumH = 0;
-                            return stackLayers.map((layer, li) => {
-                              if (layer.val <= 0) return null;
-                              const h = maxVal > 0 ? (layer.val / maxVal) * BAR_H : 0;
-                              const y = BAR_T + BAR_H - cumH - h;
-                              cumH += h;
-                              const fIdx = factories.findIndex(f => f.id === d.perFactory[0]?.factory.id);
-                              const facCol = FAC_COLORS[(fIdx >= 0 ? fIdx : 0) % FAC_COLORS.length];
-                              // In ALL/COMPARE mode use scope colors; in SINGLE mode w/ target use on-track
-                              const col = viewMode === 'ALL' || viewMode === 'COMPARE'
-                                ? (li === 0 ? '#E32314' : li === 1 ? '#F5A623' : S3_COLOR)
-                                : (singleFacTarget !== null
-                                    ? (d.actual > singleFacTarget ? '#E32314' : '#27AE60')
-                                    : (li === 0 ? facCol : li === 1 ? '#F5A623' : S3_COLOR));
-                              return (
-                                <rect key={li} x={bx} y={y} width={BAR_W} height={Math.max(h, 0.5)}
-                                  rx={li === stackLayers.length - 1 ? 2 : 0}
-                                  fill={col} opacity={isCurrent ? 0.92 : 0.5}
-                                  stroke={isCurrent ? 'rgba(0,0,0,0.15)' : 'none'} strokeWidth={0.5}
+                              {/* Intensity mini track */}
+                              {(() => {
+                                const hasData = d.actual > 0 && d.rcn > 0;
+                                const intensity = hasData ? d.actual / d.rcn : null;
+                                const intBarH = intensity !== null ? Math.max((intensity / maxInt) * (INT_H - 16), 2) : 0;
+                                const intBarTop = INT_T + (INT_H - 16) - intBarH;
+                                return (
+                                  <g>
+                                    {isCurrent && <rect x={bx - 2} y={INT_T} width={BAR_W + 4} height={INT_H} rx={2} fill="#4338ca" opacity={0.06} />}
+                                    {intensity !== null && <rect x={x - 6} y={intBarTop} width={12} height={intBarH} rx={1.5} fill={isCurrent ? '#4f46e5' : '#a5b4fc'} opacity={isCurrent ? 0.9 : 0.6} />}
+                                    <text x={x} y={INT_T + INT_H - 5} textAnchor="middle" fontSize={isCurrent ? 7.5 : 6.5} fontWeight={isCurrent ? 800 : 500} fill={intensity !== null ? (isCurrent ? '#3730a3' : '#818cf8') : '#ddd'}>
+                                      {intensity !== null ? intensity.toFixed(2) : '—'}
+                                    </text>
+                                    {d.rcn > 0 && <text x={x} y={INT_T + INT_H + 4} textAnchor="middle" fontSize="5.5" fill={isCurrent ? '#6b7280' : '#ccc'} fontWeight={isCurrent ? 600 : 400}>{(d.rcn / 1000).toFixed(0)}k MT</text>}
+                                  </g>
+                                );
+                              })()}
+                            </g>
+                          );
+                        })}
+
+                        {/* Intensity header */}
+                        <text x={PL - 3} y={INT_T + 8} textAnchor="end" fontSize="6" fill="#818cf8" fontWeight="700">t/MT</text>
+                        <line x1={PL} y1={INT_T - 2} x2={W - PR} y2={INT_T - 2} stroke="#e0e7ff" strokeWidth={0.8} />
+                      </svg>
+                      {/* Legend */}
+                      <div style={{ display: 'flex', gap: 8, fontSize: 7.5, color: '#aaa', alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+                        <span><span style={{ width: 8, height: 8, background: '#E32314', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />🔥 S1</span>
+                        <span><span style={{ width: 8, height: 8, background: '#F5A623', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />⚡ S2</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −50%</span>
+                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 6, background: '#a5b4fc', borderRadius: 1.5, display: 'inline-block' }} />tCO₂e/MT RCN</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── CHART B: Scope 3 (Value Chain) ── */}
+                {(() => {
+                  const chartData = roadmapS3;
+                  const W = 358, PL = 44, PR = 10;
+                  const BAR_T = 20, BAR_H = 110, BAR_B = 22;
+                  const TOTAL_H = BAR_T + BAR_H + BAR_B + 14;
+                  const n = chartData.length;
+                  const maxVal = Math.max(...chartData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
+                  const plotW = W - PL - PR;
+                  const BAR_W = 20;
+                  const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
+                  const xFuture = xOf(6);
+
+                  return (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <div style={{ fontSize: 8.5, fontWeight: 800, color: '#8CB92D', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                          🌍 Scope 3 — Value Chain
+                        </div>
+                        <div style={{ background: '#f0fdf4', color: '#166534', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
+                          −42% by 2032
+                        </div>
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
+                        {/* Future bg */}
+                        <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={2} opacity={0.7} />
+                        <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 9} textAnchor="middle" fontSize="7" fill="#ccc" fontWeight="600">PROJECTED</text>
+
+                        {/* Grid */}
+                        {[0, 0.5, 1].map((p, gi) => (
+                          <g key={gi}>
+                            <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
+                              stroke={p === 0 ? '#ccc' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
+                            {p > 0 && <text x={PL - 4} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="7" fill="#ccc" fontWeight="500">{fmt(maxVal * p)}</text>}
+                          </g>
+                        ))}
+
+                        {/* SBTi pathway −42% */}
+                        <polyline
+                          points={chartData.map((d, i) => `${xOf(i)},${BAR_T + BAR_H * (1 - d.target / maxVal)}`).join(' ')}
+                          fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.9}
+                        />
+                        {/* 2032 target label */}
+                        {(() => {
+                          const last = chartData[n - 1];
+                          const x = xOf(n - 1);
+                          const y = BAR_T + BAR_H * (1 - last.target / maxVal);
+                          return <><circle cx={x} cy={y} r={3} fill="#8CB92D" /><text x={x - 4} y={y - 5} textAnchor="end" fontSize="7" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t</text></>;
+                        })()}
+
+                        {/* Bars */}
+                        {chartData.map((d, i) => {
+                          const x = xOf(i);
+                          const bx = x - BAR_W / 2;
+                          const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
+                          const isCurrent = d.year === selectedYear;
+                          const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
+
+                          return (
+                            <g key={d.year}>
+                              {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
+                              {!isFuture && d.actual > 0 && (
+                                <rect x={bx} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0)} width={BAR_W} height={Math.max((maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0), 0.5)} rx={2}
+                                  fill="#8CB92D" opacity={isCurrent ? 0.88 : 0.45}
+                                  stroke={isCurrent ? 'rgba(0,0,0,0.1)' : 'none'} strokeWidth={0.5}
                                 />
-                              );
-                            });
-                          })()}
-                          {/* Total label */}
-                          {d.actual > 0 && (() => {
-                            const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
-                            return (
-                              <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle"
-                                fontSize={isCurrent ? 9 : 7.5} fontWeight={isCurrent ? 900 : 500}
-                                fill={isCurrent ? '#E32314' : '#999'}>
-                                {fmt(d.actual)}
-                              </text>
-                            );
-                          })()}
-                          {/* % vs baseline (current year only) */}
-                          {isCurrent && d.actual > 0 && (() => {
-                            const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
-                            const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
-                            return (
-                              <text x={x} y={BAR_T + BAR_H - totH - 14} textAnchor="middle"
-                                fontSize="8" fontWeight="800"
-                                fill={onTrack ? '#27AE60' : '#E32314'}>
-                                {pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%
-                              </text>
-                            );
-                          })()}
-
-                          {/* Year label */}
-                          <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle"
-                            fontSize={isCurrent ? 9.5 : 8.5}
-                            fill={isCurrent ? '#E32314' : d.year === 2032 ? '#4A6E12' : isFuture ? '#ccc' : '#888'}
-                            fontWeight={isCurrent || d.year === 2032 ? 800 : 400}>
-                            {d.year}
-                          </text>
-                          {/* ✓/✗ */}
-                          {d.actual > 0 && (
-                            <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle"
-                              fontSize="8" fontWeight="800"
-                              fill={onTrack ? '#27AE60' : '#E32314'}>
-                              {onTrack ? '✓' : '✗'}
-                            </text>
-                          )}
-
-                          {/* ── INTENSITY TRACK (bottom zone) ── */}
-                          {(() => {
-                            const hasData = d.actual > 0 && d.rcn > 0;
-                            const intensity = hasData ? d.actual / d.rcn : null;
-                            const intBarH = intensity !== null ? Math.max((intensity / maxInt) * (INT_H - 20), 2) : 0;
-                            const intBarTop = INT_T + (INT_H - 20) - intBarH;
-                            return (
-                              <g>
-                                {/* Strip bg highlight for current */}
-                                {isCurrent && (
-                                  <rect x={bx - 3} y={INT_T} width={BAR_W + 6} height={INT_H + 4} rx={3}
-                                    fill="#4338ca" opacity={0.06} />
-                                )}
-                                {/* Mini bar */}
-                                {intensity !== null && (
-                                  <rect x={x - 8} y={intBarTop} width={16} height={intBarH} rx={2}
-                                    fill={isCurrent ? '#4f46e5' : '#a5b4fc'} opacity={isCurrent ? 0.9 : 0.6} />
-                                )}
-                                {/* Intensity number */}
-                                <text x={x} y={INT_T + INT_H - 8} textAnchor="middle"
-                                  fontSize={isCurrent ? 8.5 : 7.5} fontWeight={isCurrent ? 800 : 500}
-                                  fill={intensity !== null ? (isCurrent ? '#3730a3' : '#818cf8') : '#ddd'}>
-                                  {intensity !== null ? intensity.toFixed(2) : '—'}
-                                </text>
-                                {/* RCN volume */}
-                                {d.rcn > 0 && (
-                                  <text x={x} y={INT_T + INT_H + 3} textAnchor="middle"
-                                    fontSize="6.5" fill={isCurrent ? '#6b7280' : '#ccc'} fontWeight={isCurrent ? 600 : 400}>
-                                    {(d.rcn / 1000).toFixed(0)}k MT
-                                  </text>
-                                )}
-                              </g>
-                            );
-                          })()}
-                        </g>
-                      );
-                    })}
-
-                    {/* Intensity strip header */}
-                    <text x={PL - 4} y={INT_T + 9} textAnchor="end" fontSize="7" fill="#818cf8" fontWeight="700">t/MT</text>
-                    <line x1={PL} y1={INT_T - 3} x2={W - PR} y2={INT_T - 3} stroke="#e0e7ff" strokeWidth={1} />
-                    <text x={PL - 4} y={INT_T + INT_H - 4} textAnchor="end" fontSize="6.5" fill="#c7d2fe">RCN</text>
-                  </svg>
-                );
-              })()}
-
-              {/* Legend row */}
-              <div className="ov-roadmap-legend" style={{ marginTop: 4 }}>
-                <span><span className="ov-legend-dot" style={{ background: '#E32314' }} />🔥 Scope 1</span>
-                <span><span className="ov-legend-dot" style={{ background: '#F5A623' }} />⚡ Scope 2</span>
-                <span><span className="ov-legend-dot" style={{ background: '#8CB92D' }} />🌍 Scope 3</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ borderBottom: '2px dashed #8CB92D', width: 14, display: 'inline-block', verticalAlign: 'middle' }} />
-                  SBTi −50% by 2032
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
-                  <span style={{ width: 10, height: 8, background: '#a5b4fc', borderRadius: 2, display: 'inline-block' }} />
-                  tCO₂e/MT RCN
-                </span>
-                <span style={{ whiteSpace: 'nowrap' }}>✓ On track · ✗ Over</span>
+                              )}
+                              {d.actual > 0 && (() => {
+                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? '#4A6E12' : '#999'}>{fmt(d.actual)}</text>;
+                              })()}
+                              {isCurrent && d.actual > 0 && (() => {
+                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
+                                const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
+                              })()}
+                              <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#4A6E12' : isFuture ? '#ccc' : '#888'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
+                              {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{d.onTrack ? '✓' : '✗'}</text>}
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      {/* Legend */}
+                      <div style={{ display: 'flex', gap: 8, fontSize: 7.5, color: '#aaa', alignItems: 'center', marginTop: 2 }}>
+                        <span><span style={{ width: 8, height: 8, background: '#8CB92D', borderRadius: 2, display: 'inline-block', marginRight: 3, opacity: 0.8 }} />🌍 Scope 3 (Cat.1 + Cat.3 + Cat.4)</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −42%</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

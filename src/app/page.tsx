@@ -23,19 +23,21 @@ function MiniStackedBar({ monthly, height = 80 }: { monthly: MonthlyData[]; heig
   const active = monthly.filter(m => m.total > 0);
   if (active.length === 0) return <div style={{ height }} />;
   const maxV = Math.max(...active.map(m => m.total)) * 1.1;
-  const W = 100, H = height, barW = Math.max(2, (W - 4) / active.length - 2), gap = (W - 4) / active.length;
-  const chartBottom = H - 10; // Reserve 10 units for text
+  const W = 500, H = height;
+  const gap = (W - 20) / active.length;
+  const barW = Math.max(8, gap - 12);
+  const chartBottom = H - 15; // Reserve 15 units for text
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: 'block', overflow: 'visible' }}>
       {active.map((m, i) => {
-        const x = 2 + i * gap;
-        const h1 = (m.scope1 / maxV) * (chartBottom - 4);
-        const h2 = (m.scope2 / maxV) * (chartBottom - 4);
+        const x = 10 + i * gap + (gap - barW) / 2;
+        const h1 = maxV > 0 ? (m.scope1 / maxV) * (chartBottom - 4) : 0;
+        const h2 = maxV > 0 ? (m.scope2 / maxV) * (chartBottom - 4) : 0;
         return (
           <g key={m.month}>
-            <rect x={x} y={chartBottom - h1} width={barW} height={Math.max(h1, 0.5)} fill={S_COLOR.scope_1} opacity={0.8} rx={1} />
-            <rect x={x} y={chartBottom - h1 - h2} width={barW} height={Math.max(h2, 0.5)} fill={S_COLOR.scope_2} opacity={0.85} rx={1} />
-            <text x={x + barW / 2} y={H - 2} textAnchor="middle" fontSize={6} fill="#888" fontWeight={500}>{MONTHS_VI[m.month - 1]?.replace('Th', 'T')}</text>
+            <rect x={x} y={chartBottom - h1} width={barW} height={Math.max(h1, 0.5)} fill={S_COLOR.scope_1} opacity={0.8} rx={1.5} />
+            <rect x={x} y={chartBottom - h1 - h2} width={barW} height={Math.max(h2, 0.5)} fill={S_COLOR.scope_2} opacity={0.85} rx={1.5} />
+            <text x={x + barW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="#888" fontWeight={600}>{MONTHS_VI[m.month - 1]?.replace('Th0', 'T').replace('Th', 'T')}</text>
           </g>
         );
       })}
