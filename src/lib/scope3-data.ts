@@ -41,33 +41,43 @@ export const TRANSPORT_STATIC: Record<number, { vessel: number; road: number; qt
 };
 
 
-/** Nearest available year with static Cat.1 data (i.e. has ORIGIN_MIX entry). */
-export function nearestStaticYear(year: number): number {
+/**
+ * Nearest available year with static Cat.1 data.
+ * Returns null if the requested year is BEFORE the earliest available data
+ * (i.e. we have no basis to fabricate a number).
+ * Fallback to closest past year only if year >= earliest available year.
+ */
+export function nearestStaticYear(year: number): number | null {
   const available = Object.keys(ORIGIN_MIX).map(Number).sort((a, b) => a - b);
   if (available.includes(year)) return year;
   // Find the closest available year ≤ requested year
   const past = available.filter(y => y <= year);
   if (past.length > 0) return past[past.length - 1];
-  return available[0]; // fallback to earliest
+  // Year is before the earliest data — no fabrication allowed
+  return null;
 }
 
 export function getS3StaticCat1and4(year: number) {
-  // If no mix data for this year, use nearest available year
   const resolvedYear = nearestStaticYear(year);
+
+  // No data exists for this year (it's before the earliest available data or beyond)
+  if (resolvedYear === null) {
+    return { cat1: 0, cat4: 0, cat4v: 0, cat4r: 0, isEstimated: false, resolvedYear: null };
+  }
+
   const isEstimated = resolvedYear !== year;
 
   let cat1 = 0;
   const mix = ORIGIN_MIX[resolvedYear] || {};
   for (const [origin, qty] of Object.entries(mix)) {
-    const ef = ORIGIN_EF[origin]?.ef ?? 2.5; 
+    const ef = ORIGIN_EF[origin]?.ef ?? 2.5;
     cat1 += qty * ef; // tCO2e
   }
 
   let cat4 = 0;
   let cat4v = 0;
   let cat4r = 0;
-  const transYear = TRANSPORT_STATIC[resolvedYear] ? resolvedYear : nearestStaticYear(year);
-  const trans = TRANSPORT_STATIC[transYear];
+  const trans = TRANSPORT_STATIC[resolvedYear];
   if (trans) {
     cat4v = trans.vessel * 0.01604 / 1000;
     cat4r = trans.road * 0.07547 / 1000;

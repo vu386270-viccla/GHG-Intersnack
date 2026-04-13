@@ -562,7 +562,7 @@ export interface Scope3YearRow {
   totalNonFlag: number;  // Cat.3 + Cat.4
   total: number;
   isEstimated?: boolean; // true when Cat.1/Cat.4 come from a fallback year
-  resolvedYear?: number; // the actual year used for Cat.1/Cat.4 static data
+  resolvedYear?: number | null; // the actual year used for Cat.1/Cat.4 static data (null = no data)
 }
 
 // WTT emission factors (kg CO2e per activity unit)
@@ -579,7 +579,7 @@ export async function getScope3SummaryData(): Promise<{
   baseline2021: Scope3YearRow | undefined;
 }> {
   const START_YEAR = 2018;
-  const END_YEAR   = new Date().getFullYear() + 1; // include next year if data exists
+  const END_YEAR   = new Date().getFullYear(); // current year only — next year has no real data yet
   const YEARS: number[] = [];
   for (let y = START_YEAR; y <= END_YEAR; y++) YEARS.push(y);
 
