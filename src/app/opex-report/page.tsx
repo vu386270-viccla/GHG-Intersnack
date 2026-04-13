@@ -811,11 +811,11 @@ export default function OpexReportPage() {
       level: 0
     } : null,
     end_s1 > 0 ? {
-      // Baseline 2021 -> End (total reduction vs baseline)
-      fromCol: 0, toCol: s1Bars.length - 1,
-      fromVal: b1, toVal: end_s1,
+      // 2026 -> End (continuous bracket, text shows total reduction vs baseline)
+      fromCol: 6, toCol: s1Bars.length - 1,
+      fromVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), toVal: end_s1,
       text: pctStr(end_s1, b1),
-      level: 1
+      level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
@@ -843,11 +843,11 @@ export default function OpexReportPage() {
       level: 0
     } : null,
     end_s2 > 0 ? {
-      // Baseline 2021 -> End (total reduction vs baseline)
-      fromCol: 0, toCol: s2Bars.length - 1,
-      fromVal: b2, toVal: end_s2,
+      // 2026 -> End (continuous bracket, text shows total reduction vs baseline)
+      fromCol: 6, toCol: s2Bars.length - 1,
+      fromVal: s2Proj(2026), toVal: end_s2,
       text: pctStr(end_s2, b2),
-      level: 1
+      level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
@@ -1482,10 +1482,10 @@ export default function OpexReportPage() {
             text: pctStr(planVal(2026), s3Base.total), level: 0
           } : null,
           planVal(targetEndYear) > 0 ? {
-            // Baseline 2021 -> End (total reduction vs baseline)
-            fromCol: 0, toCol: s3Bars.length - 1,
-            fromVal: s3Base.total, toVal: planVal(targetEndYear),
-            text: pctStr(planVal(targetEndYear), s3Base.total), level: 1
+            // 2026 -> End (continuous bracket, text shows total reduction vs baseline)
+            fromCol: 6, toCol: s3Bars.length - 1,
+            fromVal: planVal(2026), toVal: planVal(targetEndYear),
+            text: pctStr(planVal(targetEndYear), s3Base.total), level: 0
           } : null,
         ].filter(Boolean) as Callout[];
 
