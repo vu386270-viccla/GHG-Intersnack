@@ -313,7 +313,8 @@ function WaterfallChart({
             // Bracket always sits ABOVE the chart area (y < PT) so it never overlaps bars
             const ovalRyLocal = 13;
             const computed = Math.min(fromBarTopY, toBarTopY) - 52 - ((cal.level || 0) * 36);
-            const bracketY = Math.min(computed, PT - ovalRyLocal - 6);
+            const clampY = PT - ovalRyLocal - 6 - ((cal.level || 0) * 36);
+            const bracketY = Math.min(computed, clampY);
 
             // Oval label center
             const midX = (fromX + toX) / 2;
