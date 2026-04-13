@@ -133,10 +133,9 @@ function WaterfallChart({
         <defs>
           {/*
             Arrow marker: right-pointing triangle.
-            With orient="auto", rotates to match line direction.
-            For a DOWNWARD line → becomes downward-pointing arrow. ✓
+            Unique ID per chart to fix SVG global ID referencing bugs.
           */}
-          <marker id="arwD" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
+          <marker id={`arwD-${title.replace(/\s+/g,'')}`} markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
             <polygon points="0,0 8,4 0,8" fill="#555" />
           </marker>
         </defs>
@@ -342,7 +341,7 @@ function WaterfallChart({
                   x1={toX} y1={bracketY}
                   x2={toX} y2={toBarTopY - (bars[cal.toCol]?.isActualPlanSplit ? 20 : 6)}
                   stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-                  markerEnd="url(#arwD)"
+                  markerEnd={`url(#arwD-${title.replace(/\s+/g,'')})`}
                 />
 
                 {/* Oval label */}
