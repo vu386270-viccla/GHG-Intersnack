@@ -112,7 +112,7 @@ function SBTiProgressCard({ label, icon, targetPct, current, base, color, select
     // ⚠️ Cannot judge on-track from partial-year data
     badge = (
       <div style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: '#fef9c3', color: '#92400e', border: '1px solid #fde68a' }}>
-        ⏳ YTD — chưa thể kết luận
+        ⏳ YTD
       </div>
     );
   } else {
