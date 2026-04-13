@@ -115,6 +115,8 @@ const translations: Record<string, Record<Lang, string>> = {
   's3_col_vs2021': { en: 'vs 2021', vi: 'vs 2021' },
   's3_flag_target': { en: 'FLAG target', vi: 'FLAG target' },
   's3_nonflag_target': { en: 'Non-FLAG', vi: 'Non-FLAG' },
+  's3_no_cat14_title': { en: 'No Cat.1 & Cat.4 data', vi: 'Chưa có dữ liệu Cat.1 & Cat.4' },
+  's3_no_cat14_body': { en: 'Procurement & transport records for this year were not collected. Only Cat.3 WTT (fuel upstream) is available.', vi: 'Dữ liệu thu mua & vận chuyển năm này chưa được thu thập. Chỉ có Cat.3 WTT (nhiên liệu thượng nguồn).' },
   // ─── GUIDE TEXTS ───
   'guide_title': { en: 'Page Guide', vi: 'Hướng dẫn Trang' },
   'guide_/': { 

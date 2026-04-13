@@ -128,20 +128,32 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
         {rows.map((r, idx) => {
           const x = PAD_L + barGap * idx + (barGap - barW) / 2;
           const segs = [r.cat1_cashew, r.cat4_vessel, r.cat4_road, r.cat3_wtt];
+          const isPreBase = r.year < BASE_YEAR;
           let cumY = PAD_T + chartH;
           return (
             <g key={r.year}>
+              {/* Hatched background for pre-2021 bars */}
+              {isPreBase && (
+                <rect x={x - 2} y={PAD_T} width={barW + 4} height={chartH}
+                  fill="#94a3b820" rx={2} />
+              )}
               {segs.map((seg, si) => {
                 const segH = (seg / maxVal) * chartH;
                 const y = cumY - segH;
                 cumY = y;
                 return (
-                  <rect key={si} x={x} y={y} width={barW} height={segH} fill={cols[si]} rx={si === segs.length - 1 ? 2 : 0}>
-                    <title>{lbls[si]}: {fmt(seg)} tCO₂e</title>
+                  <rect key={si} x={x} y={y} width={barW} height={segH}
+                    fill={isPreBase && si < 3 ? `${cols[si]}60` : cols[si]}
+                    rx={si === segs.length - 1 ? 2 : 0}>
+                    <title>{lbls[si]}: {fmt(seg)} tCO₂e{isPreBase && si < 3 ? ' (no data)' : ''}</title>
                   </rect>
                 );
               })}
-              <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={10} fill="var(--color-text-secondary)">{r.year}</text>
+              <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={10}
+                fill={isPreBase ? '#94a3b8' : 'var(--color-text-secondary)'}>{r.year}</text>
+              {isPreBase && (
+                <text x={x + barW / 2} y={H - 16} textAnchor="middle" fontSize={7} fill="#94a3b8">Cat.3</text>
+              )}
               <text x={x + barW / 2} y={PAD_T + chartH - (r.total / maxVal) * chartH - 4}
                 textAnchor="middle" fontSize={8} fill="var(--color-text)" fontWeight={600}>{fmt(r.total)}</text>
             </g>
@@ -278,6 +290,25 @@ export default function Scope3Page() {
         </div>
       )}
 
+      {/* ── Pre-2021: No Cat.1/Cat.4 Banner ── */}
+      {selected && selected.year < BASE_YEAR && (
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          background: '#f1f5f920', border: '1.5px solid #64748b',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 10, fontSize: 12,
+        }}>
+          <span style={{ fontSize: 18, flexShrink: 0 }}>📭</span>
+          <div>
+            <div style={{ fontWeight: 700, color: '#64748b', marginBottom: 2 }}>
+              {t('s3_no_cat14_title')} — {selected.year}
+            </div>
+            <div style={{ color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+              {t('s3_no_cat14_body')}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── KPI strip ── */}
       {selected && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
@@ -389,6 +420,7 @@ export default function Scope3Page() {
                       {isBase && <span style={{ marginLeft: 5, fontSize: 9, color: GREEN, background: `${GREEN}20`, padding: '1px 5px', borderRadius: 8 }}>BASE</span>}
                       {isSelected && !isBase && !isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#6366F1', background: '#6366F115', padding: '1px 5px', borderRadius: 8 }}>ACTIVE</span>}
                       {isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#F59E0B', background: '#F59E0B20', padding: '1px 5px', borderRadius: 8 }}>⚠️ YTD</span>}
+                      {r.year < BASE_YEAR && <span style={{ marginLeft: 5, fontSize: 9, color: '#64748b', background: '#64748b18', padding: '1px 5px', borderRadius: 8 }}>Cat.3 only</span>}
                     </td>
                     {[r.cat1_cashew, r.cat4_vessel, r.cat4_road, r.cat3_wtt, r.totalFlag, r.totalNonFlag, r.total].map((v, vi) => (
                       <td key={vi} style={{ padding: '7px 10px', textAlign: 'right', color: vi >= 4 ? 'var(--color-text)' : 'var(--color-text-secondary)', fontWeight: vi >= 4 ? 600 : 400 }}>{fmt(v)}</td>
