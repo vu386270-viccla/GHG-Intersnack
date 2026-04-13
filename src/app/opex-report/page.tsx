@@ -1198,31 +1198,32 @@ export default function OpexReportPage() {
                     {yoy2025_s1 > 0 ? '+' : ''}{fmt(yoy2025_s1)} tCO₂e
                   </strong>.
                   {bestS1.delta < 0 && (
-                    <> {' '}Highest reduction cycle: <strong style={{ color: '#3E7B3E' }}>{bestS1.year}</strong> ({fmt(Math.abs(bestS1.delta))} tCO₂e drop).</>
+                    <> {lang === 'vi' ? 'Chu kỳ giảm mạnh nhất:' : 'Highest reduction cycle:'} <strong style={{ color: '#3E7B3E' }}>{bestS1.year}</strong> ({fmt(Math.abs(bestS1.delta))} {lang === 'vi' ? 'tCO₂e giảm' : 'tCO₂e drop'}).</>
                   )}
                   {worstS1.delta > 0 && (
-                    <> Peak volume increase: <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
+                    <> {lang === 'vi' ? 'Đợt tăng phát thải cao điểm:' : 'Peak volume increase:'} <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
                   )}
                 </p>
 
                 <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
-                  <strong>📊 Intensity Analysis (Scope 1/RCN):</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
-                  {' '}Intensity shift:{' '}
+                  <strong>📊 {lang === 'vi' ? 'Phân tích Cường độ (Scope 1/RCN):' : 'Intensity Analysis (Scope 1/RCN):'}</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
+                  {' '}{lang === 'vi' ? 'Biến động cường độ:' : 'Intensity shift:'}{' '}
                   <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
-                  {' '}vs Production shift:{' '}
+                  {' '}{lang === 'vi' ? 'so với thay đổi sản lượng:' : 'vs Production shift:'}{' '}
                   <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
-                  {' '}<em>{intGrowth > 0 ? 'Emissions outpaced production, indicating heat/boiler inefficiency.' : 'Efficiency improvements offset production volume impacts.'}</em>
+                  {' '}<em>{intGrowth > 0 ? (lang === 'vi' ? 'Tăng phát thải vượt mức tăng sản lượng, cho thấy lò hơi đun sinh khối đun kém hiệu quả.' : 'Emissions outpaced production, indicating heat/boiler inefficiency.') : (lang === 'vi' ? 'Cải thiện hiệu suất bù đắp được mức tăng do sản lượng.' : 'Efficiency improvements offset production volume impacts.')}</em>
                 </p>
 
                 {selectedFac === 'ALL' && (
                   <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
-                    <strong>🔍 Emission Source Breakdown (2024 → 2025):</strong>{' '}
-                    Scope 1 reduction was <strong>NOT</strong> driven by firewood or diesel —{' '}
-                    <span style={{ color: '#C8281A' }}>Wood logs +5% (+8.9 tCO₂e)</span>,{' '}
-                    <span style={{ color: '#C8281A' }}>Diesel flat (+0.6 tCO₂e)</span>.{' '}
-                    The net decrease came from <strong style={{ color: '#3E7B3E' }}>R410a refrigerant phaseout at India factory (−33 tCO₂e)</strong> and{' '}
-                    <span style={{ color: '#3E7B3E' }}>R134a elimination (−3.3 tCO₂e)</span>.{' '}
-                    <em>Firewood remains the largest source — ongoing biomass reduction is required to sustain the target trajectory.</em>
+                    <strong>🔍 {lang === 'vi' ? 'Phân rã Nguồn phát thải (2024 → 2025):' : 'Emission Source Breakdown (2024 → 2025):'}</strong>{' '}
+                    {lang === 'vi' ? 'Động lực giảm Scope 1' : 'Scope 1 reduction was'}{' '}<strong>{lang === 'vi' ? 'KHÔNG' : 'NOT'}</strong>{' '}{lang === 'vi' ? 'đến từ củi đun hay dầu diesel —' : 'driven by firewood or diesel —'}{' '}
+                    <span style={{ color: '#C8281A' }}>{lang === 'vi' ? 'Củi khúc +5% (+8.9 tCO₂e)' : 'Wood logs +5% (+8.9 tCO₂e)'}</span>,{' '}
+                    <span style={{ color: '#C8281A' }}>{lang === 'vi' ? 'Diesel đi ngang (+0.6 tCO₂e)' : 'Diesel flat (+0.6 tCO₂e)'}</span>.{' '}
+                    {lang === 'vi' ? 'Phần giảm thực tế đến từ việc' : 'The net decrease came from'}{' '}
+                    <strong style={{ color: '#3E7B3E' }}>{lang === 'vi' ? 'loại bỏ dung môi lạnh R410a tại nhà máy Ấn Độ (−33 tCO₂e)' : 'R410a refrigerant phaseout at India factory (−33 tCO₂e)'}</strong>{' '}{lang === 'vi' ? 'và' : 'and'}{' '}
+                    <span style={{ color: '#3E7B3E' }}>{lang === 'vi' ? 'R134a (−3.3 tCO₂e)' : 'R134a elimination (−3.3 tCO₂e)'}</span>.{' '}
+                    <em>{lang === 'vi' ? 'Củi đốt vẫn là nguồn phát lớn nhất — cần tiếp tục giảm sử dụng sinh khối để giữ vững đà đạt Target.' : 'Firewood remains the largest source — ongoing biomass reduction is required to sustain the target trajectory.'}</em>
                   </p>
                 )}
 
