@@ -186,6 +186,15 @@ export default function Scope3Page() {
   const availYears = useMemo(() => rows.map(r => r.year), [rows]);
   const selected   = useMemo(() => rows.find(r => r.year === selYear) || rows[rows.length - 1], [rows, selYear]);
 
+  // ⚠️ All hooks MUST be declared before any early returns
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const breakdownItems = useMemo(() => [
+    { label: t('s3_cat1_ocean_label'), value: selected?.cat1_cashew ?? 0, color: DARK_GREEN, note: t('s3_cat1_ocean_note') },
+    { label: t('s3_cat4_ocean_label'), value: selected?.cat4_vessel ?? 0, color: '#4A9E8C',  note: t('s3_cat4_ocean_note') },
+    { label: t('s3_cat4_road_label'),  value: selected?.cat4_road  ?? 0,  color: '#4A7A12',  note: t('s3_cat4_road_note') },
+    { label: t('s3_cat3_wtt_label'),  value: selected?.cat3_wtt   ?? 0,  color: '#90BE6D',  note: t('s3_cat3_wtt_note') },
+  ], [selected, lang, t]);
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
       <div className="loading-spinner" />
@@ -196,15 +205,6 @@ export default function Scope3Page() {
   if (error) return (
     <div style={{ color: GREEN, background: `${GREEN}15`, padding: 16, borderRadius: 8, margin: 16 }}>⚠️ {error}</div>
   );
-
-  // Derived strings that depend on lang (force re-memoize on lang change)
-  const breakdownItems = useMemo(() => [
-    { label: t('s3_cat1_ocean_label'), value: selected?.cat1_cashew ?? 0, color: DARK_GREEN, note: t('s3_cat1_ocean_note') },
-    { label: t('s3_cat4_ocean_label'), value: selected?.cat4_vessel ?? 0, color: '#4A9E8C',  note: t('s3_cat4_ocean_note') },
-    { label: t('s3_cat4_road_label'),  value: selected?.cat4_road  ?? 0,  color: '#4A7A12',  note: t('s3_cat4_road_note') },
-    { label: t('s3_cat3_wtt_label'),  value: selected?.cat3_wtt   ?? 0,  color: '#90BE6D',  note: t('s3_cat3_wtt_note') },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [selected, lang]);
 
   const tableHeaders = [
     t('s3_col_year'), 'Cat.1 Cashew', 'Cat.4 Vessel', 'Cat.4 Road', 'Cat.3 WTT',
