@@ -89,6 +89,7 @@ function SBTiProgressCard({ label, icon, targetPct, current, base, color, select
   // ── mode detection ──
   const isPreBaseline  = selectedYear < BASELINE_YEAR;
   const isBaselineYear = selectedYear === BASELINE_YEAR;
+  const isCurrentYear  = selectedYear === new Date().getFullYear();
   const yearsElapsed   = Math.max(0, selectedYear - BASELINE_YEAR);
   const requiredPctNow = targetPct * (yearsElapsed / totalYears); // linear interpolation
   const onTrack        = !isPreBaseline && reducedPct >= requiredPctNow;
@@ -105,6 +106,13 @@ function SBTiProgressCard({ label, icon, targetPct, current, base, color, select
     badge = (
       <div style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: '#eff6ff', color: '#1d4ed8' }}>
         📌 Baseline Year
+      </div>
+    );
+  } else if (isCurrentYear) {
+    // ⚠️ Cannot judge on-track from partial-year data
+    badge = (
+      <div style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: '#fef9c3', color: '#92400e', border: '1px solid #fde68a' }}>
+        ⏳ YTD — chưa thể kết luận
       </div>
     );
   } else {
@@ -233,9 +241,17 @@ function SBTiProgressCard({ label, icon, targetPct, current, base, color, select
       {/* Explanation footnote — only for active tracking years */}
       {!isPreBaseline && !isBaselineYear && (
         <div style={{ fontSize: 9, color: '#aaa', lineHeight: 1.5, borderTop: '1px solid #f5f5f5', paddingTop: 8 }}>
-          📐 {t('track_explain')}
-          <br/>
-          <span style={{ fontWeight: 600 }}>│</span> = {t('linear_benchmark')} {selectedYear}: −{requiredPctNow.toFixed(1)}% {t('target_vs_baseline')}
+          {isCurrentYear ? (
+            <span style={{ color: '#92400e', fontWeight: 600 }}>
+              ⏳ Dữ liệu chưa đủ năm — chỉ có số liệu YTD, không thể xác nhận On Track / Behind cho đến cuối năm.
+            </span>
+          ) : (
+            <>
+              📐 {t('track_explain')}
+              <br/>
+              <span style={{ fontWeight: 600 }}>│</span> = {t('linear_benchmark')} {selectedYear}: −{requiredPctNow.toFixed(1)}% {t('target_vs_baseline')}
+            </>
+          )}
         </div>
       )}
 
