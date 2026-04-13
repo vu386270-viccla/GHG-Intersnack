@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { getScope3SummaryData } from '@/lib/data-service';
 import type { Scope3YearRow } from '@/lib/data-service';
+import { useI18n } from '@/lib/i18n';
 
 const FLAG_TARGET_PCT    = 36.4;
 const NONFLAG_TARGET_PCT = 30.0;
@@ -35,9 +36,10 @@ function KBox({ label, value, color, sub }: { label: string; value: string; colo
 
 // ── Compact Progress Block ──
 function ProgressBlock({
-  label, sublabel, current, baseline, targetPct, color,
+  label, sublabel, progressLbl, currentLbl, current, baseline, targetPct, color,
 }: {
-  label: string; sublabel: string; current: number; baseline: number; targetPct: number; color: string;
+  label: string; sublabel: string; progressLbl: string; currentLbl: string;
+  current: number; baseline: number; targetPct: number; color: string;
 }) {
   const achieved  = pct(current, baseline);
   const progress  = Math.max(0, Math.min(100, (achieved / targetPct) * 100));
@@ -62,7 +64,7 @@ function ProgressBlock({
       {/* Progress bar */}
       <div style={{ marginBottom: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 3 }}>
-          <span>Tiến độ → target −{targetPct}%</span>
+          <span>{progressLbl} −{targetPct}%</span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div style={{ height: 7, background: 'var(--color-border-light)', borderRadius: 4, overflow: 'hidden' }}>
@@ -70,11 +72,11 @@ function ProgressBlock({
         </div>
       </div>
 
-      {/* 3 stats — compact */}
+      {/* 3 stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
         {[
-          { l: '2021 base', v: baseline },
-          { l: 'Hiện tại', v: current, hi: true },
+          { l: `2021 base`, v: baseline },
+          { l: currentLbl, v: current, hi: true },
           { l: `${TARGET_YEAR} target`, v: target2032 },
         ].map(({ l, v, hi }) => (
           <div key={l} style={{ background: 'var(--color-card-bg)', borderRadius: 4, padding: '6px 8px', textAlign: 'center', border: hi ? `1px solid ${color}40` : 'none' }}>
@@ -87,7 +89,7 @@ function ProgressBlock({
   );
 }
 
-// ── Compact Stacked Bar Chart ──
+// ── Stacked Bar Chart ──
 function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: Scope3YearRow | undefined }) {
   const W = 800, H = 200, PAD_L = 50, PAD_B = 30, PAD_T = 16, PAD_R = 16;
   const chartW = W - PAD_L - PAD_R;
@@ -102,7 +104,6 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-        {/* Grid */}
         {ticks.map(t => {
           const y = PAD_T + chartH - (t / maxVal) * chartH;
           return (
@@ -113,7 +114,6 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
           );
         })}
 
-        {/* Baseline */}
         {baseline && (
           <>
             <line x1={PAD_L} x2={W - PAD_R}
@@ -125,7 +125,6 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
           </>
         )}
 
-        {/* Bars */}
         {rows.map((r, idx) => {
           const x = PAD_L + barGap * idx + (barGap - barW) / 2;
           const segs = [r.cat1_cashew, r.cat4_vessel, r.cat4_road, r.cat3_wtt];
@@ -150,7 +149,6 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
         })}
       </svg>
 
-      {/* Legend */}
       <div style={{ display: 'flex', gap: 12, paddingLeft: 50, flexWrap: 'wrap', marginTop: 2 }}>
         {lbls.map((l, i) => (
           <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
@@ -166,13 +164,13 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function Scope3Page() {
+  const { t, lang } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [rows,    setRows]     = useState<Scope3YearRow[]>([]);
   const [baseline, setBaseline] = useState<Scope3YearRow | undefined>();
   const [selYear, setSelYear]  = useState<number>(new Date().getFullYear());
 
-  // A year is YTD if it's the current calendar year (data not yet complete)
   const isYtd = (yr: number) => yr >= CURRENT_YEAR;
 
   useEffect(() => {
@@ -191,13 +189,27 @@ export default function Scope3Page() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
       <div className="loading-spinner" />
-      <span style={{ color: 'var(--color-text-muted)' }}>Đang tải Scope 3...</span>
+      <span style={{ color: 'var(--color-text-muted)' }}>{t('s3_loading')}</span>
     </div>
   );
 
   if (error) return (
     <div style={{ color: GREEN, background: `${GREEN}15`, padding: 16, borderRadius: 8, margin: 16 }}>⚠️ {error}</div>
   );
+
+  // Derived strings that depend on lang (force re-memoize on lang change)
+  const breakdownItems = useMemo(() => [
+    { label: t('s3_cat1_ocean_label'), value: selected?.cat1_cashew ?? 0, color: DARK_GREEN, note: t('s3_cat1_ocean_note') },
+    { label: t('s3_cat4_ocean_label'), value: selected?.cat4_vessel ?? 0, color: '#4A9E8C',  note: t('s3_cat4_ocean_note') },
+    { label: t('s3_cat4_road_label'),  value: selected?.cat4_road  ?? 0,  color: '#4A7A12',  note: t('s3_cat4_road_note') },
+    { label: t('s3_cat3_wtt_label'),  value: selected?.cat3_wtt   ?? 0,  color: '#90BE6D',  note: t('s3_cat3_wtt_note') },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [selected, lang]);
+
+  const tableHeaders = [
+    t('s3_col_year'), 'Cat.1 Cashew', 'Cat.4 Vessel', 'Cat.4 Road', 'Cat.3 WTT',
+    'FLAG', 'Non-FLAG', t('s3_col_total'), t('s3_col_vs2021'),
+  ];
 
   return (
     <div className="page-enter">
@@ -206,7 +218,7 @@ export default function Scope3Page() {
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ color: GREEN }}>🌍</span> Scope 3
-            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>Chuỗi giá trị</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>{t('s3_value_chain')}</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
             SBTi #40003759 · FLAG −36.4% · Non-FLAG −30% by {TARGET_YEAR}
@@ -237,20 +249,19 @@ export default function Scope3Page() {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           background: '#FEF3C720', border: '1.5px solid #F59E0B',
-          borderRadius: 8, padding: '8px 14px', marginBottom: 10,
-          fontSize: 12,
+          borderRadius: 8, padding: '8px 14px', marginBottom: 10, fontSize: 12,
         }}>
           <span style={{ fontSize: 18 }}>⚠️</span>
           <div>
-            <span style={{ fontWeight: 700, color: '#F59E0B' }}>Partial Data — YTD Q1-{selected.year}</span>
+            <span style={{ fontWeight: 700, color: '#F59E0B' }}>{t('s3_partial_title')} Q1-{selected.year}</span>
             <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>
-              Dữ liệu {selected.year} chưa đủ năm · Chưa thể so sánh YoY · Sẽ cập nhật thêm khi có data mới
+              {t('s3_partial_body')}
             </span>
           </div>
         </div>
       )}
 
-      {/* ── Estimated Cat.1/Cat.4 Banner (when fallback year used) ── */}
+      {/* ── Estimated Banner ── */}
       {selected && selected.isEstimated && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
@@ -259,9 +270,9 @@ export default function Scope3Page() {
         }}>
           <span style={{ fontSize: 18 }}>📋</span>
           <div>
-            <span style={{ fontWeight: 700, color: '#4A9E8C' }}>Cat.1 & Cat.4 — Estimated from {selected.resolvedYear} data</span>
+            <span style={{ fontWeight: 700, color: '#4A9E8C' }}>{t('s3_estimated_title')} {selected.resolvedYear} data</span>
             <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>
-              Full procurement data not yet available for {selected.year}. Showing nearest year ({selected.resolvedYear}) as reference.
+              {t('s3_estimated_body_pre')} {selected.year}. {t('s3_estimated_body_post')}
             </span>
           </div>
         </div>
@@ -271,28 +282,32 @@ export default function Scope3Page() {
       {selected && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
           <KBox
-            label={isYtd(selected.year) ? `⚠️ Total Scope 3 (YTD)` : 'Total Scope 3'}
+            label={isYtd(selected.year) ? t('s3_total_ytd') : t('s3_total')}
             value={fmt(selected.total)} color={isYtd(selected.year) ? '#F59E0B' : GREEN} sub="tCO₂e" />
-          <KBox label="🌿 Cat.1 FLAG — Cashew" value={fmt(selected.cat1_cashew)} color={DARK_GREEN} sub="at-farm LUC" />
-          <KBox label="🚢 Cat.4 — Transport" value={fmt(selected.cat4_vessel + selected.cat4_road)} color="#4A9E8C" sub="ocean + road" />
-          <KBox label="⚡ Cat.3 — WTT" value={fmt(selected.cat3_wtt)} color="#90BE6D" sub="diesel + LPG + điện" />
+          <KBox label={t('s3_cat1_label')} value={fmt(selected.cat1_cashew)} color={DARK_GREEN} sub={t('s3_cat1_sub')} />
+          <KBox label={t('s3_cat4_label')} value={fmt(selected.cat4_vessel + selected.cat4_road)} color="#4A9E8C" sub={t('s3_cat4_sub')} />
+          <KBox label={t('s3_cat3_label')} value={fmt(selected.cat3_wtt)} color="#90BE6D" sub={t('s3_cat3_sub')} />
         </div>
       )}
 
-      {/* ── SBTi Progress — 2 columns compact ── */}
+      {/* ── SBTi Progress ── */}
       {baseline && selected && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <ProgressBlock
-            label="🌿 FLAG — Cat.1 Cashew"
-            sublabel="−36.4% by 2032 vs 2021"
+            label={`🌿 FLAG — Cat.1 Cashew`}
+            sublabel={`−36.4% by 2032 vs 2021`}
+            progressLbl={t('s3_progress_lbl')}
+            currentLbl={t('s3_current')}
             current={selected.totalFlag}
             baseline={baseline.totalFlag}
             targetPct={FLAG_TARGET_PCT}
             color={DARK_GREEN}
           />
           <ProgressBlock
-            label="🏭 Non-FLAG — Cat.3 + Cat.4"
-            sublabel="−30% by 2032 vs 2021"
+            label={`🏭 Non-FLAG — Cat.3 + Cat.4`}
+            sublabel={`−30% by 2032 vs 2021`}
+            progressLbl={t('s3_progress_lbl')}
+            currentLbl={t('s3_current')}
             current={selected.totalNonFlag}
             baseline={baseline.totalNonFlag}
             targetPct={NONFLAG_TARGET_PCT}
@@ -304,7 +319,7 @@ export default function Scope3Page() {
       {/* ── Stacked bar chart ── */}
       <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-          Phát thải Scope 3 theo năm — Stacked (tCO₂e)
+          {t('s3_chart_title')}
         </div>
         <StackedBarChart rows={rows} baseline={baseline} />
       </div>
@@ -313,15 +328,10 @@ export default function Scope3Page() {
       {selected && (
         <div className="card" style={{ padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
-            Phân bổ Scope 3 — {selected.year}
+            {t('s3_breakdown_title')} — {selected.year}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-            {[
-              { label: 'Cat.1 Cashew (FLAG)', value: selected.cat1_cashew, color: DARK_GREEN, note: 'at-farm LUC emission' },
-              { label: 'Cat.4 Ocean Freight', value: selected.cat4_vessel, color: '#4A9E8C', note: 'vận tải biển thượng nguồn' },
-              { label: 'Cat.4 Road Freight', value: selected.cat4_road, color: '#4A7A12', note: 'vận tải đường bộ' },
-              { label: 'Cat.3 WTT Fuel', value: selected.cat3_wtt, color: '#90BE6D', note: 'diesel + LPG + điện upstream' },
-            ].map(({ label, value, color, note }) => {
+            {breakdownItems.map(({ label, value, color, note }) => {
               const p = selected.total > 0 ? Math.round((value / selected.total) * 100) : 0;
               return (
                 <div key={label}>
@@ -345,21 +355,21 @@ export default function Scope3Page() {
         </div>
       )}
 
-      {/* ── Detail table — compact full-year view ── */}
+      {/* ── Detail table ── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>Chi tiết theo năm</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>{t('s3_table_title')}</div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'flex', gap: 16 }}>
-            <span>🌿 FLAG target: −{FLAG_TARGET_PCT}% by {TARGET_YEAR}</span>
-            <span>🏭 Non-FLAG: −{NONFLAG_TARGET_PCT}% by {TARGET_YEAR}</span>
+            <span>🌿 {t('s3_flag_target')}: −{FLAG_TARGET_PCT}% by {TARGET_YEAR}</span>
+            <span>🏭 {t('s3_nonflag_target')}: −{NONFLAG_TARGET_PCT}% by {TARGET_YEAR}</span>
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                {['Năm', 'Cat.1 Cashew', 'Cat.4 Vessel', 'Cat.4 Road', 'Cat.3 WTT', 'FLAG', 'Non-FLAG', 'Tổng', 'vs 2021'].map(h => (
-                  <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Năm' ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
+                {tableHeaders.map(h => (
+                  <th key={h} style={{ padding: '6px 10px', textAlign: h === t('s3_col_year') ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
