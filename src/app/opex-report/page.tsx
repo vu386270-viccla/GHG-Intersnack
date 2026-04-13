@@ -1495,29 +1495,29 @@ export default function OpexReportPage() {
         const ogsm = [
           { label:'Scope 3 — absol. CO₂eq (tCO₂e)', vals:[
             s3Base.total, s3_2022?.total||0, s3_2023?.total||0, s3_2024?.total||0,
-            '—', s3Cur.total,
+            s3Cur.total,
             s3_2026ytd ? s3_2026ytd.total : '—',
             planYears[0] ? planVal(planYears[0]) : '—',
             planYears[1] ? planVal(planYears[1]) : '—',
           ]},
           { label:'  ↳ Cat.1 Cashew (FLAG)', vals:[
             s3Base.cat1, s3_2022?.cat1||0, s3_2023?.cat1||0, s3_2024?.cat1||0,
-            '—', s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—','—','—',
+            s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—','—','—',
           ]},
           { label:'  ↳ Cat.3 WTT Fuel & Energy', vals:[
             s3Base.cat3, s3_2022?.cat3||0, s3_2023?.cat3||0, s3_2024?.cat3||0,
-            '—', s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—','—','—',
+            s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—','—','—',
           ]},
           { label:'  ↳ Cat.4 Transport', vals:[
             s3Base.cat4v+s3Base.cat4r, (s3_2022?.cat4v||0)+(s3_2022?.cat4r||0),
             (s3_2023?.cat4v||0)+(s3_2023?.cat4r||0),(s3_2024?.cat4v||0)+(s3_2024?.cat4r||0),
-            '—', s3Cur.cat4v+s3Cur.cat4r,
+            s3Cur.cat4v+s3Cur.cat4r,
             s3_2026ytd ? s3_2026ytd.cat4v+s3_2026ytd.cat4r : '—','—','—',
           ]},
         ];
 
-        const oKeys = ['2021','2022','2023','2024','YTD 2025','2025','Q1 2026*','2026 Plan','2027 Plan'];
-        const oYears = [2021, 2022, 2023, 2024, 2025, 2025, 2026, 2026, 2027]; // year index per column for intensity
+        const oKeys = ['2021','2022','2023','2024','2025','Q1 2026*','2026 Plan','2027 Plan'];
+        const oYears = [2021, 2022, 2023, 2024, 2025, 2026, 2026, 2027]; // year index per column for intensity
         const s3IntLabel = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
 
         return (
@@ -1544,12 +1544,12 @@ export default function OpexReportPage() {
                       <td style={{ padding:'4px 8px', fontWeight: ri===0?700:400, color: ri===0?'#1a1a1a':'#555' }}>{row.label}</td>
                       {row.vals.map((v,vi) => (
                         <td key={vi} style={{ padding:'4px 8px', textAlign:'right',
-                          fontWeight: vi===6 ? 800 : ri===0 ? 600 : 400,
-                          color: vi===4||vi>=7 ? '#777' : vi===6 ? '#7a4f00' : ri===0 ? '#1a1a1a' : '#555',
-                          background: vi===6 ? '#fff8e1' : undefined,
+                          fontWeight: vi===5 ? 800 : ri===0 ? 600 : 400,
+                          color: vi>=6 ? '#777' : vi===5 ? '#7a4f00' : ri===0 ? '#1a1a1a' : '#555',
+                          background: vi===5 ? '#fff8e1' : undefined,
                         }}>
                           {typeof v==='number'
-                            ? (showIntensity && vi < 6 ? fmtInt(v, oYears[vi]) : fmt(v))
+                            ? (showIntensity && vi < 5 ? fmtInt(v, oYears[vi]) : fmt(v))
                             : v}
                         </td>
                       ))}
