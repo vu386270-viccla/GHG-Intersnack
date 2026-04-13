@@ -12,10 +12,12 @@ import { supabase } from '@/lib/supabase';
 // ── Scope 3 WTT constants (mirrored from data-service) ──
 const WTT_FACTORS = [
   { key: 'diesel_VN',  label: 'Diesel (Việt Nam)',  ef: 0.00055,   efUnit: 'tCO₂e/lít',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
-  { key: 'diesel_IN',  label: 'Diesel (Ấn Độ)',     ef: 0.0008058, efUnit: 'tCO₂e/lít',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
-  { key: 'lpg',        label: 'LPG (cả hai)',        ef: 0.392,     efUnit: 'tCO₂e/tấn',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
-  { key: 'elec_VN',   label: 'Điện lưới (VN)',      ef: 0.00006,   efUnit: 'tCO₂e/kWh',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
-  { key: 'elec_IN',   label: 'Điện lưới (India)',   ef: 0.00012,   efUnit: 'tCO₂e/kWh',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
+  { key: 'diesel_IN',  label: 'Diesel (Ấn Độ)',     ef: 0.0006058, efUnit: 'tCO₂e/lít',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
+  { key: 'lpg',        label: 'LPG (cả hai)',       ef: 0.2,       efUnit: 'tCO₂e/tấn',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
+  { key: 'elec_VN',    label: 'Điện lưới (VN)',     ef: 0.00008,   efUnit: 'tCO₂e/kWh',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
+  { key: 'elec_IN',    label: 'Điện lưới (India)',  ef: 0.00012,   efUnit: 'tCO₂e/kWh',  scope: 'Cat.3 WTT', source: 'DEFRA 2023' },
+  { key: 'wood_VN',    label: 'Củi/Gỗ (Việt Nam)',  ef: 0.05214,   efUnit: 'tCO₂e/tấn',  scope: 'Cat.3 WTT', source: 'MONRE / GHG' },
+  { key: 'wood_IN',    label: 'Củi/Gỗ (Ấn Độ)',     ef: 0.24,      efUnit: 'tCO₂e/tấn',  scope: 'Cat.3 WTT', source: 'BEE India' },
 ];
 
 const TRANSPORT_FACTORS = [
@@ -23,13 +25,27 @@ const TRANSPORT_FACTORS = [
   { key: 'road',   label: 'Vận chuyển đường bộ',   ef: 0.07547, efUnit: 'kg CO₂e/tấn-km', scope: 'Cat.4', source: 'DEFRA 2023' },
 ];
 
-const CASHEW_EF = {
+const ORIGIN_FACTORS = [
+  { key: 'Indonesia', label: 'Indonesia', ef: 24.74, flag: true },
+  { key: 'Tanzania',  label: 'Tanzania',  ef: 14.96, flag: true },
+  { key: 'C.Ivory',   label: 'Ivory Coast', ef: 11.23959, flag: true },
+  { key: 'Vietnam',   label: 'Vietnam',   ef: 11.23959, flag: true },
+  { key: 'Guinea-B',  label: 'Bissau',    ef: 9.82, flag: true },
+  { key: 'Senegal',   label: 'Senegal',   ef: 9.82, flag: true },
+  { key: 'Guinea',    label: 'Conakry',   ef: 9.82, flag: true },
+  { key: 'India',     label: 'India',     ef: 4.24971, flag: true },
+  { key: 'Cambodia',  label: 'Cambodia',  ef: 2.7, flag: true },
+  { key: 'Ghana',     label: 'Ghana',     ef: 2.2, flag: true },
+  { key: 'Benin',     label: 'Benin',     ef: 2.13, flag: true },
+  { key: 'Nigeria',   label: 'Nigeria',   ef: 1.56, flag: true },
+];
+
+const CASHEW_INFO = {
   label: 'Hạt điều thô (RCN) — Hàng hóa mua',
-  description: 'Phát thải từ trồng trọt, thu hoạch, sơ chế trước khi nhập nhà máy',
-  source: 'ecoinvent / GHG Protocol FLAG',
+  description: 'Phát thải từ trồng trọt, thu hoạch, sơ chế (theo nguồn gốc / Origin)',
+  source: 'Ecoinvent / GHG Protocol FLAG',
   scope: 'Cat.1 FLAG',
   unit: 'kg CO₂e/kg',
-  note: 'Giá trị được tính từ em_cashew_kg trong bảng scope3_transport_data (CSBP)',
 };
 
 // ── Raw Data types ──
@@ -368,33 +384,53 @@ function EmissionFactorsTab() {
           </span>
         </div>
 
-        {/* Cat.1 */}
+        {/* Cat.1 Origin */}
         <div style={{
           background: 'var(--color-card-bg)', border: `1px solid ${SCOPE_COLORS.scope_3}33`,
-          borderRadius: '12px', padding: '20px 24px', marginBottom: '12px',
+          borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
         }}>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+          <div style={{ padding: '20px 24px', display: 'flex', gap: '16px', alignItems: 'flex-start', borderBottom: '1px solid var(--color-border)' }}>
             <div style={{
               background: `${SCOPE_COLORS.scope_3}15`, padding: '10px 14px',
               borderRadius: '10px', fontSize: '28px', lineHeight: 1,
             }}>📦</div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '14px' }}>{CASHEW_EF.label}</span>
-                <Badge color={SCOPE_COLORS.scope_3}>{CASHEW_EF.scope}</Badge>
+                <span style={{ fontWeight: 700, fontSize: '14px' }}>{CASHEW_INFO.label}</span>
+                <Badge color={SCOPE_COLORS.scope_3}>{CASHEW_INFO.scope}</Badge>
                 <Badge color='#6366F1'>FLAG</Badge>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>{CASHEW_EF.description}</div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>{CASHEW_INFO.description}</div>
               <div style={{ fontSize: '12px', lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
-                <span style={{ background: 'var(--color-border)', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', marginRight: '8px' }}>{CASHEW_EF.source}</span>
-                {CASHEW_EF.note}
+                <span style={{ background: 'var(--color-border)', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', marginRight: '8px' }}>{CASHEW_INFO.source}</span>
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '2px' }}>Đơn vị</div>
-              <div style={{ fontFamily: 'monospace', fontWeight: 700, color: SCOPE_COLORS.scope_3, fontSize: '13px' }}>{CASHEW_EF.unit}</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 700, color: SCOPE_COLORS.scope_3, fontSize: '13px' }}>{CASHEW_INFO.unit}</div>
             </div>
           </div>
+          
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                {['Nguồn gốc (Origin)', 'EF', 'Đơn vị'].map(h => (
+                  <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ORIGIN_FACTORS.sort((a,b)=>b.ef - a.ef).map((row, i) => (
+                <tr key={row.key} style={{ borderBottom: '1px solid var(--color-border)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                  <td style={{ padding: '9px 14px', fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>{row.label}</td>
+                  <td style={{ padding: '9px 14px', fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: SCOPE_COLORS.scope_3 }}>
+                    {row.ef.toLocaleString('vi-VN', { maximumFractionDigits: 7 })}
+                  </td>
+                  <td style={{ padding: '9px 14px', fontSize: '12px', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>kg CO₂e/kg</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Cat.3 WTT */}

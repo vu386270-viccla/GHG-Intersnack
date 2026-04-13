@@ -28,7 +28,7 @@ async function main() {
     const { data, error } = await admin.auth.admin.createUser({
       email: u.email,
       password: u.password,
-      email_confirm: true,           // không cần verify email
+      email_confirm: false,          // yêu cầu verify email
       user_metadata: { role: u.role },
     });
 

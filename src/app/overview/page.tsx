@@ -10,7 +10,7 @@ import { getS3StaticCat1and4 } from '@/lib/scope3-data';
 const COMMON_EF = 0.8041;
 
 // WTT factors (Cat.3 — Well-to-Tank)
-const WTT = { diesel_VN: 0.00055, diesel_IN: 0.0008058, lpg: 0.392, elec_VN: 0.00006, elec_IN: 0.00012 };
+const WTT = { diesel_VN: 0.00055, diesel_IN: 0.0006058, lpg: 0.2, elec_VN: 0.00008, elec_IN: 0.00012, wood_VN: 0.05214, wood_IN: 0.24 };
 
 function computeS3(year: number, rows: { factory_id: string; category: string; activity_data: number }[], facCountry: Record<string, string>): number {
   const s3Stat = getS3StaticCat1and4(year);
@@ -22,6 +22,7 @@ function computeS3(year: number, rows: { factory_id: string; category: string; a
     if (cat === 'diesel')           wtt += act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
     else if (cat === 'lpg')         wtt += act * WTT.lpg;
     else if (cat === 'electricity') wtt += act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
+    else if (cat === 'wood_logs')   wtt += act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
   }
   return s3Stat.cat1 + s3Stat.cat4 + wtt;
 }

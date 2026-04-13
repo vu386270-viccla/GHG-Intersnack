@@ -21,9 +21,10 @@ export const ORIGIN_MIX: Record<number, Record<string, number>> = {
   2023: { 'C.Ivory': 22889, 'Tanzania': 15381, 'Cambodia': 8358, 'Guinea-B': 7321, 'Ghana': 5597, 'Indonesia': 1455, 'Senegal': 1069, 'Vietnam': 1026 },
   2024: { 'C.Ivory': 11463, 'Tanzania': 15588, 'Guinea-B': 16541, 'Indonesia': 4098, 'Ghana': 3034, 'Cambodia': 2429, 'Senegal': 1316, 'Vietnam': 484 },
   2025: { 'C.Ivory': 16530, 'Tanzania': 15492, 'Guinea-B': 15308, 'Ghana': 7788, 'Senegal': 3321, 'Cambodia': 3241, 'Nigeria': 2200, 'Guinea': 1276, 'Indonesia': 984, 'Vietnam': 205 },
-  // 2026: YTD data (partial year — Jan-Apr 2026) from raw shipping records
+  // 2026: YTD data (partial year — update Apr 2026) from raw shipping records
   // Source: user-provided raw data table, India+VN regions combined per origin
-  2026: { 'Tanzania': 13406, 'C.Ivory': 950, 'Guinea-B': 610, 'Indonesia': 156 },
+  // Tanzania = India (3,249.968) + VN (11,174.705) = 14,424.673 MTS → rounded 14,425
+  2026: { 'Tanzania': 14425, 'C.Ivory': 950, 'Guinea-B': 610, 'Indonesia': 156 },
 };
 
 
@@ -34,10 +35,11 @@ export const TRANSPORT_STATIC: Record<number, { vessel: number; road: number; qt
   2023: { vessel:   756_317_036, road:  6_770_330, qty:  63097 },
   2024: { vessel:   541_928_701, road: 11_311_107, qty:  54954 },
   2025: { vessel:   806_825_797, road:  6_748_142, qty:  66346 },
-  // 2026 YTD: vessel = 16,214,090+11,774,816+419+17,518,686 = 45,508,011
-  //           road   = 90,999+76,860+19,700+119,700+316,667 = 623,926
-  //           qty    = 3,250+610+0+156+950+10,156+0 = 15,122 MTS (partial)
-  2026: { vessel: 45_508_011, road: 623_926, qty: 15122 },
+  // 2026 YTD: vessel = 16,214,090+11,774,816+419+17,518,686 = 45,508,011 (unchanged)
+  //           road   = 90,999+76,860+19,700+119,700+1,555,586 = 1,862,845
+  //             (Tanzania VN road updated: 1,555,585.95 → replaces old partial value)
+  //           qty    = 3,250+610+0+156+950+11,175+0 = 16,141 MTS
+  2026: { vessel: 45_508_011, road: 1_862_845, qty: 16141 },
 };
 
 

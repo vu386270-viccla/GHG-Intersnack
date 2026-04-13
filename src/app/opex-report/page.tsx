@@ -59,8 +59,11 @@ interface BarPoint {
   label: string[];
   actual?: number;
   target?: number;
-  isTotal?: boolean;         // draw from baseline (0) to value
-  isSplitSubtotal?: boolean; // draw as actual/estimated stack
+  isTotal?: boolean;           // draw from baseline (0) to value
+  isSplitSubtotal?: boolean;   // draw as actual/estimated stack
+  isActualPlanSplit?: boolean; // 2-color bar: red Q1 actual (bottom), green Q2-Q4 plan (top)
+  q1ActualRatio?: number;      // fraction of bar height that is actual (fallback, default 0.25)
+  splitActualAbsVal?: number;  // absolute value of Q1 actual (used when isTotal=true)
 }
 
 interface Callout {
@@ -204,7 +207,6 @@ function WaterfallChart({
                     <rect x={bx(i)} y={py(val)} width={bw} height={py(val * 0.376) - py(val)} fill={C.estimated} />
                     <rect x={bx(i)} y={py(val * 0.376)} width={bw} height={py(0) - py(val * 0.376)} fill={C.actual} />
                     <rect x={bx(i)} y={py(val)} width={bw} height={py(0) - py(val)} fill="none" stroke="#222" strokeWidth="0.8" />
-                    
                     <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222">
                       {fmt(val * 0.624)}
                     </text>
@@ -212,7 +214,61 @@ function WaterfallChart({
                       {fmt(val * 0.376)}
                     </text>
                   </>
-                ) : (
+                ) : b.isActualPlanSplit ? (() => {
+                  // 2026 TOTAL bar: stands from 0, split at Q1 actual value.
+                  // RED (bottom) = Q1 actual emissions; GREEN (top) = Q2-Q4 plan
+                  const planVal2026 = val; // full-year plan
+                  const baseY  = py(0);          // bottom axis
+                  const topY   = py(planVal2026); // top of bar
+                  const totalH = baseY - topY;
+
+                  // Compute absolute Q1 value (for split + labels)
+                  const q1Abs = b.splitActualAbsVal && b.splitActualAbsVal > 0
+                    ? b.splitActualAbsVal
+                    : Math.round(planVal2026 * (b.q1ActualRatio ?? 0.25));
+                  const planAbs = planVal2026 - q1Abs;
+
+                  // Split geometry
+                  const splitY = py(q1Abs);                   // Y coord of Q1/Plan boundary
+                  const q1H   = Math.max(baseY  - splitY, 4); // red height (0 → q1Abs)
+                  const planH = Math.max(splitY - topY,  4);  // green height (q1Abs → plan)
+
+                  // Compact number formatter for inside-bar labels
+                  const fv = (n: number) =>
+                    n >= 1e6  ? `${(n/1e6).toFixed(1)}M`  :
+                    n >= 1e4  ? `${(n/1e3).toFixed(0)}K`  :
+                    n >= 1000 ? `${(n/1e3).toFixed(1)}K`  :
+                    n.toLocaleString();
+
+                  return (
+                    <>
+                      {/* Connector from previous bar — drawn manually since isTotal suppresses auto connLine */}
+                      {i > 0 && (
+                        <line
+                          x1={bx(i-1)+bw} y1={py(prevVal)}
+                          x2={bx(i)}      y2={py(prevVal)}
+                          stroke="#BBBBBB" strokeWidth={1} strokeDasharray="3,3"
+                        />
+                      )}
+                      {/* Q2-Q4 plan = GREEN (top portion) */}
+                      <rect x={bx(i)} y={topY}  width={bw} height={planH} fill={C.target} rx={2} />
+                      {/* Q1 actual = RED (bottom portion) */}
+                      <rect x={bx(i)} y={splitY} width={bw} height={q1H}   fill={C.actual} />
+                      {/* Outline + white divider */}
+                      <rect x={bx(i)} y={topY} width={bw} height={totalH} fill="none" stroke="#444" strokeWidth={0.8} rx={2} />
+                      <line x1={bx(i)} y1={splitY} x2={bx(i)+bw} y2={splitY} stroke="white" strokeWidth={2.5} />
+                      {/* Numbers only, no labels */}
+                      {planH > 18 && (
+                        <text x={cx(i)} y={topY  + planH/2 + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white">{fv(planAbs)}</text>
+                      )}
+                      {q1H  > 18 && (
+                        <text x={cx(i)} y={splitY + q1H/2  + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white">{fv(q1Abs)}</text>
+                      )}
+                      {/* Total plan value above bar */}
+                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={C.target}>{fv(planVal2026)}</text>
+                    </>
+                  );
+                })() : (
                   <>
                     <rect x={bx(i)} y={boxY} width={bw} height={boxH} fill={color}
                       stroke={
@@ -273,7 +329,7 @@ function WaterfallChart({
                 {/* LEFT vertical drop — no arrow, baseline is the reference start point */}
                 <line
                   x1={fromX} y1={bracketY}
-                  x2={fromX} y2={fromBarTopY - 2}
+                  x2={fromX} y2={fromBarTopY - (bars[cal.fromCol]?.isActualPlanSplit ? 20 : 2)}
                   stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
                 />
 
@@ -283,7 +339,7 @@ function WaterfallChart({
                 {/* RIGHT vertical drop to physical bar top */}
                 <line
                   x1={toX} y1={bracketY}
-                  x2={toX} y2={toBarTopY - 2}
+                  x2={toX} y2={toBarTopY - 20}
                   stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
                   markerEnd="url(#arwD)"
                 />
@@ -312,10 +368,12 @@ function WaterfallChart({
 
 // ── S3 WTT EFs ───────────────────────────────────────────────
 const WTT_DIESEL_VN  = 0.00055;   // tCO2e/L
-const WTT_DIESEL_IN  = 0.0008058; // tCO2e/L
-const WTT_LPG        = 0.392;     // tCO2e/ton
-const WTT_ELEC_VN    = 0.00006;   // tCO2e/kWh
+const WTT_DIESEL_IN  = 0.0006058; // tCO2e/L
+const WTT_LPG        = 0.2;       // tCO2e/ton
+const WTT_ELEC_VN    = 0.00008;   // tCO2e/kWh
 const WTT_ELEC_IN    = 0.00012;   // tCO2e/kWh
+const WTT_WOOD_VN    = 0.05214;   // tCO2e/ton
+const WTT_WOOD_IN    = 0.24;      // tCO2e/ton
 const FLAG_TGT_PCT   = 36.4;
 const NONFLAG_TGT_PCT = 30.0;
 const S3_TARGET_YEAR = 2032;
@@ -490,7 +548,7 @@ export default function OpexReportPage() {
   const [factories, setFactories] = useState<{id: string, country: string, name: string}[]>([]);
   useEffect(() => {
     async function load() {
-      const [facRes, rowRes1, rowRes2, prodRes] = await Promise.all([
+      const [facRes, rowRes1, rowRes2, rowRes3, prodRes] = await Promise.all([
         supabase.from('factories').select('id, name, country'),
         supabase.from('emissions_data')
           .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
@@ -498,13 +556,17 @@ export default function OpexReportPage() {
         supabase.from('emissions_data')
           .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
           .gte('year', 2021).lte('year', 2025).range(1000, 1999),
+        // Q1 2026 YTD (Jan–Mar actual)
+        supabase.from('emissions_data')
+          .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
+          .eq('year', 2026).range(0, 499),
         supabase.from('production_data')
           .select('factory_id, year, category, quantity')
           .eq('category', 'rcn_input'),
       ]);
 
       setFactories(facRes.data || []);
-      setRawEms([...(rowRes1.data || []), ...(rowRes2.data || [])]);
+      setRawEms([...(rowRes1.data || []), ...(rowRes2.data || []), ...(rowRes3.data || [])]);
       setRawProd(prodRes.data || []);
       setLoading(false);
     }
@@ -539,7 +601,7 @@ export default function OpexReportPage() {
       }
     }
 
-    return [2021, 2022, 2023, 2024, 2025].map(year => ({
+    return [2021, 2022, 2023, 2024, 2025, 2026].map(year => ({
       year,
       scope1: Math.round(byYear[year]?.s1 || 0),
       scope2: Math.round(byYear[year]?.s2 || 0),
@@ -554,7 +616,7 @@ export default function OpexReportPage() {
   const s3Data = useMemo(() => {
     const facDict: Record<string,string> = {};
     factories.forEach(f => facDict[f.id] = f.country);
-    const YEARS = [2021,2022,2023,2024,2025];
+    const YEARS = [2021,2022,2023,2024,2025,2026];
 
     // ── Cat.1: sum ORIGIN_MIX × ORIGIN_EF per year ──────────
     const cat1ByYr: Record<number,number> = {};
@@ -594,6 +656,7 @@ export default function OpexReportPage() {
       if(cat === 'diesel')           wtt = act * (isIN ? WTT_DIESEL_IN : WTT_DIESEL_VN);
       else if(cat === 'lpg')         wtt = act * WTT_LPG;
       else if(cat === 'electricity') wtt = act * (isIN ? WTT_ELEC_IN : WTT_ELEC_VN);
+      else if(cat === 'wood_logs')   wtt = act * (isIN ? WTT_WOOD_IN : WTT_WOOD_VN);
       wttByYear[r.year] = (wttByYear[r.year]||0) + wtt;
     }
 
@@ -609,7 +672,7 @@ export default function OpexReportPage() {
 
   // ── Origin breakdown data ─────────────────────────────────
   const originData = useMemo(() => {
-    const YEARS = [2021,2022,2023,2024,2025];
+    const YEARS = [2021,2022,2023,2024,2025,2026];
     return YEARS.map(yr => {
       const mix = ORIGIN_MIX[yr] || {};
       const totalQty = Object.values(mix).reduce((s,v) => s+v, 0);
@@ -655,31 +718,45 @@ export default function OpexReportPage() {
   // From 2027, PT solar offsets ~1,064 tCO₂e/yr from Scope 2 (all-factory or PT-specific view)
   // isSolarFactory: true ONLY when viewing ALL factories or Phan Thiet specifically
   const selectedFactory = factories.find(f => f.id === selectedFac);
+
+  // ── Accent-insensitive PT factory detection ─────────────────────
+  // DB name is "Phan Thiết" (with Vietnamese diacritics); strip accents before compare
+  function stripAccents(s: string): string {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+  const facNameNorm = stripAccents(selectedFactory?.name || '');
   const isSolarFactory = selectedFac === 'ALL' ||
-    selectedFactory?.name?.toLowerCase().includes('phan thiet') ||
-    selectedFactory?.name?.toLowerCase().includes('pt');
-  // Total solar savings accumulated from 2025 to a given year (sum 2027..year)
+    facNameNorm.includes('phan thiet') ||
+    facNameNorm.startsWith('pt') ||
+    facNameNorm === 'pt';
+
+  // Total solar savings accumulated from 2027 to a given year
   const cumulativeSolarSavingByYear = (year: number): number => {
     if (!isSolarFactory) return 0;
     let total = 0;
     for (let y = PT_SOLAR_ONLINE_YEAR; y <= year; y++) total += ptSolarSaving(y);
     return total;
   };
-  // Additional s2 reduction already "baked-in" from solar at ultimateTargetYear
-  const solarSavingAtTarget = isSolarFactory
-    ? ptSolarSaving(ultimateTargetYear)  // annual rate in 2031
-    : 0;
-  // Adjusted final target: baseline requirement minus what solar contributes
-  const s2FinalTargetBase = s2_2025 <= b2 * 0.5 ? s2_2025 * 0.75 : b2 * 0.5;
-  const s2FinalTarget = Math.max(s2FinalTargetBase - solarSavingAtTarget, s2FinalTargetBase * 0.7);
-  const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - s1FinalTarget) / yearsToTarget : 0;
-  const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - s2FinalTarget) / yearsToTarget : 0;
 
-  // Scope 2 projection: baseline reduction trajectory + solar offset from 2027
+  // ── Scope 2 target logic ─────────────────────────────────────────
+  // Each factory targets −50% of its own 2021 baseline (equal proportional burden).
+  // Solar savings for PT are then ADDED ON TOP of the linear cut per year (no pre-deduction
+  // from the final target to avoid double-counting in the annual projection).
+  const s2FinalTargetBase = s2_2025 <= b2 * 0.5 ? s2_2025 * 0.75 : b2 * 0.5;
+  // Linear cut needed to reach 50%-baseline by 2031, WITHOUT solar pre-deduction
+  const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - s1FinalTarget) / yearsToTarget : 0;
+  const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - s2FinalTargetBase) / yearsToTarget : 0;
+  // Also keep for banner info
+  const solarSavingAtTarget = isSolarFactory ? ptSolarSaving(ultimateTargetYear) : 0;
+  const s2FinalTarget = Math.max(s2FinalTargetBase - solarSavingAtTarget, s2FinalTargetBase * 0.7);
+
+  // Scope 2 projection per year:
+  // = (2025 actual) − (linear cut × years) − (solar saving for that year)
+  // Solar kicks in from 2027 only, creating a visible kink in the target line
   const s2Proj = (year: number): number => {
-    const baseline = s2_2025 - s2AnnualCut * (year - 2025);
+    const linearCut = s2_2025 - s2AnnualCut * (year - 2025);
     const solar = isSolarFactory ? ptSolarSaving(year) : 0;
-    return Math.round(Math.max(baseline - solar, 0));
+    return Math.round(Math.max(linearCut - solar, 0));
   };
   const targetProj = (act2025: number, annualCut: number, year: number) =>
     act2025 - annualCut * (year - 2025);
@@ -692,48 +769,65 @@ export default function OpexReportPage() {
 
   const targetBarsS1: BarPoint[] = [];
   const targetBarsS2: BarPoint[] = [];
+  // Q1 2026 actuals — used as the split point in the 2026 total bar
+  const ytd26s1 = get(2026).scope1;
+  const ytd26s2 = get(2026).scope2;
   for (let y = 2026; y <= targetEndYear; y++) {
-    targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s1_2025, s1AnnualCut, y)) });
-    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: s2Proj(y) });
+    const split2026s1 = y === 2026
+      ? { isActualPlanSplit: true, isTotal: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined }
+      : {};
+    const split2026s2 = y === 2026
+      ? { isActualPlanSplit: true, isTotal: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined }
+      : {};
+    targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s1_2025, s1AnnualCut, y)), ...split2026s1 });
+    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: s2Proj(y), ...split2026s2 });
   }
 
   // ── Scope 1 bars ──────────────────────────────────────────
+  // 2025: plain delta bar (like 2022-2024)
+  // req26: required delta from 2025 to 2026 plan
+  // 2026: total bar split — red Q1 actual (bottom) + green Q2-Q4 plan (top)
+  const req26_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, 2026));
   const s1Bars: BarPoint[] = [
     { key: 'base', label: ['Baseline', '2021'], actual: b1, isTotal: true },
     { key: '2022', label: ['2022'], actual: get(2022).scope1 },
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
-    { key: 'd2025', label: ['Δ', '2025'], actual: s1_2025 },
-    { key: '2025', label: ['2025'], actual: s1_2025, isTotal: true },
+    { key: '2025', label: ['2025'], actual: s1_2025 },
+    { key: 'req_2026', label: ['Required', "Plan '26"], target: req26_s1 },
     ...targetBarsS1,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s1, isTotal: true },
   ];
 
   // ── Scope 1 callouts ──────────────────────────────────────
+  // New bar indices: 0=base, 1=2022, 2=2023, 3=2024, 4=2025, 5..n=target, n+1=end
   const s1_2024 = get(2024).scope1;
   const s1Callouts: Callout[] = [
-    b1 > 0 && s1_2025 > 0 ? {
-      fromCol: 0, toCol: 5,
-      fromVal: b1, toVal: s1_2025,
-      text: pctStr(s1_2025, b1),
+    b1 > 0 && get(2026).scope1 > 0 ? {
+      // Baseline 2021 -> 2026
+      fromCol: 0, toCol: 6,
+      fromVal: b1, toVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)),
+      text: pctStr(Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), b1),
       level: 0
     } : null,
-    s1_2025 > 0 && end_s1 > 0 ? {
-      fromCol: 5, toCol: 5 + targetBarsS1.length + 1,
-      fromVal: s1_2025, toVal: end_s1,
-      text: pctStr(end_s1, s1_2025),
+    get(2026).scope1 > 0 && end_s1 > 0 ? {
+      // 2026 -> End
+      fromCol: 6, toCol: s1Bars.length - 1,
+      fromVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), toVal: end_s1,
+      text: pctStr(end_s1, Math.round(targetProj(s1_2025, s1AnnualCut, 2026))),
       level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
   // ── Scope 2 bars ──────────────────────────────────────────
+  const req26_s2 = s2Proj(2026);
   const s2Bars: BarPoint[] = [
     { key: 'base', label: ['Baseline', '2021'], actual: b2, isTotal: true },
     { key: '2022', label: ['2022'], actual: get(2022).scope2 },
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
-    { key: 'd2025', label: ['Δ', '2025'], actual: s2_2025 },
-    { key: '2025', label: ['2025'], actual: s2_2025, isTotal: true },
+    { key: '2025', label: ['2025'], actual: s2_2025 },
+    { key: 'req_2026', label: ['Required', "Plan '26"], target: req26_s2 },
     ...targetBarsS2,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s2, isTotal: true },
   ];
@@ -741,16 +835,18 @@ export default function OpexReportPage() {
   // ── Scope 2 callouts ──────────────────────────────────────
   const s2_2024 = get(2024).scope2;
   const s2Callouts: Callout[] = [
-    b2 > 0 && s2_2025 > 0 ? {
-      fromCol: 0, toCol: 5,
-      fromVal: b2, toVal: s2_2025,
-      text: pctStr(s2_2025, b2),
+    b2 > 0 && get(2026).scope2 > 0 ? {
+      // Baseline 2021 -> 2026
+      fromCol: 0, toCol: 6,
+      fromVal: b2, toVal: s2Proj(2026),
+      text: pctStr(s2Proj(2026), b2),
       level: 0
     } : null,
-    s2_2025 > 0 && end_s2 > 0 ? {
-      fromCol: 5, toCol: 5 + targetBarsS2.length + 1,
-      fromVal: s2_2025, toVal: end_s2,
-      text: pctStr(end_s2, s2_2025),
+    get(2026).scope2 > 0 && end_s2 > 0 ? {
+      // 2026 -> End
+      fromCol: 6, toCol: s2Bars.length - 1,
+      fromVal: s2Proj(2026), toVal: end_s2,
+      text: pctStr(end_s2, s2Proj(2026)),
       level: 0
     } : null,
   ].filter(Boolean) as Callout[];
@@ -862,7 +958,8 @@ export default function OpexReportPage() {
           {/* LEFT: Title */}
           <h1 style={{ margin: 0, fontSize: 'clamp(15px, 2.5vw, 22px)', fontWeight: 900, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
             <span style={{ color: '#C8281A' }}>{lang === 'vi' ? 'Giảm Phát thải CO₂' : 'Reduce CO₂'}</span>
-            <span style={{ color: '#444', fontWeight: 500, fontSize: '0.75em', marginLeft: 6 }}>SBTi Annual 2025</span>
+            <span style={{ color: '#444', fontWeight: 500, fontSize: '0.75em', marginLeft: 6 }}>Annual 2025</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 8, background: '#FFF3CD', border: '1.5px solid #E8960E', borderRadius: 6, padding: '1px 8px', fontSize: '0.6em', fontWeight: 800, color: '#7a4f00', verticalAlign: 'middle', letterSpacing: 0.2 }}>Q1 2026 YTD</span>
           </h1>
 
           {/* CENTER: All controls inline */}
@@ -872,11 +969,11 @@ export default function OpexReportPage() {
             <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: '8px', padding: '3px', border: '1px solid #e2e2e2' }}>
               <button className={`opex-pill-btn${selectedScope === 'ops' ? ' active-red' : ''}`}
                 onClick={() => setSelectedScope('ops')}>
-                🔥 {lang === 'vi' ? 'Vận hành' : 'Operations'}
+                🔥 {lang === 'vi' ? 'Scope 1, 2' : 'Scope 1, 2'}
               </button>
               <button className={`opex-pill-btn${selectedScope === 'supply' ? ' active-green' : ''}`}
                 onClick={() => setSelectedScope('supply')}>
-                🌍 {lang === 'vi' ? 'Chuỗi cung ứng' : 'Supply Chain'}
+                🌍 {lang === 'vi' ? 'Scope 3' : 'Scope 3'}
               </button>
             </div>
 
@@ -923,8 +1020,81 @@ export default function OpexReportPage() {
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
       </div>
 
-
-
+      {/* ── Q1 2026 YTD Snapshot Banner ───────────────────────────────── */}
+      {(() => {
+        const ytd26s1 = get(2026).scope1;
+        const ytd26s2 = get(2026).scope2;
+        const s3_2026 = s3Data.find(d => d.year === 2026);
+        // Q1 YTD = 3 months. Scope 3 cat1+cat4 are annual shipping totals (YTD)
+        // so we show as-is (partial year)
+        const ytd26s3 = s3_2026?.total || 0;
+        const ytd26total = ytd26s1 + ytd26s2 + ytd26s3;
+        // Annualise S1 & S2 for vs-target comparison (×4 quarters)
+        const ann26s1 = ytd26s1 > 0 ? ytd26s1 * 4 : 0;
+        const ann26s2 = ytd26s2 > 0 ? ytd26s2 * 4 : 0;
+        // vs 2025 full-year pace (÷4 = Q1 expected)
+        const q1pace25s1 = Math.round(s1_2025 / 4);
+        const q1pace25s2 = Math.round(s2_2025 / 4);
+        const deltaS1 = ytd26s1 - q1pace25s1;
+        const deltaS2 = ytd26s2 - q1pace25s2;
+        const hasQ1data = ytd26s1 > 0 || ytd26s2 > 0;
+        if (!hasQ1data) return null;
+        return (
+          <div style={{
+            margin: '0 12px 6px',
+            borderRadius: 8,
+            border: '1.5px solid #E8960E',
+            background: 'linear-gradient(135deg, #fffbeb 0%, #fff8e1 100%)',
+            overflow: 'hidden',
+            animation: 'scaleIn 0.3s ease both',
+          }}>
+            {/* Banner header */}
+            <div style={{ background: '#E8960E', color: '#fff', padding: '5px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 800, fontSize: 12, letterSpacing: 0.3 }}>📊 Q1 2026 YTD SNAPSHOT — Jan–Mar 2026</span>
+              <span style={{ fontSize: 10, opacity: 0.9 }}>vs Q1 2025 pace (2025 ÷ 4)</span>
+            </div>
+            {/* Metrics row */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, borderTop: '1px solid #fde68a' }}>
+              {/* Scope 1 */}
+              <div style={{ flex: '1 1 160px', padding: '8px 14px', borderRight: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700, marginBottom: 2 }}>🔥 SCOPE 1 (Direct)</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#1a1a1a', lineHeight: 1 }}>{fmt(ytd26s1)}<span style={{ fontSize: 11, fontWeight: 500, color: '#555', marginLeft: 4 }}>tCO₂e</span></div>
+                <div style={{ marginTop: 3, fontSize: 10.5 }}>
+                  <span style={{ color: '#666' }}>vs pace: </span>
+                  <span style={{ fontWeight: 700, color: deltaS1 <= 0 ? '#2E6B2E' : '#C8281A' }}>
+                    {deltaS1 > 0 ? '+' : ''}{fmt(deltaS1)} tCO₂e
+                  </span>
+                  <span style={{ color: '#888', marginLeft: 4 }}>({ann26s1 > 0 ? `~${fmt(ann26s1)} ann.` : '—'})</span>
+                </div>
+              </div>
+              {/* Scope 2 */}
+              <div style={{ flex: '1 1 160px', padding: '8px 14px', borderRight: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700, marginBottom: 2 }}>⚡ SCOPE 2 (Electricity)</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#1a1a1a', lineHeight: 1 }}>{fmt(ytd26s2)}<span style={{ fontSize: 11, fontWeight: 500, color: '#555', marginLeft: 4 }}>tCO₂e</span></div>
+                <div style={{ marginTop: 3, fontSize: 10.5 }}>
+                  <span style={{ color: '#666' }}>vs pace: </span>
+                  <span style={{ fontWeight: 700, color: deltaS2 <= 0 ? '#2E6B2E' : '#C8281A' }}>
+                    {deltaS2 > 0 ? '+' : ''}{fmt(deltaS2)} tCO₂e
+                  </span>
+                  <span style={{ color: '#888', marginLeft: 4 }}>({ann26s2 > 0 ? `~${fmt(ann26s2)} ann.` : '—'})</span>
+                </div>
+              </div>
+              {/* Scope 3 */}
+              <div style={{ flex: '1 1 160px', padding: '8px 14px', borderRight: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700, marginBottom: 2 }}>🌍 SCOPE 3 (Supply Chain)</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#1a1a1a', lineHeight: 1 }}>{fmt(ytd26s3)}<span style={{ fontSize: 11, fontWeight: 500, color: '#555', marginLeft: 4 }}>tCO₂e</span></div>
+                <div style={{ marginTop: 3, fontSize: 10.5, color: '#888' }}>Cat.1 + Cat.4 partial-year shipping</div>
+              </div>
+              {/* Total */}
+              <div style={{ flex: '1 1 140px', padding: '8px 14px', background: '#fff3e0' }}>
+                <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700, marginBottom: 2 }}>📈 TOTAL ALL SCOPES</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#C8281A', lineHeight: 1 }}>{fmt(ytd26total)}<span style={{ fontSize: 11, fontWeight: 500, color: '#555', marginLeft: 4 }}>tCO₂e</span></div>
+                <div style={{ marginTop: 3, fontSize: 10, color: '#92400e', fontStyle: 'italic' }}>Q1 combined — all scopes</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Two Charts — stack vertically on mobile ──────────────────── */}
       <div style={{
@@ -946,6 +1116,7 @@ export default function OpexReportPage() {
           {/* ── Scope 1 mini-OGSM table ── */}
           {(() => {
             const years = [2021,2022,2023,2024,2025];
+            const ytd26 = get(2026).scope1;
             const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
             return (
               <div style={{ overflowX:'auto', marginBottom:'6px' }}>
@@ -956,6 +1127,7 @@ export default function OpexReportPage() {
                         Scope 1 — {label}
                       </th>
                       {years.map(y => <th key={y} style={{ padding:'3px 6px', textAlign:'right', fontWeight:700 }}>{y}</th>)}
+                      {ytd26 > 0 && <th style={{ padding:'3px 6px', textAlign:'right', fontWeight:700, background:'#E8960E', whiteSpace:'nowrap' }}>Q1'26*</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -971,6 +1143,11 @@ export default function OpexReportPage() {
                             {fmtVal(v, years[vi], showIntensity)}
                           </td>
                         ))}
+                        {ytd26 > 0 && (
+                          <td style={{ padding:'3px 6px', textAlign:'right', fontWeight:800, color:'#7a4f00', background:'#fff8e1', whiteSpace:'nowrap' }}>
+                            {fmt(ytd26)}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1079,6 +1256,7 @@ export default function OpexReportPage() {
           {/* ── Scope 2 mini-OGSM table ── */}
           {(() => {
             const years = [2021,2022,2023,2024,2025];
+            const ytd26 = get(2026).scope2;
             const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
             return (
               <div style={{ overflowX:'auto', marginBottom:'6px' }}>
@@ -1089,6 +1267,7 @@ export default function OpexReportPage() {
                         Scope 2 — {label}
                       </th>
                       {years.map(y => <th key={y} style={{ padding:'3px 6px', textAlign:'right', fontWeight:700 }}>{y}</th>)}
+                      {ytd26 > 0 && <th style={{ padding:'3px 6px', textAlign:'right', fontWeight:700, background:'#E8960E', whiteSpace:'nowrap' }}>Q1'26*</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1104,6 +1283,11 @@ export default function OpexReportPage() {
                             {fmtVal(v, years[vi], showIntensity)}
                           </td>
                         ))}
+                        {ytd26 > 0 && (
+                          <td style={{ padding:'3px 6px', textAlign:'right', fontWeight:800, color:'#7a4f00', background:'#fff8e1', whiteSpace:'nowrap' }}>
+                            {fmt(ytd26)}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1141,14 +1325,32 @@ export default function OpexReportPage() {
                   </p>
                 )}
                 {/* PT Solar announcement banner */}
-                {isSolarFactory && (
-                  <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#f0fdf4', borderLeft: '3px solid #22c55e', borderRadius: '4px', fontSize: '11px' }}>
-                    <strong style={{ color: '#166534' }}>🌞 {lang === 'vi' ? 'Dự kiến: ĐMT Áp mái PT (vận hành cuối 2026)' : 'Planned: PT Rooftop Solar (online late 2026)'}</strong> —{' '}
-                    {lang === 'vi' ? 'Tiết kiệm dự kiến' : 'Projected savings'} <strong style={{ color: '#166534' }}>{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong> (2027){' '}
-                    | {ptSolarSaving(2028).toLocaleString()} tCO₂e (2028) | {ptSolarSaving(2029).toLocaleString()} tCO₂e (2029).{' '}
-                    {lang === 'vi' ? 'Đã tích hợp vào kế hoạch giảm Scope 2 phía dưới.' : 'Integrated into the Scope 2 reduction plan below.'}
-                  </p>
-                )}
+                {isSolarFactory && (() => {
+                  const cut = Math.round(s2AnnualCut);
+                  const t26 = s2Proj(2026); const t27 = s2Proj(2027); const t28 = s2Proj(2028);
+                  const delta27 = t27 - t26; // includes solar kink
+                  return (
+                    <div style={{ margin: '0 0 6px', padding: '7px 10px', background: '#f0fdf4', borderLeft: '3px solid #22c55e', borderRadius: '4px', fontSize: '11px', lineHeight: '1.6' }}>
+                      <strong style={{ color: '#166534' }}>🌞 PT Rooftop Solar — online cuối 2026 (đã tích hợp vào target)</strong>
+                      <div style={{ marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        <span>📉 Giảm đều/năm (không solar): <strong>−{cut} tCO₂e</strong></span>
+                        <span>⚡ Solar từ 2027: <strong style={{ color: '#166534' }}>−{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong></span>
+                      </div>
+                      <div style={{ marginTop: '2px', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                        <span>2026: <strong>{t26.toLocaleString()} tCO₂e</strong></span>
+                        <span>2027: <strong style={{ color: '#166534' }}>{t27.toLocaleString()} tCO₂e</strong>
+                          {' '}<span style={{ color: '#166534', fontSize: '10px' }}>({delta27 > 0 ? '+' : ''}{delta27.toLocaleString()} incl. solar kink)</span>
+                        </span>
+                        <span>2028: <strong>{t28.toLocaleString()} tCO₂e</strong></span>
+                      </div>
+                      <div style={{ marginTop: '2px', fontSize: '10px', color: '#555' }}>
+                        Lũy kế solar đến {targetEndYear}: <strong style={{ color: '#166534' }}>−{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong>{' '}
+                        | Mục tiêu {targetEndYear}: <strong>{end_s2.toLocaleString()} tCO₂e</strong>{' '}
+                        (−{Math.round((1 - end_s2 / b2) * 100)}% vs baseline 2021)
+                      </div>
+                    </div>
+                  );
+                })()}
                 <p style={{ margin: '0 0 5px' }}>
                   <strong>{s2BeyondTarget ? '🏆' : '⚠️'} {lang === 'vi' ? 'Hiệu suất SBTi Scope 2 (2025):' : 'Scope 2 SBTi Performance (2025):'}</strong> {lang === 'vi' ? 'Phát thải điện tiêu thụ ở mức' : 'Electricity-driven footprint recorded at'}{' '}
                   <strong style={{ color: s2BeyondTarget ? '#3E7B3E' : '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
@@ -1251,55 +1453,73 @@ export default function OpexReportPage() {
         const bestYear = s3Data.slice(1).reduce((a,b) => b.total < a.total ? b : a);
 
         // Waterfall bars for scope 3
+        // 2025: plain delta bar; seq: +req2026 delta bar -> 2026 total bar split.
+        const s3_2026ytd_val = s3Data.find(d => d.year === 2026)?.total || 0;
         const s3Bars: BarPoint[] = [
           { key:'base', label:['Baseline','2021'], actual: s3Base.total, isTotal:true },
           { key:'2022', label:['2022'], actual: s3_2022?.total || 0 },
           { key:'2023', label:['2023'], actual: s3_2023?.total || 0 },
           { key:'2024', label:['2024'], actual: s3_2024?.total || 0 },
-          { key:'d2025', label:['Δ','2025'], actual: s3Cur.total },
-          { key:'2025', label:['2025'], actual: s3Cur.total, isTotal:true },
-          ...planYears.map(y => ({ key:y.toString(), label:[y.toString()], target: planVal(y) })),
+          { key:'2025', label:['2025'], actual: s3Cur.total },
+          { key:'req_2026', label:['Required', "Plan '26"], target: planVal(2026) },
+          ...planYears.map(y => ({
+            key: y.toString(), label: [y.toString()], target: planVal(y),
+            ...(y === 2026 ? {
+              isActualPlanSplit: true,
+              isTotal: true,
+              // S3 data for 2026 is a FULL-YEAR estimate (not quarterly actual),
+              // so we use planVal * 25% as Q1 proxy to give a realistic visual split.
+              splitActualAbsVal: Math.round(planVal(y) * 0.25),
+            } : {})
+          })),
           { key:'end', label:['by End', targetEndYear.toString()], target: planVal(targetEndYear), isTotal:true },
         ];
 
         const s3Callouts: Callout[] = [
-          s3Base.total > 0 && s3Cur.total > 0 ? {
-            fromCol:0, toCol:5, fromVal: s3Base.total, toVal: s3Cur.total,
-            text: pctStr(s3Cur.total, s3Base.total), level:0
+          s3Base.total > 0 && planVal(2026) > 0 ? {
+            // Baseline 2021 -> 2026
+            fromCol: 0, toCol: 6,
+            fromVal: s3Base.total, toVal: planVal(2026),
+            text: pctStr(planVal(2026), s3Base.total), level: 0
           } : null,
-          s3Cur.total > 0 ? {
-            fromCol:5, toCol: 5 + planYears.length + 1,
-            fromVal: s3Cur.total, toVal: planVal(targetEndYear),
-            text: pctStr(planVal(targetEndYear), s3Cur.total), level:0
+          planVal(2026) > 0 ? {
+            // 2026 -> End
+            fromCol: 6, toCol: s3Bars.length - 1,
+            fromVal: planVal(2026), toVal: planVal(targetEndYear),
+            text: pctStr(planVal(targetEndYear), planVal(2026)), level:0
           } : null,
         ].filter(Boolean) as Callout[];
+
+        // Q1 2026 Scope 3 YTD
+        const s3_2026ytd = s3Data.find(d => d.year === 2026);
 
         // OGSM rows
         const ogsm = [
           { label:'Scope 3 — absol. CO₂eq (tCO₂e)', vals:[
             s3Base.total, s3_2022?.total||0, s3_2023?.total||0, s3_2024?.total||0,
             '—', s3Cur.total,
+            s3_2026ytd ? s3_2026ytd.total : '—',
             planYears[0] ? planVal(planYears[0]) : '—',
             planYears[1] ? planVal(planYears[1]) : '—',
-            planYears[2] ? planVal(planYears[2]) : '—',
           ]},
           { label:'  ↳ Cat.1 Cashew (FLAG)', vals:[
             s3Base.cat1, s3_2022?.cat1||0, s3_2023?.cat1||0, s3_2024?.cat1||0,
-            '—', s3Cur.cat1,'—','—','—',
+            '—', s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—','—','—',
           ]},
           { label:'  ↳ Cat.3 WTT Fuel & Energy', vals:[
             s3Base.cat3, s3_2022?.cat3||0, s3_2023?.cat3||0, s3_2024?.cat3||0,
-            '—', s3Cur.cat3,'—','—','—',
+            '—', s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—','—','—',
           ]},
           { label:'  ↳ Cat.4 Transport', vals:[
             s3Base.cat4v+s3Base.cat4r, (s3_2022?.cat4v||0)+(s3_2022?.cat4r||0),
             (s3_2023?.cat4v||0)+(s3_2023?.cat4r||0),(s3_2024?.cat4v||0)+(s3_2024?.cat4r||0),
-            '—', s3Cur.cat4v+s3Cur.cat4r,'—','—','—',
+            '—', s3Cur.cat4v+s3Cur.cat4r,
+            s3_2026ytd ? s3_2026ytd.cat4v+s3_2026ytd.cat4r : '—','—','—',
           ]},
         ];
 
-        const oKeys = ['2021','2022','2023','2024','YTD 2025','2025','2026 Plan','2027 Plan','2028 Plan'];
-        const oYears = [2021, 2022, 2023, 2024, 2025, 2025, 2026, 2027, 2028]; // year index per column for intensity
+        const oKeys = ['2021','2022','2023','2024','YTD 2025','2025','Q1 2026*','2026 Plan','2027 Plan'];
+        const oYears = [2021, 2022, 2023, 2024, 2025, 2025, 2026, 2026, 2027]; // year index per column for intensity
         const s3IntLabel = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
 
         return (
@@ -1312,8 +1532,11 @@ export default function OpexReportPage() {
                     <th style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, minWidth:220 }}>
                       OGSM — {s3IntLabel}
                     </th>
-                    {oKeys.map(k => (
-                      <th key={k} style={{ padding:'5px 8px', textAlign:'right', fontWeight:700, whiteSpace:'nowrap' }}>{k}</th>
+                    {oKeys.map((k,ki) => (
+                      <th key={k} style={{
+                        padding:'5px 8px', textAlign:'right', fontWeight:700, whiteSpace:'nowrap',
+                        background: k.includes('2026*') ? '#E8960E' : undefined,
+                      }}>{k}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1323,11 +1546,12 @@ export default function OpexReportPage() {
                       <td style={{ padding:'4px 8px', fontWeight: ri===0?700:400, color: ri===0?'#1a1a1a':'#555' }}>{row.label}</td>
                       {row.vals.map((v,vi) => (
                         <td key={vi} style={{ padding:'4px 8px', textAlign:'right',
-                          fontWeight: ri===0 ? 600 : 400,
-                          color: vi===4||vi>=5 ? '#777' : ri===0 ? '#1a1a1a' : '#555'
+                          fontWeight: vi===6 ? 800 : ri===0 ? 600 : 400,
+                          color: vi===4||vi>=7 ? '#777' : vi===6 ? '#7a4f00' : ri===0 ? '#1a1a1a' : '#555',
+                          background: vi===6 ? '#fff8e1' : undefined,
                         }}>
                           {typeof v==='number'
-                            ? (showIntensity && vi < 5 ? fmtInt(v, oYears[vi]) : fmt(v))
+                            ? (showIntensity && vi < 6 ? fmtInt(v, oYears[vi]) : fmt(v))
                             : v}
                         </td>
                       ))}
@@ -1485,59 +1709,51 @@ export default function OpexReportPage() {
 
               {/* Commentary */}
               <div style={{ flex:1, minWidth:0, fontSize:'11.5px', lineHeight:'1.6' }}>
-                <p style={{ margin:'0 0 6px' }}><strong>Scope 3 Emissions Overview:</strong></p>
+                <p style={{ margin:'0 0 6px' }}><strong>{lang === 'vi' ? 'Tổng quan Phát thải Scope 3:' : 'Scope 3 Emissions Overview:'}</strong></p>
                 <ul style={{ margin:'0 0 8px', paddingLeft:'16px' }}>
                   <li>
-                    Calculated using <strong>3 SBTi-required categories</strong>: Cat.1 (Purchased Cashew at-farm),
-                    Cat.3 (Fuel &amp; Energy WTT), and Cat.4 (Upstream Transportation).
+                    {lang === 'vi' ? 'Tính toán dựa trên' : 'Calculated using'} <strong>{lang === 'vi' ? '3 danh mục bắt buộc SBTi' : '3 SBTi-required categories'}</strong>: Cat.1 ({lang === 'vi' ? 'Mua hạt điều thô tại rẫy' : 'Purchased Cashew at-farm'}),
+                    Cat.3 ({lang === 'vi' ? 'Nhiên liệu & Điện WTT' : 'Fuel & Energy WTT'}), {lang === 'vi' ? 'và' : 'and'} Cat.4 ({lang === 'vi' ? 'Vận tải đầu vào' : 'Upstream Transportation'}).
                   </li>
                   <li>
-                    2025 Scope 3 emissions: <strong style={{ color: pctVsBase > 0 ? '#C8281A' : '#3E7B3E' }}>{fmt(s3Cur.total)} tCO₂e</strong>{' '}
+                    {lang === 'vi' ? 'Phát thải Scope 3 năm 2025' : '2025 Scope 3 emissions'}: <strong style={{ color: pctVsBase > 0 ? '#C8281A' : '#3E7B3E' }}>{fmt(s3Cur.total)} tCO₂e</strong>{' '}
                     (<span style={{ color: pctVsBase > 0 ? '#C8281A' : '#3E7B3E', fontWeight:700 }}>
                       {pctVsBase > 0 ? '+' : ''}{pctVsBase}%
-                    </span>{' '}vs 2021 baseline) —
-                    {pctVsBase > 0
-                      ? <span style={{ color:'#C8281A' }}> still above baseline, trajectory must reverse.</span>
-                      : <span style={{ color:'#3E7B3E' }}> below baseline, on track.</span>}
+                    </span>{' '}vs {lang === 'vi' ? 'Baseline 2021' : '2021 baseline'}).
                   </li>
+                  {s3_2026ytd && (
+                    <li>
+                      <strong>{lang === 'vi' ? 'Q1 2026 Thực tế (YTD):' : 'Q1 2026 Actual (YTD):'}</strong> {fmt(s3_2026ytd.total)} tCO₂e. {lang === 'vi' ? 'Mức cho phép còn lại theo Plan 2026 là' : 'Expected full-year plan requires an estimated remaining allowance of'} {fmt(planVal(2026) - s3_2026ytd.total)} tCO₂e.
+                    </li>
+                  )}
                   <li>
-                    Peak emissions in <strong style={{ color:'#C8281A' }}>{peakYear.year}</strong> ({fmt(peakYear.total)} tCO₂e) —
-                    driven by high-EF Indonesia cashew procurement (EF = 24.74 kgCO₂e/kg).
-                  </li>
-                  <li>
-                    <strong>Cat.1 Cashew</strong> accounts for{' '}
-                    <strong>{Math.round((s3Cur.cat1/s3Cur.total)*100)}%</strong> of total Scope 3 —
-                    the <u>primary lever</u> for FLAG target achievement.
+                    <strong>{lang === 'vi' ? 'Hạt điều Cat.1' : 'Cat.1 Cashew'}</strong> {lang === 'vi' ? 'chiếm' : 'accounts for'}{' '}
+                    <strong>{Math.round((s3Cur.cat1/s3Cur.total)*100)}%</strong> {lang === 'vi' ? 'tổng Scope 3 — đòn bẩy chính để đạt mục tiêu FLAG.' : 'of total Scope 3 — the primary lever for FLAG target achievement.'}
                   </li>
                 </ul>
 
-                <p style={{ margin:'0 0 4px' }}><strong>Scope 3 Reduction Strategy ({new Date().getFullYear()}–2032):</strong></p>
+                <p style={{ margin:'0 0 4px' }}><strong>{lang === 'vi' ? 'Chiến lược Giảm phát thải Scope 3 (' : 'Scope 3 Reduction Strategy ('}{new Date().getFullYear()}–2032):</strong></p>
                 <ul style={{ margin:'0 0 8px', paddingLeft:'16px' }}>
                   <li>
-                    <strong>Sourcing Mix Optimization (FLAG)</strong>: Shift procurement away from
-                    high-EF origins — Indonesia (24.74) — toward low-EF alternatives:
-                    Nigeria (1.56), Benin (2.13), Cambodia (2.7). Target −{FLAG_TGT_PCT}% FLAG by 2032.
+                    <strong>{lang === 'vi' ? 'Tối ưu Nguồn cung (FLAG)' : 'Sourcing Mix Optimization (FLAG)'}</strong>: {lang === 'vi' ? 'Dịch chuyển lượng mua khỏi vùng phát thải cao như Indonesia (24.74) sang các đại diện phát thải thấp: Nigeria (1.56), Benin (2.13), Cambodia (2.7).' : 'Shift procurement away from high-EF origins — Indonesia (24.74) — toward low-EF alternatives: Nigeria (1.56), Benin (2.13), Cambodia (2.7).'} {lang === 'vi' ? 'Mục tiêu' : 'Target'} −{FLAG_TGT_PCT}% FLAG {lang === 'vi' ? 'vào năm 2032.' : 'by 2032.'}
                   </li>
                   <li>
-                    <strong>Supplier Certification</strong>: Prioritize Rainforest Alliance /
-                    ASC-certified suppliers to support <em>no-deforestation</em> commitment (SBTi target: 2025).
+                    <strong>{lang === 'vi' ? 'Chứng nhận Nhà cung cấp' : 'Supplier Certification'}</strong>: {lang === 'vi' ? 'Ưu tiên các nhà cung cấp đạt chứng nhận RA/ASC nhằm đáp ứng cam kết không phá rừng (SBTi target: 2025).' : 'Prioritize Rainforest Alliance / ASC-certified suppliers to support no-deforestation commitment (SBTi target: 2025).'}
                   </li>
                   <li>
-                    <strong>Logistics Optimization (Cat.4)</strong>: Consolidate shipments,
-                    improve vessel load factors, and transition coastal road freight to intermodal.
-                    Current transport = {fmt(s3Cur.cat4v+s3Cur.cat4r)} tCO₂e/year.
+                    <strong>{lang === 'vi' ? 'Tối ưu Logistics (Cat.4)' : 'Logistics Optimization (Cat.4)'}</strong>: {lang === 'vi' ? 'Gom đơn hàng, tăng hệ số tải, chuyển đổi vận tải bờ biển sang đa phương thức. Vận tải hiện tại =' : 'Consolidate shipments, improve vessel load factors, and transition coastal road freight to intermodal. Current transport ='} {fmt(s3Cur.cat4v+s3Cur.cat4r)} tCO₂e/{lang === 'vi' ? 'năm' : 'year'}.
                   </li>
                 </ul>
 
-                <p style={{ margin:'0 0 4px' }}><strong>Long-Term Goal:</strong></p>
+                <p style={{ margin:'0 0 4px' }}><strong>{lang === 'vi' ? 'Mục tiêu Dài hạn:' : 'Long-Term Goal:'}</strong></p>
                 <ul style={{ margin:0, paddingLeft:'16px' }}>
                   <li>
-                    Reduce total Scope 3 to <strong style={{ color:'#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong> by {S3_TARGET_YEAR}
+                    {lang === 'vi' ? 'Giảm tổng Scope 3 xuống' : 'Reduce total Scope 3 to'} <strong style={{ color:'#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong> {lang === 'vi' ? 'vào năm' : 'by'} {S3_TARGET_YEAR}
                     (FLAG: {fmt(flagTarget2032)} + Non-FLAG: {fmt(nonflagTarget2032)}).
                   </li>
                   <li>
-                    Gap to close from 2025: <strong style={{ color:'#C8281A' }}>{fmt(cur2032Gap)} tCO₂e</strong> —
-                    requires <strong>~{fmt(annualCutNeeded)} tCO₂e/year</strong> average reduction through sourcing strategy.
+                    {lang === 'vi' ? 'Cần cắt giảm tiếp từ mức 2025:' : 'Gap to close from 2025:'} <strong style={{ color:'#C8281A' }}>{fmt(cur2032Gap)} tCO₂e</strong> —
+                    {lang === 'vi' ? 'đòi hỏi mức giảm trung bình' : 'requires'} <strong>~{fmt(annualCutNeeded)} tCO₂e/{lang === 'vi' ? 'năm' : 'year'}</strong> {lang === 'vi' ? 'nhờ chiến lược thu mua.' : 'average reduction through sourcing strategy.'}
                   </li>
                 </ul>
               </div>
@@ -1554,7 +1770,7 @@ export default function OpexReportPage() {
         fontSize: '11px', color: '#888',
         marginTop: 'auto',
       }}>
-        <span style={{ fontStyle: 'italic' }}>MU presentation OpEx Meeting 2025</span>
+        <span style={{ fontStyle: 'italic' }}>FC1 – OpEx Report · Updated Q1 2026 (Jan–Mar) · *Q1 figures are partial-year actuals</span>
         <span style={{ fontWeight: 700, color: '#555' }}>Intersnack Cashew Company</span>
       </div>
     </div>

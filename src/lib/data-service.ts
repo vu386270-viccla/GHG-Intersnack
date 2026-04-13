@@ -121,9 +121,10 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
 
   // ── Pull real Scope 3 (Cat 1 & 4) from scope3-data logic ──────────────────────────
   const WTT_FAC = {
-    diesel_VN: 0.00055, diesel_IN: 0.0008058,
-    lpg: 0.392,
-    elec_VN: 0.00006, elec_IN: 0.00012,
+    diesel_VN: 0.00055, diesel_IN: 0.0006058,
+    lpg: 0.2, // Both VN & IN
+    elec_VN: 0.00008, elec_IN: 0.00012,
+    wood_VN: 0.05214, wood_IN: 0.24,
   };
   const facCtry: Record<string, string> = Object.fromEntries(
     factories.map(f => [f.id, (f as any).country || ''])
@@ -136,6 +137,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     if      (e.category === 'diesel')      s3Cat3Wtt += act * (isIndia ? WTT_FAC.diesel_IN : WTT_FAC.diesel_VN);
     else if (e.category === 'lpg')         s3Cat3Wtt += act * WTT_FAC.lpg;
     else if (e.category === 'electricity') s3Cat3Wtt += act * (isIndia ? WTT_FAC.elec_IN   : WTT_FAC.elec_VN);
+    else if (e.category === 'wood_logs')   s3Cat3Wtt += act * (isIndia ? WTT_FAC.wood_IN   : WTT_FAC.wood_VN);
   }
 
   const s3Cur = getS3StaticCat1and4(year);
@@ -509,7 +511,7 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
     supabase.from('emissions_data')
       .select('factory_id,year,category,activity_data')
       .gte('year', fromYear).lte('year', toYear)
-      .in('category', ['diesel', 'lpg', 'electricity'])
+      .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
       .limit(10000),
   ]);
 
@@ -539,6 +541,7 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
     if (r.category === 'diesel')      wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
     else if (r.category === 'lpg')    wtt = act * WTT.lpg;
     else if (r.category === 'electricity') wtt = act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
+    else if (r.category === 'wood_logs')   wtt = act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
     if (!result[r.year]) result[r.year] = { s1: 0, s2: 0, s3: 0 };
     result[r.year].s3 += wtt;
   }
@@ -565,13 +568,15 @@ export interface Scope3YearRow {
   resolvedYear?: number | null; // the actual year used for Cat.1/Cat.4 static data (null = no data)
 }
 
-// WTT emission factors (kg CO2e per activity unit)
+// WTT emission factors (kg CO2e per activity unit, effectively tCO2e/unit)
 const WTT = {
   diesel_VN:   0.00055,   // tCO2e/L
-  diesel_IN:   0.0008058, // tCO2e/L
-  lpg:         0.392,     // tCO2e/ton (0.2 kgCO2e/L × 1960 L/ton)
-  elec_VN:     0.00006,   // tCO2e/kWh
+  diesel_IN:   0.0006058, // tCO2e/L
+  lpg:         0.2,       // tCO2e/ton 
+  elec_VN:     0.00008,   // tCO2e/kWh
   elec_IN:     0.00012,   // tCO2e/kWh
+  wood_VN:     0.05214,   // tCO2e/ton
+  wood_IN:     0.24,      // tCO2e/ton
 };
 
 export async function getScope3SummaryData(): Promise<{
@@ -592,7 +597,7 @@ export async function getScope3SummaryData(): Promise<{
     .from('emissions_data')
     .select('factory_id,year,category,activity_data')
     .in('year', YEARS)
-    .in('category', ['diesel', 'lpg', 'electricity'])
+    .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
     .limit(10000);
 
   // Aggregate WTT (Cat.3) per year
@@ -606,6 +611,7 @@ export async function getScope3SummaryData(): Promise<{
     if (r.category === 'diesel')      wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
     else if (r.category === 'lpg')    wtt = act * WTT.lpg;
     else if (r.category === 'electricity') wtt = act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
+    else if (r.category === 'wood_logs')   wtt = act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
     wttByYear[yr] = (wttByYear[yr] || 0) + wtt;
   }
 
