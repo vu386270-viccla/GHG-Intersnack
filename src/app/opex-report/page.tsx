@@ -1331,10 +1331,10 @@ export default function OpexReportPage() {
                   const delta27 = t27 - t26; // includes solar kink
                   return (
                     <div style={{ margin: '0 0 6px', padding: '7px 10px', background: '#f0fdf4', borderLeft: '3px solid #22c55e', borderRadius: '4px', fontSize: '11px', lineHeight: '1.6' }}>
-                      <strong style={{ color: '#166534' }}>🌞 PT Rooftop Solar — online cuối 2026 (đã tích hợp vào target)</strong>
+                      <strong style={{ color: '#166534' }}>{lang === 'vi' ? '🌞 PT Rooftop Solar — online cuối 2026 (đã tích hợp vào target)' : '🌞 PT Rooftop Solar — online late 2026 (integrated into target)'}</strong>
                       <div style={{ marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                        <span>📉 Giảm đều/năm (không solar): <strong>−{cut} tCO₂e</strong></span>
-                        <span>⚡ Solar từ 2027: <strong style={{ color: '#166534' }}>−{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong></span>
+                        <span>📉 {lang === 'vi' ? 'Giảm đều/năm (không solar):' : 'Linear reduction/yr (excl. solar):'} <strong>−{cut} tCO₂e</strong></span>
+                        <span>⚡ {lang === 'vi' ? 'Solar từ 2027:' : 'Solar from 2027:'} <strong style={{ color: '#166534' }}>−{ptSolarSaving(2027).toLocaleString()} {lang === 'vi' ? 'tCO₂e/năm' : 'tCO₂e/yr'}</strong></span>
                       </div>
                       <div style={{ marginTop: '2px', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
                         <span>2026: <strong>{t26.toLocaleString()} tCO₂e</strong></span>
@@ -1344,8 +1344,8 @@ export default function OpexReportPage() {
                         <span>2028: <strong>{t28.toLocaleString()} tCO₂e</strong></span>
                       </div>
                       <div style={{ marginTop: '2px', fontSize: '10px', color: '#555' }}>
-                        Lũy kế solar đến {targetEndYear}: <strong style={{ color: '#166534' }}>−{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong>{' '}
-                        | Mục tiêu {targetEndYear}: <strong>{end_s2.toLocaleString()} tCO₂e</strong>{' '}
+                        {lang === 'vi' ? 'Lũy kế solar đến' : 'Cumulative solar savings by'} {targetEndYear}: <strong style={{ color: '#166534' }}>−{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong>{' '}
+                        | {lang === 'vi' ? 'Mục tiêu' : 'Target'} {targetEndYear}: <strong>{end_s2.toLocaleString()} tCO₂e</strong>{' '}
                         (−{Math.round((1 - end_s2 / b2) * 100)}% vs baseline 2021)
                       </div>
                     </div>
@@ -1355,29 +1355,29 @@ export default function OpexReportPage() {
                   <strong>{s2BeyondTarget ? '🏆' : '⚠️'} {lang === 'vi' ? 'Hiệu suất SBTi Scope 2 (2025):' : 'Scope 2 SBTi Performance (2025):'}</strong> {lang === 'vi' ? 'Phát thải điện tiêu thụ ở mức' : 'Electricity-driven footprint recorded at'}{' '}
                   <strong style={{ color: s2BeyondTarget ? '#3E7B3E' : '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
                   {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 Base Year).
-                  {' '}SBTi Target Variance:{' '}
+                  {' '}{lang === 'vi' ? 'Độ lệch mục tiêu SBTi:' : 'SBTi Target Variance:'}{' '}
                   <span style={{ color: pct2_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
                     {pct2_vs_target > 0 ? '+' : ''}{pct2_vs_target}%
                   </span>.
-                  {' '}YoY 2024→2025 Shift:{' '}
+                  {' '}{lang === 'vi' ? 'Biến động 2024→2025:' : 'YoY 2024→2025 Shift:'}{' '}
                   <strong style={{ color: yoy2025_s2 <= 0 ? '#3E7B3E' : '#C8281A' }}>
                     {yoy2025_s2 > 0 ? '+' : ''}{fmt(Math.round(yoy2025_s2))} tCO₂e
                   </strong>.
                   {worstS2.delta > 0 && (
-                    <> Critical escalation identified in <strong style={{ color: '#C8281A' }}>{worstS2.year}</strong> (+{fmt(Math.round(worstS2.delta))} tCO₂e), driven by expanded grid reliance.</>
+                    <> {lang === 'vi' ? 'Ghi nhận mức tăng mạnh vào ' : 'Critical escalation identified in '}<strong style={{ color: '#C8281A' }}>{worstS2.year}</strong> (+{fmt(Math.round(worstS2.delta))} tCO₂e){lang === 'vi' ? ', do phụ thuộc nhiều vào điện lưới.' : ', driven by expanded grid reliance.'}</>
                   )}
                   {bestS2.delta < 0 && (
-                    <> Strongest reduction trend seen in <strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} tCO₂e drop).</>
+                    <> {lang === 'vi' ? 'Xu hướng giảm mạnh nhất vào ' : 'Strongest reduction trend seen in '}<strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} {lang === 'vi' ? 'tCO₂e giảm' : 'tCO₂e drop'}).</>
                   )}
                 </p>
 
                 <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
-                  <strong>📊 Intensity Analysis (Scope 2/RCN):</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
-                  {' '}Intensity shift:{' '}
+                  <strong>📊 {lang === 'vi' ? 'Phân tích Cường độ (Scope 2/RCN):' : 'Intensity Analysis (Scope 2/RCN):'}</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
+                  {' '}{lang === 'vi' ? 'Thay đổi cường độ:' : 'Intensity shift:'}{' '}
                   <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
-                  {' '}vs Production shift:{' '}
+                  {' '}{lang === 'vi' ? 'so với thay đổi sản lượng:' : 'vs Production shift:'}{' '}
                   <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
-                  {' '}<em>{intGrowth > 0 ? "Grid power usage is scaling worse than production growth. Priority intervention required." : "Grid efficiency improved relative to production throughput."}</em>
+                  {' '}<em>{intGrowth > 0 ? (lang === 'vi' ? "Mức sử dụng điện lưới đang tăng nhanh hơn mức tăng trưởng sản lượng. Cần ưu tiên can thiệp." : "Grid power usage is scaling worse than production growth. Priority intervention required.") : (lang === 'vi' ? "Hiệu suất điện lưới được cải thiện so với sản lượng." : "Grid efficiency improved relative to production throughput.")}</em>
                 </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
@@ -1385,25 +1385,23 @@ export default function OpexReportPage() {
                   {/* PT Solar — chỉ hiện khi ALL hoặc Phan Thiet */}
                   {isSolarFactory && (
                     <li>
-                      {/* PT Solar — commissioned end-2026, first full savings year 2027 */}
-                      <strong>🌞 PT Rooftop Solar (Scope 2 — từ 2027):</strong> Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm
-                      tại nhà máy PT dự kiến vận hành cuối năm 2026.{' '}
-                      Tiết kiệm ước tính <strong style={{ color: '#3E7B3E' }}>~{ptSolarSaving(2027).toLocaleString()} tCO₂e/năm</strong>{' '}
-                      (năm đầu, 2027) theo EF lưới VN {PT_SOLAR_EF_VN} tCO₂/kWh.{' '}
-                      Lũy kế đến {targetEndYear}:{' '}
-                      <strong style={{ color: '#3E7B3E' }}>~{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong> tích lũy,
-                      góp phần đưa Scope 2 xuống <strong>{fmt(end_s2)} tCO₂e</strong> vào năm {targetEndYear}.
+                      <strong>{lang === 'vi' ? '🌞 PT Rooftop Solar (Scope 2 — từ 2027):' : '🌞 PT Rooftop Solar (Scope 2 — from 2027):'}</strong>{' '}
+                      {lang === 'vi' ? 'Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm tại nhà máy PT dự kiến vận hành cuối năm 2026.' : '1,614 MWh/yr rooftop solar system at PT factory expected to go online by late 2026.'}{' '}
+                      {lang === 'vi' ? 'Tiết kiệm ước tính' : 'Estimated savings of'} <strong style={{ color: '#3E7B3E' }}>~{ptSolarSaving(2027).toLocaleString()} {lang === 'vi' ? 'tCO₂e/năm' : 'tCO₂e/yr'}</strong>{' '}
+                      {lang === 'vi' ? '(năm đầu, 2027) theo EF lưới VN' : '(first year, 2027) based on VN grid EF'} {PT_SOLAR_EF_VN} tCO₂/kWh.{' '}
+                      {lang === 'vi' ? 'Lũy kế đến' : 'Cumulative by'} {targetEndYear}:{' '}
+                      <strong style={{ color: '#3E7B3E' }}>~{cumulativeSolarSavingByYear(targetEndYear).toLocaleString()} tCO₂e</strong> {lang === 'vi' ? 'tích lũy, góp phần đưa Scope 2 xuống' : 'contributing to pulling Scope 2 down to'} <strong>{fmt(end_s2)} tCO₂e</strong> {lang === 'vi' ? 'vào năm' : 'in'} {targetEndYear}.
                     </li>
                   )}
                   {/* VICC RE Transition — cho tất cả VN factories */}
                   {(selectedFac === 'ALL' || selectedFactory?.country === 'Vietnam') && (
                     <li>
-                      <strong>VICC RE Transition</strong>: Tiếp tục mở rộng các giải pháp năng lượng tái tạo và khai thác REC để bù phần lưới còn lại.
+                      <strong>VICC RE Transition</strong>: {lang === 'vi' ? 'Tiếp tục mở rộng các giải pháp năng lượng tái tạo và khai thác REC để bù phần lưới còn lại.' : 'Continue to expand renewable energy solutions and procure RECs to offset the remaining grid footprint.'}
                     </li>
                   )}
                   {(selectedFac === 'ALL' || selectedFactory?.country === 'India') && (
                     <li>
-                      <strong>India Operations</strong>: Enforce ISO 50001 energy standards to flatten peak-load grid dependency and transition to solar infrastructure.
+                      <strong>India Operations</strong>: {lang === 'vi' ? 'Áp dụng tiêu chuẩn năng lượng ISO 50001 để giảm phụ thuộc điện lưới giờ cao điểm và chuyển đổi sang cơ sở hệ thống điện mặt trời.' : 'Enforce ISO 50001 energy standards to flatten peak-load grid dependency and transition to solar infrastructure.'}
                     </li>
                   )}
                 </ul>
