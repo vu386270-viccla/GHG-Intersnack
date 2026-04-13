@@ -339,7 +339,7 @@ function WaterfallChart({
                 {/* RIGHT vertical drop to physical bar top */}
                 <line
                   x1={toX} y1={bracketY}
-                  x2={toX} y2={toBarTopY - 20}
+                  x2={toX} y2={toBarTopY - (bars[cal.toCol]?.isActualPlanSplit ? 20 : 6)}
                   stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
                   markerEnd="url(#arwD)"
                 />
@@ -756,7 +756,9 @@ export default function OpexReportPage() {
   const s2Proj = (year: number): number => {
     const linearCut = s2_2025 - s2AnnualCut * (year - 2025);
     const solar = isSolarFactory ? ptSolarSaving(year) : 0;
-    return Math.round(Math.max(linearCut - solar, 0));
+    // Floor at −50% of baseline: solar savings cannot push target below the SBTi commitment floor
+    const floor = b2 * 0.5;
+    return Math.round(Math.max(linearCut - solar, floor));
   };
   const targetProj = (act2025: number, annualCut: number, year: number) =>
     act2025 - annualCut * (year - 2025);
@@ -784,9 +786,6 @@ export default function OpexReportPage() {
   }
 
   // ── Scope 1 bars ──────────────────────────────────────────
-  // 2025: plain delta bar (like 2022-2024)
-  // req26: required delta from 2025 to 2026 plan
-  // 2026: total bar split — red Q1 actual (bottom) + green Q2-Q4 plan (top)
   const req26_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, 2026));
   const s1Bars: BarPoint[] = [
     { key: 'base', label: ['Baseline', '2021'], actual: b1, isTotal: true },
@@ -804,17 +803,17 @@ export default function OpexReportPage() {
   const s1_2024 = get(2024).scope1;
   const s1Callouts: Callout[] = [
     b1 > 0 && get(2026).scope1 > 0 ? {
-      // Baseline 2021 -> 2026
+      // Baseline 2021 -> 2026 plan
       fromCol: 0, toCol: 6,
       fromVal: b1, toVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)),
       text: pctStr(Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), b1),
       level: 0
     } : null,
-    get(2026).scope1 > 0 && end_s1 > 0 ? {
-      // 2026 -> End
+    end_s1 > 0 ? {
+      // 2026 -> End  (text shows total reduction vs baseline — avoids misleading interim %)
       fromCol: 6, toCol: s1Bars.length - 1,
       fromVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), toVal: end_s1,
-      text: pctStr(end_s1, Math.round(targetProj(s1_2025, s1AnnualCut, 2026))),
+      text: pctStr(end_s1, b1),
       level: 0
     } : null,
   ].filter(Boolean) as Callout[];
@@ -836,17 +835,17 @@ export default function OpexReportPage() {
   const s2_2024 = get(2024).scope2;
   const s2Callouts: Callout[] = [
     b2 > 0 && get(2026).scope2 > 0 ? {
-      // Baseline 2021 -> 2026
+      // Baseline 2021 -> 2026 plan
       fromCol: 0, toCol: 6,
       fromVal: b2, toVal: s2Proj(2026),
       text: pctStr(s2Proj(2026), b2),
       level: 0
     } : null,
-    get(2026).scope2 > 0 && end_s2 > 0 ? {
-      // 2026 -> End
+    end_s2 > 0 ? {
+      // 2026 -> End  (text shows total vs baseline 2021 — avoids -95% vs interim plan)
       fromCol: 6, toCol: s2Bars.length - 1,
       fromVal: s2Proj(2026), toVal: end_s2,
-      text: pctStr(end_s2, s2Proj(2026)),
+      text: pctStr(end_s2, b2),
       level: 0
     } : null,
   ].filter(Boolean) as Callout[];
@@ -1004,6 +1003,7 @@ export default function OpexReportPage() {
                 <option key={f.id} value={f.id}>{f.name}</option>
               ))}
             </select>
+
           </div>
         </div>
 
@@ -1480,11 +1480,11 @@ export default function OpexReportPage() {
             fromVal: s3Base.total, toVal: planVal(2026),
             text: pctStr(planVal(2026), s3Base.total), level: 0
           } : null,
-          planVal(2026) > 0 ? {
-            // 2026 -> End
+          planVal(targetEndYear) > 0 ? {
+            // 2026 -> End: text shows total % vs baseline
             fromCol: 6, toCol: s3Bars.length - 1,
             fromVal: planVal(2026), toVal: planVal(targetEndYear),
-            text: pctStr(planVal(targetEndYear), planVal(2026)), level:0
+            text: pctStr(planVal(targetEndYear), s3Base.total), level: 1
           } : null,
         ].filter(Boolean) as Callout[];
 

@@ -78,6 +78,7 @@ export default function OverviewPage() {
   const [factoryA, setFactoryA] = useState('');
   const [factoryB, setFactoryB] = useState('');
   const [slideScale, setSlideScale] = useState(1);
+  const [showAnnualized, setShowAnnualized] = useState(false);
 
   // Measure window size to scale 1536x864 native slide layout
   useEffect(() => {
@@ -185,6 +186,9 @@ export default function OverviewPage() {
       const s2 = calcS2(yrRows, yr);
       const actual = s1 + s2;
       const target = baseS12 * (1 - 0.50 * ((yr - 2021) / 11));
+      // Count distinct months with data (for partial-year annualization)
+      const monthsActive = new Set(yrRows.map(e => e.month)).size;
+      const annualized = monthsActive > 0 && monthsActive < 12 ? actual * (12 / monthsActive) : actual;
       const perFactory = factories
         .filter(f => selIds.includes(f.id))
         .map(f => {
@@ -194,7 +198,7 @@ export default function OverviewPage() {
       const yrRCN = prodData
         .filter(p => p.year === yr && selIds.includes(p.factory_id) && p.category === 'rcn_input')
         .reduce((s, p) => s + Number(p.quantity), 0);
-      return { year: yr, actual, s1, s2, target, baseTotal: baseS12, onTrack: actual <= target, perFactory, rcn: yrRCN };
+      return { year: yr, actual, s1, s2, target, baseTotal: baseS12, onTrack: actual <= target, annualizedOnTrack: annualized <= target, monthsActive, annualized, perFactory, rcn: yrRCN };
     });
 
     const s3 = years.map(yr => {
@@ -650,6 +654,20 @@ export default function OverviewPage() {
                         <div style={{ background: '#fee2e2', color: '#991b1b', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
                           −50% by 2032
                         </div>
+                        {/* Annualized toggle — for partial-year reality check */}
+                        <button
+                          onClick={() => setShowAnnualized(v => !v)}
+                          style={{
+                            marginLeft: 'auto', fontSize: 7.5, fontWeight: 700, cursor: 'pointer',
+                            padding: '1px 7px', borderRadius: 3, border: `1px solid ${showAnnualized ? '#7c3aed' : '#d1d5db'}`,
+                            background: showAnnualized ? '#ede9fe' : 'transparent',
+                            color: showAnnualized ? '#6d28d9' : '#9ca3af',
+                            transition: 'all 0.15s', whiteSpace: 'nowrap',
+                          }}
+                          title="Annualized: extrapolate partial-year YTD to full-year run-rate (×12/months)"
+                        >
+                          {showAnnualized ? '📐 Annualized ON' : '📐 Annualized'}
+                        </button>
                       </div>
                       <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
                         {/* Future bg */}
@@ -690,7 +708,14 @@ export default function OverviewPage() {
                           const bx = x - BAR_W / 2;
                           const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
                           const isCurrent = d.year === selectedYear;
-                          const onTrack = singleFacTarget12 !== null ? d.actual <= singleFacTarget12 : d.onTrack;
+                          const isPartialYear = isCurrent && d.monthsActive > 0 && d.monthsActive < 12;
+                          const dAnn = d.annualized;
+                          const dMonths = d.monthsActive;
+                          // Which value to use for on-track badge and annualized overlay
+                          const onTrackAnn = d.annualizedOnTrack;
+                          const onTrack = singleFacTarget12 !== null
+                            ? (showAnnualized && isPartialYear ? dAnn <= singleFacTarget12 : d.actual <= singleFacTarget12)
+                            : (showAnnualized && isPartialYear ? onTrackAnn : d.onTrack);
                           const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
 
                           return (
@@ -710,17 +735,45 @@ export default function OverviewPage() {
                                   return <rect key={li} x={bx} y={y} width={BAR_W} height={Math.max(h, 0.5)} rx={li === 1 ? 2 : 0} fill={layer.col} opacity={isCurrent ? 0.92 : 0.5} stroke={isCurrent ? 'rgba(0,0,0,0.12)' : 'none'} strokeWidth={0.5} />;
                                 });
                               })()}
+                              {/* Annualized ghost bar — shown only when toggle ON and partial year */}
+                              {showAnnualized && isPartialYear && d.actual > 0 && (() => {
+                                const annH = maxVal > 0 ? (dAnn / maxVal) * BAR_H : 0;
+                                const annY = BAR_T + BAR_H - annH;
+                                return (
+                                  <rect
+                                    x={bx - 1} y={annY} width={BAR_W + 2} height={Math.max(annH, 1)}
+                                    rx={2} fill="none"
+                                    stroke={onTrackAnn ? '#7c3aed' : '#dc2626'}
+                                    strokeWidth={1.5} strokeDasharray="3,2"
+                                    opacity={0.75}
+                                  />
+                                );
+                              })()}
                               {d.actual > 0 && (() => {
-                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
-                                return <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? '#E32314' : '#999'}>{fmt(d.actual)}</text>;
+                                const refVal = showAnnualized && isPartialYear ? dAnn : d.actual;
+                                const totH = maxVal > 0 ? (refVal / maxVal) * BAR_H : 0;
+                                return (
+                                  <>
+                                    <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? (showAnnualized && isPartialYear ? '#7c3aed' : '#E32314') : '#999'}>
+                                      {fmt(showAnnualized && isPartialYear ? dAnn : d.actual)}
+                                    </text>
+                                    {/* Q1 label below main value when annualized */}
+                                    {showAnnualized && isPartialYear && isCurrent && (
+                                      <text x={x} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0) - 3} textAnchor="middle" fontSize="6.5" fontWeight="700" fill="#9ca3af">
+                                        {fmt(d.actual)} Q{Math.ceil(dMonths / 3)}
+                                      </text>
+                                    )}
+                                  </>
+                                );
                               })()}
                               {isCurrent && d.actual > 0 && (() => {
-                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
-                                const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
-                                return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
+                                const refVal = showAnnualized && isPartialYear ? dAnn : d.actual;
+                                const totH = maxVal > 0 ? (refVal / maxVal) * BAR_H : 0;
+                                const pct = d.baseTotal > 0 ? ((d.baseTotal - refVal) / d.baseTotal * 100) : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
                               })()}
                               <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#E32314' : isFuture ? '#ccc' : '#888'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
-                              {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{d.onTrack ? '✓' : '✗'}</text>}
+                              {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={onTrack ? '#27AE60' : '#E32314'}>{onTrack ? '✓' : '✗'}</text>}
 
                               {/* Intensity mini track */}
                               {(() => {
@@ -752,6 +805,7 @@ export default function OverviewPage() {
                         <span><span style={{ width: 8, height: 8, background: '#E32314', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />🔥 S1</span>
                         <span><span style={{ width: 8, height: 8, background: '#F5A623', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />⚡ S2</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −50%</span>
+                        {showAnnualized && <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#7c3aed', fontWeight: 700 }}><span style={{ borderBottom: '1.5px dashed #7c3aed', width: 10, display: 'inline-block', verticalAlign: 'middle' }} />Run-rate (annualized)</span>}
                         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 6, background: '#a5b4fc', borderRadius: 1.5, display: 'inline-block' }} />tCO₂e/MT RCN</span>
                       </div>
                     </div>
