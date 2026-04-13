@@ -1744,15 +1744,21 @@ export default function OpexReportPage() {
                   </li>
                 </ul>
 
-                <p style={{ margin:'0 0 4px' }}><strong>{lang === 'vi' ? 'Mục tiêu Dài hạn:' : 'Long-Term Goal:'}</strong></p>
+                <p style={{ margin:'0 0 4px' }}><strong>{lang === 'vi' ? 'Lộ trình Giảm phát thải:' : 'Reduction Roadmap:'}</strong></p>
                 <ul style={{ margin:0, paddingLeft:'16px' }}>
                   <li>
-                    {lang === 'vi' ? 'Giảm tổng Scope 3 xuống' : 'Reduce total Scope 3 to'} <strong style={{ color:'#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong> {lang === 'vi' ? 'vào năm' : 'by'} {S3_TARGET_YEAR}
+                    {lang === 'vi' ? 'Trạm dừng chân' : 'Horizon target'} <strong>{targetEndYear}</strong>:{' '}
+                    {lang === 'vi' ? 'Cần đạt chỉ tiêu' : 'Must reach'} <strong style={{ color:'#3E7B3E' }}>{fmt(planVal(targetEndYear))} tCO₂e</strong>{' '}
+                    ({lang === 'vi' ? 'buộc phải giảm' : 'requiring a cut of'} {fmt(s3Cur.total - planVal(targetEndYear))} tCO₂e {lang === 'vi' ? 'so với mức 2025' : 'from 2025 levels'}).
+                  </li>
+                  <li>
+                    {lang === 'vi' ? 'Đích đến SBTi cuối cùng' : 'Final SBTi milestone'} <strong>{S3_TARGET_YEAR}</strong>:{' '}
+                    {lang === 'vi' ? 'Giảm tổng Scope 3 xuống' : 'Reduce total Scope 3 to'} <strong style={{ color:'#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong>{' '}
                     (FLAG: {fmt(flagTarget2032)} + Non-FLAG: {fmt(nonflagTarget2032)}).
                   </li>
                   <li>
-                    {lang === 'vi' ? 'Cần cắt giảm tiếp từ mức 2025:' : 'Gap to close from 2025:'} <strong style={{ color:'#C8281A' }}>{fmt(cur2032Gap)} tCO₂e</strong> —
-                    {lang === 'vi' ? 'đòi hỏi mức giảm trung bình' : 'requires'} <strong>~{fmt(annualCutNeeded)} tCO₂e/{lang === 'vi' ? 'năm' : 'year'}</strong> {lang === 'vi' ? 'nhờ chiến lược thu mua.' : 'average reduction through sourcing strategy.'}
+                    {lang === 'vi' ? 'Tốc độ yêu cầu (Run-rate):' : 'Required run-rate:'} {lang === 'vi' ? 'Cần duy trì mức giảm tịnh tiến' : 'Needs a steady reduction of'}{' '}
+                    <strong>~{fmt(annualCutNeeded)} tCO₂e/{lang === 'vi' ? 'năm' : 'year'}</strong> {lang === 'vi' ? 'xuyên suốt lộ trình.' : 'throughout the roadmap.'}
                   </li>
                 </ul>
               </div>
