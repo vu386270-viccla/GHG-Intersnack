@@ -588,10 +588,7 @@ export default function OpexReportPage() {
       if (r.scope === 'scope_1') {
         byYear[r.year].s1 += Number(r.emissions_tco2e);
       } else if (r.scope === 'scope_2') {
-        const country = facDict[r.factory_id];
-        const gef = GRID_EMISSION_FACTORS.find(ef => ef.country === country && ef.year === r.year);
-        const factor = gef?.factor || 0.8041;
-        byYear[r.year].s2 += Number(r.activity_data) * factor / 1000;
+        byYear[r.year].s2 += Number(r.emissions_tco2e);
       }
     }
     if (filteredProd.length > 0) {
