@@ -38,7 +38,7 @@ let _cache: {
   timestamp: number;
 } | null = null;
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 0; // Disabled cache to prevent syncing mismatches with Opex Report
 
 export function invalidateCache() {
   _cache = null;
@@ -49,39 +49,61 @@ async function fetchData(year: number) {
     return _cache;
   }
 
-  const [factoriesRes, emissionsRes] = await Promise.all([
+  const [factoriesRes] = await Promise.all([
     supabase.from('factories').select('*'),
-    supabase.from('emissions_data').select('factory_id,year,month,scope,category,activity_data,emissions_tco2e,cost_usd')
-      .eq('year', year)
-      .limit(5000),
   ]);
 
-  // Surface Supabase errors immediately — silent fallback to [] would
-  // make the dashboard show all-zeros instead of a visible error.
   if (factoriesRes.error) {
     throw new Error(`[DB] factories: ${factoriesRes.error.message}`);
   }
-  if (emissionsRes.error) {
-    throw new Error(`[DB] emissions_data (${year}): ${emissionsRes.error.message}`);
+
+  let allEmissions: RawEmission[] = [];
+  let offset = 0;
+  const PAGE = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('factory_id,year,month,scope,category,activity_data,emissions_tco2e,cost_usd')
+      .eq('year', year)
+      .range(offset, offset + PAGE - 1);
+
+    if (error) {
+       throw new Error(`[DB] emissions_data (${year}): ${error.message}`);
+    }
+    if (!data || data.length === 0) break;
+    
+    allEmissions = allEmissions.concat(data as RawEmission[]);
+    if (data.length < PAGE) break;
+    offset += PAGE;
   }
 
   const factories = (factoriesRes.data ?? []) as Factory[];
-  const emissions = (emissionsRes.data ?? []) as RawEmission[];
-
-  _cache = { factories, emissions, year, timestamp: Date.now() };
+  _cache = { factories, emissions: allEmissions, year, timestamp: Date.now() };
   return _cache;
 }
 
-// ── Get previous year data for comparison ──
 async function fetchPrevYear(year: number) {
-  const { data, error } = await supabase
-    .from('emissions_data')
-    .select('scope,emissions_tco2e')
-    .eq('year', year - 1)
-    .limit(5000);
-  // Non-fatal: prev-year comparison just shows 0% change on error
-  if (error) console.warn(`[DB] emissions_data prev year (${year - 1}):`, error.message);
-  return (data ?? []) as { scope: string; emissions_tco2e: number }[];
+  let allData: { scope: string; emissions_tco2e: number; factory_id: string }[] = [];
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('scope,emissions_tco2e,factory_id')
+      .eq('year', year - 1)
+      .range(offset, offset + PAGE - 1);
+    
+    if (error) {
+      console.warn(`[DB] emissions_data prev year (${year - 1}):`, error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    allData = allData.concat(data as { scope: string; emissions_tco2e: number; factory_id: string }[]);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return allData;
 }
 
 // ── Main data function ──
@@ -479,83 +501,109 @@ export async function getAnnualScopeBreakdown(
   fromYear = 2018,
   toYear = new Date().getFullYear(),
 ): Promise<AnnualScopeRow[]> {
-  const PAGE_SIZE = 5000;
-  const map: Record<number, { s1: number; s2: number }> = {};
-  let offset = 0;
+  // Fetch each year independently (same strategy as getDashboardData)
+  // to guarantee totals match the KPI cards — avoids pagination truncation
+  // when all years combined exceed the row limit.
+  const years: number[] = [];
+  for (let y = fromYear; y <= toYear; y++) years.push(y);
 
-  while (true) {
-    const { data, error } = await supabase
-      .from('emissions_data')
-      .select('year,scope,emissions_tco2e')
-      .gte('year', fromYear)
-      .lte('year', toYear)
-      .in('scope', ['scope_1', 'scope_2'])
-      .range(offset, offset + PAGE_SIZE - 1);
+  const yearResults = await Promise.all(
+    years.map(async (yr) => {
+      let s1 = 0;
+      let s2 = 0;
+      let offset = 0;
+      const PAGE = 1000;
 
-    if (error || !data || data.length === 0) break;
+      while (true) {
+        const { data, error } = await supabase
+          .from('emissions_data')
+          .select('scope,emissions_tco2e')
+          .eq('year', yr)
+          .in('scope', ['scope_1', 'scope_2'])
+          .range(offset, offset + PAGE - 1);
 
-    for (const e of data) {
-      if (!map[e.year]) map[e.year] = { s1: 0, s2: 0 };
-      const v = Number(e.emissions_tco2e);
-      if (e.scope === 'scope_1') map[e.year].s1 += v;
-      else if (e.scope === 'scope_2') map[e.year].s2 += v;
-    }
+        if (error || !data || data.length === 0) break;
 
-    if (data.length < PAGE_SIZE) break; // last page
-    offset += PAGE_SIZE;
-  }
+        for (const e of data) {
+          const v = Number(e.emissions_tco2e);
+          if (e.scope === 'scope_1') s1 += v;
+          else if (e.scope === 'scope_2') s2 += v;
+        }
 
-  return Object.entries(map)
-    .map(([yr, v]) => ({ year: Number(yr), s1: Math.round(v.s1), s2: Math.round(v.s2), s3: 0 }))
-    .sort((a, b) => a.year - b.year);
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+
+      return { year: yr, s1: Math.round(s1), s2: Math.round(s2), s3: 0 };
+    })
+  );
+
+  // Only include years that actually have data
+  return yearResults.filter(r => r.s1 > 0 || r.s2 > 0);
 }
 
 // ── Annual totals by scope — used by Targets page chart ──
 export async function getAnnualTotals(fromYear: number, toYear: number): Promise<Record<number, { s1: number; s2: number; s3: number }>> {
-  // Fetch S1 and S2 separately from emissions_data, S3 from static data
-  const [opsRes, factoriesRes, fuelRes] = await Promise.all([
-    supabase.from('emissions_data')
-      .select('year,scope,emissions_tco2e')
-      .gte('year', fromYear).lte('year', toYear).limit(10000),
-    supabase.from('factories').select('id,country'),
-    supabase.from('emissions_data')
-      .select('factory_id,year,category,activity_data')
-      .gte('year', fromYear).lte('year', toYear)
-      .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
-      .limit(10000),
-  ]);
+  const years: number[] = [];
+  for (let y = fromYear; y <= toYear; y++) years.push(y);
+
+  // Fetch factories once for WTT country lookup
+  const { data: factoriesData } = await supabase.from('factories').select('id,country');
+  const factoryCountry: Record<string, string> = {};
+  for (const f of factoriesData || []) factoryCountry[f.id] = f.country;
+
+  // Fetch each year's S1+S2 and fuel rows in parallel — avoids cross-year limit truncation
+  const yearResults = await Promise.all(
+    years.map(async (yr) => {
+      const PAGE = 1000;
+      let s1 = 0, s2 = 0;
+      let offset = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('emissions_data')
+          .select('scope,emissions_tco2e')
+          .eq('year', yr)
+          .in('scope', ['scope_1', 'scope_2'])
+          .range(offset, offset + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        for (const e of data) {
+          const v = Number(e.emissions_tco2e);
+          if (e.scope === 'scope_1') s1 += v;
+          else if (e.scope === 'scope_2') s2 += v;
+        }
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+
+      // WTT (Cat.3) from fuel activity data for this year
+      let wtt = 0;
+      const { data: fuelData } = await supabase
+        .from('emissions_data')
+        .select('factory_id,category,activity_data')
+        .eq('year', yr)
+        .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
+        .limit(5000);
+      for (const r of fuelData || []) {
+        const isIndia = factoryCountry[r.factory_id] === 'India';
+        const act = Number(r.activity_data) || 0;
+        if (r.category === 'diesel')           wtt += act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
+        else if (r.category === 'lpg')         wtt += act * WTT.lpg;
+        else if (r.category === 'electricity') wtt += act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
+        else if (r.category === 'wood_logs')   wtt += act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
+      }
+
+      // S3: static Cat.1 + Cat.4 + dynamic WTT (Cat.3)
+      const s3Static = getS3StaticCat1and4(yr);
+      const s3 = s3Static.cat1 + s3Static.cat4 + wtt;
+
+      return { yr, s1, s2, s3 };
+    })
+  );
 
   const result: Record<number, { s1: number; s2: number; s3: number }> = {};
-  const factoryCountry: Record<string, string> = {};
-  for (const f of factoriesRes.data || []) factoryCountry[f.id] = f.country;
-
-  for (const e of opsRes.data || []) {
-    if (!result[e.year]) result[e.year] = { s1: 0, s2: 0, s3: 0 };
-    const val = Number(e.emissions_tco2e);
-    if (e.scope === 'scope_1') result[e.year].s1 += val;
-    else if (e.scope === 'scope_2') result[e.year].s2 += val;
+  for (const { yr, s1, s2, s3 } of yearResults) {
+    result[yr] = { s1, s2, s3 };
   }
-
-  // Aggregate S3 Cat.1 + Cat.4 from static data (same source as OpEx/Overview)
-  for (let yr = fromYear; yr <= toYear; yr++) {
-    const s3Static = getS3StaticCat1and4(yr);
-    if (!result[yr]) result[yr] = { s1: 0, s2: 0, s3: 0 };
-    result[yr].s3 += s3Static.cat1 + s3Static.cat4;
-  }
-
-  // Add WTT (Cat.3) from fuel activity data
-  for (const r of fuelRes.data || []) {
-    const isIndia = factoryCountry[r.factory_id] === 'India';
-    const act = Number(r.activity_data) || 0;
-    let wtt = 0;
-    if (r.category === 'diesel')      wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
-    else if (r.category === 'lpg')    wtt = act * WTT.lpg;
-    else if (r.category === 'electricity') wtt = act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
-    else if (r.category === 'wood_logs')   wtt = act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
-    if (!result[r.year]) result[r.year] = { s1: 0, s2: 0, s3: 0 };
-    result[r.year].s3 += wtt;
-  }
-
   return result;
 }
 
@@ -603,12 +651,22 @@ export async function getScope3SummaryData(): Promise<{
   const factoryCountry: Record<string, string> = {};
   for (const f of factories || []) factoryCountry[f.id] = f.country;
 
-  const { data: fuelRows } = await supabase
-    .from('emissions_data')
-    .select('factory_id,year,category,activity_data')
-    .in('year', YEARS)
-    .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
-    .limit(10000);
+  let fuelRows: any[] = [];
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('factory_id,year,category,activity_data')
+      .in('year', YEARS)
+      .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
+      .range(offset, offset + PAGE - 1);
+      
+    if (error || !data || data.length === 0) break;
+    fuelRows = fuelRows.concat(data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
 
   // Aggregate WTT (Cat.3) per year
   const wttByYear: Record<number, number> = {};

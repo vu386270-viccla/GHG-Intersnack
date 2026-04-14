@@ -548,25 +548,35 @@ export default function OpexReportPage() {
   const [factories, setFactories] = useState<{id: string, country: string, name: string}[]>([]);
   useEffect(() => {
     async function load() {
-      const [facRes, rowRes1, rowRes2, rowRes3, prodRes] = await Promise.all([
+      const [facRes, prodRes] = await Promise.all([
         supabase.from('factories').select('id, name, country'),
-        supabase.from('emissions_data')
-          .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
-          .gte('year', 2021).lte('year', 2025).range(0, 999),
-        supabase.from('emissions_data')
-          .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
-          .gte('year', 2021).lte('year', 2025).range(1000, 1999),
-        // Q1 2026 YTD (Jan–Mar actual)
-        supabase.from('emissions_data')
-          .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
-          .eq('year', 2026).range(0, 499),
         supabase.from('production_data')
           .select('factory_id, year, category, quantity')
           .eq('category', 'rcn_input'),
       ]);
 
+      let allEms: any[] = [];
+      const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+      for (const yr of YEARS) {
+        let offset = 0;
+        const PAGE = 1000;
+        while (true) {
+          const { data, error } = await supabase
+            .from('emissions_data')
+            .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
+            .eq('year', yr)
+            .in('scope', ['scope_1', 'scope_2'])
+            .range(offset, offset + PAGE - 1);
+            
+          if (error || !data || data.length === 0) break;
+          allEms = allEms.concat(data);
+          if (data.length < PAGE) break;
+          offset += PAGE;
+        }
+      }
+
       setFactories(facRes.data || []);
-      setRawEms([...(rowRes1.data || []), ...(rowRes2.data || []), ...(rowRes3.data || [])]);
+      setRawEms(allEms);
       setRawProd(prodRes.data || []);
       setLoading(false);
     }
@@ -581,6 +591,7 @@ export default function OpexReportPage() {
 
     const filteredEms = selectedFac === 'ALL' ? rawEms : rawEms.filter(r => r.factory_id === selectedFac);
     const filteredProd = selectedFac === 'ALL' ? rawProd : rawProd.filter(p => p.factory_id === selectedFac);
+
 
     const byYear: Record<number, { s1: number; s2: number; rcn: number }> = {};
     for (const r of filteredEms) {
