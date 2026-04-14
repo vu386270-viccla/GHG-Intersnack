@@ -530,6 +530,155 @@ function OriginDonut({ rows, scaledTotal }: { rows: ScaledRow[]; scaledTotal: nu
   );
 }
 
+// ── Scope 1 Category Config ───────────────────────────────
+const S1_CATS: { key: string; label: string; color: string }[] = [
+  { key: 'wood_logs',            label: 'Wood logs',              color: '#C8281A' },
+  { key: 'wastewater',           label: 'Wastewater',             color: '#8B1A10' },
+  { key: 'lpg',                  label: 'LPG',                    color: '#E8960E' },
+  { key: 'diesel',               label: 'Diesel',                 color: '#4472C4' },
+  { key: 'f_gas_fugitives_r134a',label: 'F Gas R134A',            color: '#70AD47' },
+  { key: 'f_gas_fugitives_r410a',label: 'F Gas R410A',            color: '#7F7F7F' },
+  { key: 'f_gas_fugitives_r404a',label: 'F Gas R404A',            color: '#595959' },
+  { key: 'co2_cylinder',         label: 'CO₂ cylinder / tanks',   color: '#333333' },
+];
+
+// ── Scope 1 Breakdown Chart ─────────────────────────────────
+type S1BreakYear = { year: number; cats: Record<string, number>; total: number };
+
+function Scope1BreakdownChart({
+  years, breakdown, selectedFac,
+}: {
+  years: number[];
+  breakdown: S1BreakYear[];
+  selectedFac: string;
+}) {
+  const [hovYear, setHovYear] = React.useState<number | null>(null);
+
+  const W = 540, H = 230;
+  const PL = 6, PR = 6, PT = 14, PB = 50;
+  const chartH = H - PT - PB;
+  const cw = (W - PL - PR) / years.length;
+  const bw = Math.min(38, cw * 0.72);
+
+  const yMax = Math.max(...breakdown.map(b => b.total), 1) * 1.2;
+  const py = (v: number) => PT + chartH - (v / yMax) * chartH;
+  const ph = (v: number) => Math.max((v / yMax) * chartH, 0);
+  const cx = (i: number) => PL + cw * i + cw / 2;
+  const bx = (i: number) => cx(i) - bw / 2;
+
+  // Only show cats that have > 0 across all years
+  const activeCats = S1_CATS.filter(c =>
+    breakdown.some(b => (b.cats[c.key] || 0) > 0)
+  );
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: '#C8281A', marginBottom: 4 }}>
+        🔥 Scope 1 — Breakdown by Fuel / Source (tCO₂e)
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
+        {/* Gridlines */}
+        {[0.25, 0.5, 0.75, 1].map(f => {
+          const gv = yMax * f;
+          const gy = py(gv);
+          return (
+            <g key={f}>
+              <line x1={PL} y1={gy} x2={W - PR} y2={gy} stroke="#eee" strokeWidth={1} />
+              <text x={PL - 2} y={gy + 3.5} textAnchor="end" fontSize={8} fill="#bbb">
+                {Math.round(gv)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Axis */}
+        <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth={1.5} />
+
+        {/* Bars */}
+        {years.map((yr, i) => {
+          const bd = breakdown.find(b => b.year === yr);
+          if (!bd || bd.total === 0) return null;
+          const isHov = hovYear === yr;
+          let stackY = py(0); // start from bottom
+          const segs: React.ReactNode[] = [];
+
+          // draw from bottom up in reverse order so first cat is on bottom
+          const catsReversed = [...activeCats].reverse();
+          for (const cat of catsReversed) {
+            const val = bd.cats[cat.key] || 0;
+            if (val <= 0) continue;
+            const segH = ph(val);
+            stackY -= segH;
+            segs.push(
+              <rect
+                key={cat.key}
+                x={bx(i)} y={stackY}
+                width={bw} height={segH}
+                fill={cat.color}
+                opacity={isHov ? 1 : 0.88}
+                stroke="white" strokeWidth={0.4}
+              />
+            );
+            // Label inside segment if tall enough
+            if (segH > 14) {
+              segs.push(
+                <text
+                  key={cat.key + 'lbl'}
+                  x={cx(i)} y={stackY + segH / 2 + 4}
+                  textAnchor="middle" fontSize={segH > 22 ? 10 : 8}
+                  fontWeight={700} fill="white"
+                >
+                  {Math.round(val)}
+                </text>
+              );
+            }
+          }
+
+          // Total above bar
+          const barTop = py(bd.total);
+          return (
+            <g
+              key={yr}
+              onMouseEnter={() => setHovYear(yr)}
+              onMouseLeave={() => setHovYear(null)}
+              style={{ cursor: 'default' }}
+            >
+              {segs}
+              {/* outer border */}
+              <rect
+                x={bx(i)} y={barTop}
+                width={bw} height={py(0) - barTop}
+                fill="none"
+                stroke={isHov ? '#333' : 'transparent'}
+                strokeWidth={1.5}
+                rx={1}
+              />
+              {/* Total label above bar */}
+              <text x={cx(i)} y={barTop - 3} textAnchor="middle" fontSize={9.5} fontWeight={800} fill="#333">
+                {Math.round(bd.total)}
+              </text>
+              {/* Year label below */}
+              <text x={cx(i)} y={PT + chartH + 12} textAnchor="middle" fontSize={10} fill="#555" fontWeight={yr === 2026 ? 700 : 400}>
+                {yr === 2026 ? "Q1'26" : yr.toString()}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 2, fontSize: '9.5px' }}>
+        {activeCats.map(c => (
+          <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 11, height: 11, background: c.color, borderRadius: 2, flexShrink: 0 }} />
+            <span style={{ color: '#444' }}>{c.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
   const { lang, t } = useI18n();
@@ -616,6 +765,40 @@ export default function OpexReportPage() {
       rcn: byYear[year]?.rcn || 0,
     }));
   }, [rawEms, rawProd, factories, selectedFac]);
+
+  // ── Scope 1 breakdown by category (per year) ──────────────
+  const scope1Breakdown = useMemo<S1BreakYear[]>(() => {
+    const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+    const filteredEms = selectedFac === 'ALL'
+      ? rawEms
+      : rawEms.filter(r => r.factory_id === selectedFac);
+
+    return YEARS.map(yr => {
+      const cats: Record<string, number> = {};
+      let total = 0;
+      for (const r of filteredEms) {
+        if (r.year !== yr || r.scope !== 'scope_1') continue;
+        const catKey = (r.category || '').toLowerCase().replace(/\s+/g, '_');
+        // Normalize to our known keys
+        const mapped =
+          catKey.includes('wood') ? 'wood_logs' :
+          catKey.includes('wastewater') ? 'wastewater' :
+          catKey === 'lpg' ? 'lpg' :
+          catKey === 'diesel' ? 'diesel' :
+          catKey.includes('r134') ? 'f_gas_fugitives_r134a' :
+          catKey.includes('r410') ? 'f_gas_fugitives_r410a' :
+          catKey.includes('r404') ? 'f_gas_fugitives_r404a' :
+          catKey.includes('co2') || catKey.includes('cylinder') ? 'co2_cylinder' :
+          catKey;
+        const val = Number(r.emissions_tco2e) || 0;
+        cats[mapped] = (cats[mapped] || 0) + val;
+        total += val;
+      }
+      // Round all values
+      for (const k of Object.keys(cats)) cats[k] = Math.round(cats[k]);
+      return { year: yr, cats, total: Math.round(total) };
+    });
+  }, [rawEms, selectedFac]);
 
   // ── Scope 3 computed data ──────────────────────────────────
   // Cat.1 (FLAG — Purchased Goods): ORIGIN_MIX × ORIGIN_EF  →  consistent with Origin Risk panel
@@ -1163,6 +1346,13 @@ export default function OpexReportPage() {
               </div>
             );
           })()}
+
+          {/* ── Scope 1 Fuel Breakdown Chart ── */}
+          <Scope1BreakdownChart
+            years={[2021, 2022, 2023, 2024, 2025, 2026].filter(y => y < 2026 || get(2026).scope1 > 0)}
+            breakdown={scope1Breakdown}
+            selectedFac={selectedFac}
+          />
 
           {/* Commentary — 100% data-driven from DB */}
           {(() => {

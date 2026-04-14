@@ -401,11 +401,11 @@ export default function DashboardPage() {
     : null;
 
   return (
-    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="page-enter stagger-children" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── Baseline estimated warning ── */}
       {baselineEstimated && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 10, fontSize: 12 }}>
+        <div className="animate-fade-in-up" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 10, fontSize: 12 }}>
           <span style={{ fontSize: 18 }}>⚠️</span>
           <div>
             <span style={{ fontWeight: 700, color: '#92400e' }}>{t('baseline_warning_title')}</span>
@@ -415,7 +415,7 @@ export default function DashboardPage() {
       )}
 
       {/* ══ ROW 0: Header + Filters ══ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div className="animate-fade-in-up" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: 8 }}>
             {t('overview')}
@@ -464,14 +464,14 @@ export default function DashboardPage() {
             style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}>
             {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <Link href="/overview" style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--color-primary)', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+          <Link href="/overview" className="btn-primary" style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             {t('ppt_view')}
           </Link>
         </div>
       </div>
 
       {/* ══ SBTi TARGETS ROW (MOVED TO TOP) ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {sbtiS12 && (
           <SBTiProgressCard
             label={t('sbti_s12')}
@@ -505,11 +505,11 @@ export default function DashboardPage() {
       </div>
 
       {/* ══ ROW 1: 3 Scope KPIs + Donut ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 140px', gap: 10 }}>
+      <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 140px', gap: 10 }}>
 
         {/* Scope 1 */}
         <Link href="/scope-1" style={{ textDecoration: 'none' }}>
-          <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_1}`, cursor: 'pointer', height: '100%' }}>
+          <div className="card scope-card scope-1" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_1}`, height: '100%' }}>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_1, marginBottom: 4 }}>🔥 {t('scope1_label')}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: 'var(--color-text)' }}>
               {formatTCO2e(totals.s1)}
@@ -525,14 +525,14 @@ export default function DashboardPage() {
               )}
             </div>
             <div style={{ marginTop: 6, height: 4, background: '#f3f4f6', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${correctedTotal > 0 ? totals.s1 / correctedTotal * 100 : 0}%`, background: S_COLOR.scope_1, borderRadius: 2 }} />
+              <div style={{ height: '100%', width: `${correctedTotal > 0 ? totals.s1 / correctedTotal * 100 : 0}%`, background: S_COLOR.scope_1, borderRadius: 2, transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
             </div>
           </div>
         </Link>
 
         {/* Scope 2 */}
         <Link href="/scope-2" style={{ textDecoration: 'none' }}>
-          <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_2}`, cursor: 'pointer', height: '100%' }}>
+          <div className="card scope-card scope-2" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_2}`, height: '100%' }}>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_2, marginBottom: 4 }}>⚡ {t('scope2_label')}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: 'var(--color-text)' }}>
               {formatTCO2e(totals.s2)}
@@ -548,14 +548,14 @@ export default function DashboardPage() {
               )}
             </div>
             <div style={{ marginTop: 6, height: 4, background: '#f3f4f6', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${correctedTotal > 0 ? totals.s2 / correctedTotal * 100 : 0}%`, background: S_COLOR.scope_2, borderRadius: 2 }} />
+              <div style={{ height: '100%', width: `${correctedTotal > 0 ? totals.s2 / correctedTotal * 100 : 0}%`, background: S_COLOR.scope_2, borderRadius: 2, transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
             </div>
           </div>
         </Link>
 
-        {/* Scope 3 — richer with categories */}
+        {/* Scope 3 */}
         <Link href="/scope-3" style={{ textDecoration: 'none' }}>
-          <div className="card" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_3}`, cursor: 'pointer', height: '100%' }}>
+          <div className="card scope-card scope-3" style={{ padding: '12px 16px', borderLeft: `4px solid ${S_COLOR.scope_3}`, height: '100%' }}>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: S_COLOR.scope_3, marginBottom: 4 }}>
               🌍 {t('scope3_label')}
               {s3IsEstimated && <span style={{ fontWeight: 500, color: '#bbb', marginLeft: 4 }}>{t('prev_year')}</span>}
@@ -570,7 +570,7 @@ export default function DashboardPage() {
               <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {s3Cats.slice(0, 3).map(cat => (
                   <div key={cat.category} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: '#888' }}>
-                    <div style={{ height: 3, width: `${cat.percentOfScope}%`, minWidth: 4, background: S_COLOR.scope_3, borderRadius: 2, opacity: 0.6 + cat.percentOfScope / 200 }} />
+                    <div style={{ height: 3, width: `${cat.percentOfScope}%`, minWidth: 4, background: S_COLOR.scope_3, borderRadius: 2, opacity: 0.6 + cat.percentOfScope / 200, transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
                     <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{cat.label.split('—').pop()?.trim()}</span>
                     <span style={{ color: S_COLOR.scope_3, fontWeight: 700, marginLeft: 'auto', flexShrink: 0 }}>{formatNumber(cat.emissions)}</span>
                   </div>
@@ -589,7 +589,7 @@ export default function DashboardPage() {
         </Link>
 
         {/* Donut + Intensity compact */}
-        <div className="card" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div className="card animate-scale-in" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <ScopeDonut s1={totals.s1} s2={totals.s2} s3={s3Display} size={90} />
           <div style={{ fontSize: 9, color: '#aaa', textAlign: 'center', lineHeight: 1.6 }}>
             <span style={{ color: S_COLOR.scope_1, fontWeight: 700 }}>●</span> S1&nbsp;
@@ -606,7 +606,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ══ ROW 2: Monthly Chart + Factory Table ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10, minHeight: 0 }}>
+      <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10, minHeight: 0 }}>
 
         {/* Monthly Stacked Bar */}
         <div className="card" style={{ padding: '12px 16px' }}>
@@ -676,7 +676,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ══ ROW 3: Factory mini-bars (visual share) ══ */}
-      <div className="card" style={{ padding: '12px 16px' }}>
+      <div className="card animate-fade-in-up" style={{ padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)' }}>{t('factory_distribution')}</div>
           <div style={{ fontSize: 10, color: '#aaa' }}>Stacked: S1 · S2 · S3 (tCO₂e)</div>
@@ -698,8 +698,8 @@ export default function DashboardPage() {
                     {fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {factoryAbbr(fs.factory.name, fs.factory.country)}
                   </div>
                   <div style={{ flex: 1, height: 18, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${s1Pct}%`, background: S_COLOR.scope_1, transition: 'width 0.5s' }} />
-                    <div style={{ position: 'absolute', left: `${s1Pct}%`, top: 0, height: '100%', width: `${s2Pct}%`, background: S_COLOR.scope_2, transition: 'width 0.5s' }} />
+                    <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${s1Pct}%`, background: S_COLOR.scope_1, transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                    <div style={{ position: 'absolute', left: `${s1Pct}%`, top: 0, height: '100%', width: `${s2Pct}%`, background: S_COLOR.scope_2, transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
                   </div>
                   <div style={{ width: 70, fontSize: 11, fontWeight: 800, textAlign: 'right', color: 'var(--color-text)', flexShrink: 0 }}>
                     {formatNumber(s12)} t
@@ -715,7 +715,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ══ ROW 4: Quick Links ══ */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="animate-fade-in-up" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {[
           { href: '/scope-1', icon: '🔥', label: t('scope1_detail'), color: S_COLOR.scope_1 },
           { href: '/scope-2', icon: '⚡', label: t('scope2_detail'), color: S_COLOR.scope_2 },
@@ -724,13 +724,13 @@ export default function DashboardPage() {
           { href: '/factories', icon: '🏭', label: t('factory_compare'), color: '#0ea5e9' },
           { href: '/opex-report', icon: '📋', label: t('opex_report'), color: '#8b5cf6' },
           { href: '/reference', icon: '📖', label: t('reference_ef'), color: '#6b7280' },
-        ].map(link => (
+        ].map((link, idx) => (
           <Link key={link.href} href={link.href} style={{ textDecoration: 'none' }}>
-            <div style={{
+            <div className="animate-scale-in" style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
               background: 'var(--color-card-bg)', border: `1.5px solid ${link.color}22`,
               borderRadius: 10, fontSize: 12, fontWeight: 700, color: link.color,
-              transition: 'all 0.15s', cursor: 'pointer',
+              transition: 'all 0.15s', cursor: 'pointer', animationDelay: `${500 + idx * 50}ms`,
             }}>
               {link.icon} {link.label}
             </div>
