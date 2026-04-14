@@ -479,20 +479,30 @@ export async function getAnnualScopeBreakdown(
   fromYear = 2018,
   toYear = new Date().getFullYear(),
 ): Promise<AnnualScopeRow[]> {
-  const { data } = await supabase
-    .from('emissions_data')
-    .select('year,scope,emissions_tco2e')
-    .gte('year', fromYear)
-    .lte('year', toYear)
-    .in('scope', ['scope_1', 'scope_2'])
-    .limit(10000);
-
+  const PAGE_SIZE = 5000;
   const map: Record<number, { s1: number; s2: number }> = {};
-  for (const e of data || []) {
-    if (!map[e.year]) map[e.year] = { s1: 0, s2: 0 };
-    const v = Number(e.emissions_tco2e);
-    if (e.scope === 'scope_1') map[e.year].s1 += v;
-    else if (e.scope === 'scope_2') map[e.year].s2 += v;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('year,scope,emissions_tco2e')
+      .gte('year', fromYear)
+      .lte('year', toYear)
+      .in('scope', ['scope_1', 'scope_2'])
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error || !data || data.length === 0) break;
+
+    for (const e of data) {
+      if (!map[e.year]) map[e.year] = { s1: 0, s2: 0 };
+      const v = Number(e.emissions_tco2e);
+      if (e.scope === 'scope_1') map[e.year].s1 += v;
+      else if (e.scope === 'scope_2') map[e.year].s2 += v;
+    }
+
+    if (data.length < PAGE_SIZE) break; // last page
+    offset += PAGE_SIZE;
   }
 
   return Object.entries(map)
