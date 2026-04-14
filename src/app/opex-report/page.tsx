@@ -205,11 +205,10 @@ function WaterfallChart({
                     {/* Stacked 2025 bar (approx match PPT ~ 62.4% Est / 37.6% Act) */}
                     <rect x={bx(i)} y={py(val)} width={bw} height={py(val * 0.376) - py(val)} fill={C.estimated} />
                     <rect x={bx(i)} y={py(val * 0.376)} width={bw} height={py(0) - py(val * 0.376)} fill={C.actual} />
-                    <rect x={bx(i)} y={py(val)} width={bw} height={py(0) - py(val)} fill="none" stroke="#222" strokeWidth="0.8" />
-                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222">
+                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222" stroke="white" strokeWidth="2.5" paintOrder="stroke fill">
                       {fmt(val * 0.624)}
                     </text>
-                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="white">
+                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">
                       {fmt(val * 0.376)}
                     </text>
                   </>
@@ -258,13 +257,13 @@ function WaterfallChart({
                       <line x1={bx(i)} y1={splitY} x2={bx(i)+bw} y2={splitY} stroke="white" strokeWidth={2.5} />
                       {/* Numbers only, no labels */}
                       {planH > 18 && (
-                        <text x={cx(i)} y={topY  + planH/2 + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white">{fv(planAbs)}</text>
+                        <text x={cx(i)} y={topY  + planH/2 + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">{fv(planAbs)}</text>
                       )}
                       {q1H  > 18 && (
-                        <text x={cx(i)} y={splitY + q1H/2  + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white">{fv(q1Abs)}</text>
+                        <text x={cx(i)} y={splitY + q1H/2  + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">{fv(q1Abs)}</text>
                       )}
                       {/* Total plan value above bar */}
-                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={C.target}>{fv(planVal2026)}</text>
+                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={C.target} stroke="white" strokeWidth="2.5" paintOrder="stroke fill">{fv(planVal2026)}</text>
                     </>
                   );
                 })() : (
@@ -281,12 +280,12 @@ function WaterfallChart({
                     {/* text delta: short format INSIDE bars, full format OUTSIDE */}
                     {boxH > 22 ? (
                       // Inside tall bar — use short K-format so text fits within bar width
-                      <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11" fontWeight="700" fill="white">
+                      <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11" fontWeight="700" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">
                         {deltaStrShort}
                       </text>
                     ) : (
                       // Outside small bar — always above bar, full format
-                      <text x={cx(i)} y={boxY - 7} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={color}>
+                      <text x={cx(i)} y={boxY - 7} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={color} stroke="white" strokeWidth="2.5" paintOrder="stroke fill">
                         {deltaStr}
                       </text>
                     )}
@@ -627,6 +626,7 @@ function Scope1BreakdownChart({
                   x={cx(i)} y={stackY + segH / 2 + 4}
                   textAnchor="middle" fontSize={segH > 22 ? 10 : 8}
                   fontWeight={700} fill="white"
+                  stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill"
                 >
                   {Math.round(val)}
                 </text>
@@ -654,7 +654,7 @@ function Scope1BreakdownChart({
                 rx={1}
               />
               {/* Total label above bar */}
-              <text x={cx(i)} y={barTop - 3} textAnchor="middle" fontSize={9.5} fontWeight={800} fill="#333">
+              <text x={cx(i)} y={barTop - 3} textAnchor="middle" fontSize={9.5} fontWeight={800} fill="#333" stroke="white" strokeWidth="2.5" paintOrder="stroke fill">
                 {Math.round(bd.total)}
               </text>
               {/* Year label below */}
