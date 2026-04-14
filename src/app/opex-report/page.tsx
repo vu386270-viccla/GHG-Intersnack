@@ -205,10 +205,10 @@ function WaterfallChart({
                     {/* Stacked 2025 bar (approx match PPT ~ 62.4% Est / 37.6% Act) */}
                     <rect x={bx(i)} y={py(val)} width={bw} height={py(val * 0.376) - py(val)} fill={C.estimated} />
                     <rect x={bx(i)} y={py(val * 0.376)} width={bw} height={py(0) - py(val * 0.376)} fill={C.actual} />
-                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#222" stroke="white" strokeWidth="2.5" paintOrder="stroke fill">
+                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#222">
                       {fmt(val * 0.624)}
                     </text>
-                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">
+                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="white">
                       {fmt(val * 0.376)}
                     </text>
                   </>
@@ -257,13 +257,13 @@ function WaterfallChart({
                       <line x1={bx(i)} y1={splitY} x2={bx(i)+bw} y2={splitY} stroke="white" strokeWidth={2.5} />
                       {/* Numbers only, no labels */}
                       {planH > 18 && (
-                        <text x={cx(i)} y={topY  + planH/2 + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">{fv(planAbs)}</text>
+                        <text x={cx(i)} y={topY  + planH/2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(planAbs)}</text>
                       )}
                       {q1H  > 18 && (
-                        <text x={cx(i)} y={splitY + q1H/2  + 3.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">{fv(q1Abs)}</text>
+                        <text x={cx(i)} y={splitY + q1H/2  + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(q1Abs)}</text>
                       )}
                       {/* Total plan value above bar */}
-                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={C.target} stroke="white" strokeWidth="2.5" paintOrder="stroke fill">{fv(planVal2026)}</text>
+                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={13} fontWeight="900" fill={C.target}>{fv(planVal2026)}</text>
                     </>
                   );
                 })() : (
@@ -278,14 +278,14 @@ function WaterfallChart({
                     />
 
                     {/* text delta: short format INSIDE bars, full format OUTSIDE */}
-                    {boxH > 22 ? (
+                    {boxH > 26 ? (
                       // Inside tall bar — use short K-format so text fits within bar width
-                      <text x={cx(i)} y={boxY + boxH/2 + 4.5} textAnchor="middle" fontSize="11" fontWeight="700" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill">
+                      <text x={cx(i)} y={boxY + boxH/2 + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill="white">
                         {deltaStrShort}
                       </text>
                     ) : (
                       // Outside small bar — always above bar, full format
-                      <text x={cx(i)} y={boxY - 7} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={color} stroke="white" strokeWidth="2.5" paintOrder="stroke fill">
+                      <text x={cx(i)} y={boxY - 7} textAnchor="middle" fontSize="12.5" fontWeight="800" fill={color}>
                         {deltaStr}
                       </text>
                     )}
@@ -294,7 +294,7 @@ function WaterfallChart({
 
                 {/* Year labels below axis — no absolute value numbers, data is visible in bars */}
                 {b.label.map((l, li) => (
-                  <text key={li} x={cx(i)} y={PT + chartH + 15 + li * 13} textAnchor="middle" fontSize="10.5" fill="#555">
+                  <text key={li} x={cx(i)} y={PT + chartH + 18 + li * 15} textAnchor="middle" fontSize="12.5" fill="#555" fontWeight={600}>
                     {l}
                   </text>
                 ))}
@@ -344,8 +344,8 @@ function WaterfallChart({
                 />
 
                 {/* Oval label */}
-                <ellipse cx={midX} cy={bracketY} rx={ovalRx} ry={ovalRy} fill="white" stroke={clr} strokeWidth="2" />
-                <text x={midX} y={bracketY + 4.5} textAnchor="middle" fontSize="12" fontWeight="800" fill={clr}>
+                <ellipse cx={midX} cy={bracketY} rx={ovalRx + 8} ry={ovalRy + 4} fill="white" stroke={clr} strokeWidth="2" />
+                <text x={midX} y={bracketY + 5.5} textAnchor="middle" fontSize="15" fontWeight="900" fill={clr}>
                   {cal.text}
                 </text>
               </g>
@@ -623,10 +623,9 @@ function Scope1BreakdownChart({
               segs.push(
                 <text
                   key={cat.key + 'lbl'}
-                  x={cx(i)} y={stackY + segH / 2 + 4}
-                  textAnchor="middle" fontSize={segH > 22 ? 10 : 8}
-                  fontWeight={700} fill="white"
-                  stroke="rgba(0,0,0,0.3)" strokeWidth="2.5" paintOrder="stroke fill"
+                  x={cx(i)} y={stackY + segH / 2 + 5}
+                  textAnchor="middle" fontSize={segH > 28 ? 13 : 10.5}
+                  fontWeight="900" fill="white"
                 >
                   {Math.round(val)}
                 </text>
@@ -654,11 +653,11 @@ function Scope1BreakdownChart({
                 rx={1}
               />
               {/* Total label above bar */}
-              <text x={cx(i)} y={barTop - 3} textAnchor="middle" fontSize={9.5} fontWeight={800} fill="#333" stroke="white" strokeWidth="2.5" paintOrder="stroke fill">
+              <text x={cx(i)} y={barTop - 4} textAnchor="middle" fontSize={13} fontWeight="900" fill="#333">
                 {Math.round(bd.total)}
               </text>
               {/* Year label below */}
-              <text x={cx(i)} y={PT + chartH + 12} textAnchor="middle" fontSize={10} fill="#555" fontWeight={yr === 2026 ? 700 : 400}>
+              <text x={cx(i)} y={PT + chartH + 16} textAnchor="middle" fontSize={13} fill="#555" fontWeight={yr === 2026 ? 800 : 600}>
                 {yr === 2026 ? "Q1'26" : yr.toString()}
               </text>
             </g>
@@ -667,11 +666,11 @@ function Scope1BreakdownChart({
       </svg>
 
       {/* Legend */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 2, fontSize: '9.5px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginTop: 8, fontSize: '12px' }}>
         {activeCats.map(c => (
-          <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 11, height: 11, background: c.color, borderRadius: 2, flexShrink: 0 }} />
-            <span style={{ color: '#444' }}>{c.label}</span>
+          <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 14, height: 14, background: c.color, borderRadius: 2, flexShrink: 0 }} />
+            <span style={{ color: '#444', fontWeight: 500 }}>{c.label}</span>
           </div>
         ))}
       </div>
