@@ -2009,8 +2009,10 @@ export default function OpexReportPage() {
 
       {/* ── CO₂ Intensity & RCN Production Trend ────────────── */}
       {selectedScope === 'intensity' && (() => {
-        const S1_COLOR = '#8B1A1A';
-        const S2_COLOR = '#b8b6b6';
+        const S1_COLOR = C.actual;          // #C8281A — đỏ (Scope 1)
+        const S2_COLOR = '#9ab0c4';         // xanh xám nhạt — Scope 2
+        const HDR_COLOR = '#1a3d5c';        // navy — factory headers
+        const ACCENT = C.actual;            // #C8281A
 
         // ── RCN line chart ─────────────────────────────────────────
         function RcnChart({ yrs }: { yrs: {year:number; rcn:number}[] }) {
@@ -2129,7 +2131,7 @@ export default function OpexReportPage() {
               width: '100%',
               aspectRatio: '16 / 9',
               background: '#fff',
-              border: '1px solid #d0d0d0',
+              border: `1.5px solid #b8ccd9`,
               borderRadius: 6,
               boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
               display: 'flex',
@@ -2138,7 +2140,7 @@ export default function OpexReportPage() {
               minHeight: 0,
             }}>
               {/* ── Slide title bar ── */}
-              <div style={{ padding: '6px 14px 4px', borderBottom: '2.5px solid #8B1A1A', flexShrink: 0 }}>
+              <div style={{ padding: '6px 14px 4px', borderBottom: `2.5px solid ${ACCENT}`, flexShrink: 0 }}>
                 <div style={{ fontSize: 'clamp(11px, 1.5vw, 16px)', fontWeight: 900, color: '#111', lineHeight: 1.2 }}>
                   CO₂ Intensity &amp; RCN Production Trend (2021–2025)
                 </div>
@@ -2166,7 +2168,7 @@ export default function OpexReportPage() {
                       }}>
                         {/* Factory header */}
                         <div style={{
-                          background: '#8B1A1A', color: 'white',
+                          background: HDR_COLOR, color: 'white',
                           textAlign: 'center', padding: '3px 2px',
                           fontSize: 'clamp(8px, 0.9vw, 11px)', fontWeight: 800, lineHeight: 1.2,
                           flexShrink: 0,
@@ -2194,13 +2196,13 @@ export default function OpexReportPage() {
                   </div>
 
                   {/* Legend + footnote */}
-                  <div style={{ padding: '4px 8px', background: '#f8f8f8', borderTop: '1px solid #e8e8e8', flexShrink: 0 }}>
+                  <div style={{ padding: '4px 8px', background: '#f0f4f8', borderTop: `1px solid #c8d8e8`, flexShrink: 0 }}>
                     <div style={{ fontSize: 'clamp(7px,0.75vw,9.5px)', color: '#444', lineHeight: 1.4 }}>
                       <strong>SCOPE:</strong>{' '}
                       <span style={{ color: S1_COLOR, fontWeight: 700 }}>■ Scope 1</span>
                       {lang === 'vi' ? ' — Đốt nhiên liệu trực tiếp (củi, diesel, LPG…)' : ' — Direct fuel combustion (firewood, diesel, LPG…)'}
                       {'  '}
-                      <span style={{ color: '#888', fontWeight: 700 }}>■ Scope 2</span>
+                      <span style={{ color: S2_COLOR, fontWeight: 700 }}>■ Scope 2</span>
                       {lang === 'vi' ? ' — Điện lưới mua vào' : ' — Purchased electricity'}
                     </div>
                     <div style={{ fontSize: 'clamp(6px,0.65vw,8.5px)', color: '#aaa', fontStyle: 'italic', marginTop: 1 }}>
@@ -2214,13 +2216,13 @@ export default function OpexReportPage() {
                 {/* RIGHT: Commentary panel (25%) */}
                 <div style={{
                   flex: '0 0 25%', minWidth: 0,
-                  background: 'linear-gradient(160deg,#fafafa 0%,#f3f3f3 100%)',
+                  background: 'linear-gradient(160deg,#edf2f7 0%,#dde8f0 100%)',
                   display: 'flex', flexDirection: 'column',
                   padding: '8px 10px',
                   gap: 6,
                   overflowY: 'auto',
                 }}>
-                  <div style={{ fontSize: 'clamp(8px,0.85vw,11px)', fontWeight: 800, color: '#8B1A1A', borderBottom: '1.5px solid #8B1A1A', paddingBottom: 3, marginBottom: 2 }}>
+                  <div style={{ fontSize: 'clamp(8px,0.85vw,11px)', fontWeight: 800, color: HDR_COLOR, borderBottom: `1.5px solid ${HDR_COLOR}`, paddingBottom: 3, marginBottom: 2 }}>
                     {lang === 'vi' ? '📋 Nhận xét' : '📋 Key Observations'}
                   </div>
 
@@ -2264,16 +2266,17 @@ export default function OpexReportPage() {
                   ].map((item, idx) => (
                     <div key={idx} style={{
                       background: '#fff',
-                      borderRadius: 5,
-                      border: '1px solid #e8e8e8',
-                      padding: '5px 7px',
+                      borderRadius: 4,
+                      borderLeft: `3px solid ${HDR_COLOR}`,
+                      boxShadow: '0 1px 3px rgba(26,61,92,0.08)',
+                      padding: '5px 8px 5px 7px',
                       fontSize: 'clamp(7px,0.72vw,9.5px)',
                       lineHeight: 1.45,
                     }}>
-                      <div style={{ fontWeight: 800, color: '#333', marginBottom: 2, fontSize: 'clamp(7.5px,0.78vw,10px)' }}>
+                      <div style={{ fontWeight: 800, color: HDR_COLOR, marginBottom: 2, fontSize: 'clamp(7.5px,0.78vw,10px)' }}>
                         {item.icon} {item.title}
                       </div>
-                      <div style={{ color: '#555' }}>{item.body}</div>
+                      <div style={{ color: '#444' }}>{item.body}</div>
                     </div>
                   ))}
                 </div>
