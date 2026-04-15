@@ -5,7 +5,7 @@ import {
   TargetProgress, SCOPE_COLORS, MONTHS_VI,
   SCOPE_1_CATEGORIES, SCOPE_3_CATEGORIES,
 } from './types';
-import { getS3StaticCat1and4 } from './scope3-data';
+import { getS3StaticCat1and4, ORIGIN_EF, ORIGIN_MIX } from './scope3-data';
 
 // ── Chart Helpers ──
 export function formatNumber(n: number): string {
@@ -28,6 +28,14 @@ interface RawEmission {
   activity_data: number;
   emissions_tco2e: number;
   cost_usd?: number;
+}
+
+interface RawProduction {
+  factory_id: string;
+  year: number;
+  month: number;
+  category: string;
+  quantity: number;
 }
 
 // ── In-memory cache ──
@@ -704,4 +712,428 @@ export async function getScope3SummaryData(): Promise<{
   }).filter(r => r.total > 0);
 
   return { rows, baseline2021: rows.find(r => r.year === 2021) };
+}
+
+const OPEX_YEARS = [2021, 2022, 2023, 2024, 2025, 2026] as const;
+const OPEX_INTENSITY_YEARS = [2021, 2022, 2023, 2024, 2025] as const;
+const OPEX_FACTORY_ORDER = ['Long An', 'Phan Thiết', 'Tây Ninh', 'Tuticorin'] as const;
+
+type OpexFactory = Pick<Factory, 'id' | 'name' | 'country'>;
+type OpexEmissionRow = Pick<RawEmission, 'factory_id' | 'year' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'>;
+type OpexProductionRow = Pick<RawProduction, 'factory_id' | 'year' | 'quantity'>;
+
+export interface OpexAnnualData {
+  year: number;
+  scope1: number;
+  scope2: number;
+  rcn: number;
+}
+
+export interface OpexIntensityYear {
+  year: number;
+  s1: number;
+  s2: number;
+  rcn: number;
+  s1Int: number;
+  s2Int: number;
+  totalInt: number;
+}
+
+export interface OpexIntensityColumn {
+  fac: OpexFactory;
+  years: OpexIntensityYear[];
+}
+
+export interface OpexScope1BreakYear {
+  year: number;
+  cats: Record<string, number>;
+  total: number;
+}
+
+export interface OpexScope3Row {
+  year: number;
+  cat1: number;
+  cat3: number;
+  cat4v: number;
+  cat4r: number;
+  total: number;
+  qty: number;
+  isEstimated?: boolean;
+  resolvedYear?: number | null;
+}
+
+export interface OpexOriginRow {
+  origin: string;
+  qty: number;
+  em: number;
+  ef: number;
+  color: string;
+  pct: number;
+}
+
+export interface OpexOriginYearData {
+  year: number;
+  rows: OpexOriginRow[];
+  totalQty: number;
+  totalEm: number;
+  highEfEm: number;
+  weightedAvgEF: number;
+}
+
+export interface OpexReportData {
+  factories: OpexFactory[];
+  annualDataByFactory: Record<string, OpexAnnualData[]>;
+  intensityData: OpexIntensityColumn[];
+  scope1BreakdownByFactory: Record<string, OpexScope1BreakYear[]>;
+  scope3Data: OpexScope3Row[];
+  originData: OpexOriginYearData[];
+}
+
+function createEmptyAnnualRows(): Record<number, OpexAnnualData> {
+  const rows = {} as Record<number, OpexAnnualData>;
+  for (const year of OPEX_YEARS) {
+    rows[year] = { year, scope1: 0, scope2: 0, rcn: 0 };
+  }
+  return rows;
+}
+
+function createEmptyScope1BreakRows(): Record<number, OpexScope1BreakYear> {
+  const rows = {} as Record<number, OpexScope1BreakYear>;
+  for (const year of OPEX_YEARS) {
+    rows[year] = { year, cats: {}, total: 0 };
+  }
+  return rows;
+}
+
+function normalizeScope1Category(category: string): string {
+  const catKey = category.toLowerCase().replace(/\s+/g, '_');
+  if (catKey.includes('wood')) return 'wood_logs';
+  if (catKey.includes('wastewater')) return 'wastewater';
+  if (catKey === 'lpg') return 'lpg';
+  if (catKey === 'diesel') return 'diesel';
+  if (catKey.includes('r134')) return 'f_gas_fugitives_r134a';
+  if (catKey.includes('r410')) return 'f_gas_fugitives_r410a';
+  if (catKey.includes('r404')) return 'f_gas_fugitives_r404a';
+  if (catKey.includes('co2') || catKey.includes('cylinder')) return 'co2_cylinder';
+  return catKey;
+}
+
+function sortOpexFactories(factories: OpexFactory[]): OpexFactory[] {
+  return [...factories].sort((a, b) => {
+    const ai = OPEX_FACTORY_ORDER.findIndex(name => a.name.includes(name.split(' ')[0]));
+    const bi = OPEX_FACTORY_ORDER.findIndex(name => b.name.includes(name.split(' ')[0]));
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+}
+
+async function fetchOpexFactories(): Promise<OpexFactory[]> {
+  const { data, error } = await supabase
+    .from('factories')
+    .select('id,name,country');
+
+  if (error) {
+    throw new Error(`[DB] factories (opex): ${error.message}`);
+  }
+
+  return (data ?? []) as OpexFactory[];
+}
+
+async function fetchOpexEmissions(): Promise<OpexEmissionRow[]> {
+  let rows: OpexEmissionRow[] = [];
+  let offset = 0;
+  const PAGE = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('factory_id,year,scope,category,activity_data,emissions_tco2e')
+      .in('year', [...OPEX_YEARS])
+      .in('scope', ['scope_1', 'scope_2'])
+      .range(offset, offset + PAGE - 1);
+
+    if (error) {
+      throw new Error(`[DB] emissions_data (opex): ${error.message}`);
+    }
+    if (!data || data.length === 0) break;
+
+    rows = rows.concat(data as OpexEmissionRow[]);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  return rows;
+}
+
+async function fetchOpexProduction(): Promise<OpexProductionRow[]> {
+  let rows: OpexProductionRow[] = [];
+  let offset = 0;
+  const PAGE = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('production_data')
+      .select('factory_id,year,quantity')
+      .eq('category', 'rcn_input')
+      .in('year', [...OPEX_YEARS])
+      .range(offset, offset + PAGE - 1);
+
+    if (error) {
+      throw new Error(`[DB] production_data (opex): ${error.message}`);
+    }
+    if (!data || data.length === 0) break;
+
+    rows = rows.concat(data as OpexProductionRow[]);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  return rows;
+}
+
+export async function getOpexReportData(): Promise<OpexReportData> {
+  const [factories, emissions, production, scope3Summary] = await Promise.all([
+    fetchOpexFactories(),
+    fetchOpexEmissions(),
+    fetchOpexProduction(),
+    getScope3SummaryData(),
+  ]);
+
+  const bucketKeys = ['ALL', ...factories.map(factory => factory.id)];
+  const annualBuckets = Object.fromEntries(
+    bucketKeys.map(key => [key, createEmptyAnnualRows()])
+  ) as Record<string, Record<number, OpexAnnualData>>;
+  const scope1Buckets = Object.fromEntries(
+    bucketKeys.map(key => [key, createEmptyScope1BreakRows()])
+  ) as Record<string, Record<number, OpexScope1BreakYear>>;
+
+  for (const row of emissions) {
+    const targetKeys = annualBuckets[row.factory_id] ? ['ALL', row.factory_id] : ['ALL'];
+    const value = Number(row.emissions_tco2e) || 0;
+
+    for (const key of targetKeys) {
+      const annualRow = annualBuckets[key][row.year];
+      if (!annualRow) continue;
+      if (row.scope === 'scope_1') annualRow.scope1 += value;
+      if (row.scope === 'scope_2') annualRow.scope2 += value;
+    }
+
+    if (row.scope !== 'scope_1') continue;
+
+    const normalizedCategory = normalizeScope1Category(row.category);
+    for (const key of targetKeys) {
+      const breakRow = scope1Buckets[key][row.year];
+      if (!breakRow) continue;
+      breakRow.cats[normalizedCategory] = (breakRow.cats[normalizedCategory] || 0) + value;
+      breakRow.total += value;
+    }
+  }
+
+  for (const row of production) {
+    const targetKeys = annualBuckets[row.factory_id] ? ['ALL', row.factory_id] : ['ALL'];
+    const quantity = Number(row.quantity) || 0;
+
+    for (const key of targetKeys) {
+      const annualRow = annualBuckets[key][row.year];
+      if (annualRow) annualRow.rcn += quantity;
+    }
+  }
+
+  const annualDataByFactory = Object.fromEntries(
+    Object.entries(annualBuckets).map(([key, byYear]) => [
+      key,
+      OPEX_YEARS.map(year => ({
+        year,
+        scope1: Math.round(byYear[year].scope1),
+        scope2: Math.round(byYear[year].scope2),
+        rcn: Math.round(byYear[year].rcn),
+      })),
+    ])
+  ) as Record<string, OpexAnnualData[]>;
+
+  const scope1BreakdownByFactory = Object.fromEntries(
+    Object.entries(scope1Buckets).map(([key, byYear]) => [
+      key,
+      OPEX_YEARS.map(year => {
+        const cats = Object.fromEntries(
+          Object.entries(byYear[year].cats).map(([category, value]) => [category, Math.round(value)])
+        ) as Record<string, number>;
+
+        return {
+          year,
+          cats,
+          total: Math.round(byYear[year].total),
+        };
+      }),
+    ])
+  ) as Record<string, OpexScope1BreakYear[]>;
+
+  const sortedFactories = sortOpexFactories(factories);
+  const intensityData: OpexIntensityColumn[] = sortedFactories.map(factory => {
+    const lookup = Object.fromEntries(
+      (annualDataByFactory[factory.id] || []).map(row => [row.year, row])
+    ) as Record<number, OpexAnnualData>;
+
+    const years = OPEX_INTENSITY_YEARS.map(year => {
+      const row = lookup[year] || { year, scope1: 0, scope2: 0, rcn: 0 };
+      const s1Int = row.rcn > 0 ? Math.round((row.scope1 * 1000) / row.rcn * 10) / 10 : 0;
+      const s2Int = row.rcn > 0 ? Math.round((row.scope2 * 1000) / row.rcn * 10) / 10 : 0;
+      return {
+        year,
+        s1: row.scope1,
+        s2: row.scope2,
+        rcn: row.rcn,
+        s1Int,
+        s2Int,
+        totalInt: Math.round((s1Int + s2Int) * 10) / 10,
+      };
+    });
+
+    return { fac: factory, years };
+  });
+
+  const totalLookup = Object.fromEntries(
+    (annualDataByFactory.ALL || []).map(row => [row.year, row])
+  ) as Record<number, OpexAnnualData>;
+  intensityData.push({
+    fac: { id: 'TOTAL', name: 'TOTAL', country: '' },
+    years: OPEX_INTENSITY_YEARS.map(year => {
+      const row = totalLookup[year] || { year, scope1: 0, scope2: 0, rcn: 0 };
+      const s1Int = row.rcn > 0 ? Math.round((row.scope1 * 1000) / row.rcn * 10) / 10 : 0;
+      const s2Int = row.rcn > 0 ? Math.round((row.scope2 * 1000) / row.rcn * 10) / 10 : 0;
+      return {
+        year,
+        s1: row.scope1,
+        s2: row.scope2,
+        rcn: row.rcn,
+        s1Int,
+        s2Int,
+        totalInt: Math.round((s1Int + s2Int) * 10) / 10,
+      };
+    }),
+  });
+
+  const scope3Data = scope3Summary.rows
+    .filter(row => OPEX_YEARS.includes(row.year as (typeof OPEX_YEARS)[number]))
+    .map(row => ({
+      year: row.year,
+      cat1: row.cat1_cashew,
+      cat3: row.cat3_wtt,
+      cat4v: row.cat4_vessel,
+      cat4r: row.cat4_road,
+      total: row.total,
+      qty: Math.round(Object.values(ORIGIN_MIX[row.year] || {}).reduce((sum, qty) => sum + qty, 0)),
+      isEstimated: row.isEstimated,
+      resolvedYear: row.resolvedYear,
+    }));
+
+  const originData: OpexOriginYearData[] = OPEX_YEARS.map(year => {
+    const mix = ORIGIN_MIX[year] || {};
+    const totalQty = Object.values(mix).reduce((sum, qty) => sum + qty, 0);
+    const rows: OpexOriginRow[] = Object.entries(mix)
+      .map(([origin, qty]) => {
+        const config = ORIGIN_EF[origin] || { ef: 2.5, flag: true, color: '#999' };
+        return {
+          origin,
+          qty,
+          em: Math.round(qty * config.ef),
+          ef: config.ef,
+          color: config.color,
+          pct: totalQty > 0 ? qty / totalQty * 100 : 0,
+        };
+      })
+      .sort((a, b) => b.em - a.em);
+
+    const totalEm = rows.reduce((sum, row) => sum + row.em, 0);
+    const highEfEm = rows.filter(row => row.ef > 5).reduce((sum, row) => sum + row.em, 0);
+    const weightedAvgEF = totalQty > 0
+      ? rows.reduce((sum, row) => sum + row.ef * row.qty, 0) / totalQty
+      : 0;
+
+    return {
+      year,
+      rows,
+      totalQty,
+      totalEm,
+      highEfEm,
+      weightedAvgEF,
+    };
+  });
+
+  return {
+    factories,
+    annualDataByFactory,
+    intensityData,
+    scope1BreakdownByFactory,
+    scope3Data,
+    originData,
+  };
+}
+
+export interface OverviewEmissionRow extends Pick<RawEmission, 'factory_id' | 'year' | 'month' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'> {}
+
+export interface OverviewProductionRow extends Pick<RawProduction, 'factory_id' | 'year' | 'month' | 'category' | 'quantity'> {}
+
+export interface OverviewSourceData {
+  factories: Factory[];
+  emissions: OverviewEmissionRow[];
+  production: OverviewProductionRow[];
+}
+
+export async function getOverviewSourceData(): Promise<OverviewSourceData> {
+  const [factoriesRes, productionRes] = await Promise.all([
+    supabase.from('factories').select('*'),
+    (async () => {
+      let rows: OverviewProductionRow[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('production_data')
+          .select('factory_id,year,month,category,quantity')
+          .range(offset, offset + PAGE - 1);
+
+        if (error) {
+          throw new Error(`[DB] production_data (overview): ${error.message}`);
+        }
+        if (!data || data.length === 0) break;
+
+        rows = rows.concat(data as OverviewProductionRow[]);
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+
+      return rows;
+    })(),
+  ]);
+
+  if (factoriesRes.error) {
+    throw new Error(`[DB] factories (overview): ${factoriesRes.error.message}`);
+  }
+
+  let emissions: OverviewEmissionRow[] = [];
+  let offset = 0;
+  const PAGE = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('factory_id,year,month,scope,category,activity_data,emissions_tco2e')
+      .range(offset, offset + PAGE - 1);
+
+    if (error) {
+      throw new Error(`[DB] emissions_data (overview): ${error.message}`);
+    }
+    if (!data || data.length === 0) break;
+
+    emissions = emissions.concat(data as OverviewEmissionRow[]);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  return {
+    factories: (factoriesRes.data ?? []) as Factory[],
+    emissions,
+    production: productionRes,
+  };
 }

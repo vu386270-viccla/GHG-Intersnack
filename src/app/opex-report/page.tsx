@@ -1,19 +1,13 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
-import { supabase } from '@/lib/supabase';
-import { GRID_EMISSION_FACTORS } from '@/lib/types';
-import { ORIGIN_EF, ORIGIN_MIX, TRANSPORT_STATIC } from '@/lib/scope3-data';
+import { getOpexReportData } from '@/lib/data-service';
+import type { OpexAnnualData, OpexReportData, OpexScope1BreakYear } from '@/lib/data-service';
 
 // ── Types ──────────────────────────────────────────────────
-interface AnnualData {
-  year: number;
-  scope1: number;
-  scope2: number;
-  rcn?: number;
-}
+type AnnualData = OpexAnnualData;
 
 // ── Colors matching the PPT slide exactly ──────────────────
 const C = {
@@ -42,8 +36,8 @@ function fmt(n: number): string {
 function fmtBar(n: number): string {
   const abs = Math.abs(n);
   if (abs >= 100000) return Math.round(n / 1000) + 'K';
-  if (abs >= 10000)  return (n / 1000).toFixed(1) + 'K';
-  if (abs >= 1000)   return n.toLocaleString('de-DE');
+  if (abs >= 10000) return (n / 1000).toFixed(1) + 'K';
+  if (abs >= 1000) return n.toLocaleString('de-DE');
   return Math.round(n).toString();
 }
 
@@ -107,9 +101,9 @@ function WaterfallChart({
 
   const legendItems = (legendOrder || ['baseline', 'actual', 'estimated', 'target']).map(k => ({
     baseline: { color: C.baseline, label: 'Baseline' },
-    actual:   { color: C.actual,   label: 'Actual' },
-    estimated:{ color: C.estimated,label: 'Est. Emission' },
-    target:   { color: C.target,   label: 'Target' },
+    actual: { color: C.actual, label: 'Actual' },
+    estimated: { color: C.estimated, label: 'Est. Emission' },
+    target: { color: C.target, label: 'Target' },
   }[k] as { color: string; label: string }));
 
   return (
@@ -135,7 +129,7 @@ function WaterfallChart({
             Arrow marker: right-pointing triangle.
             Unique ID per chart to fix SVG global ID referencing bugs.
           */}
-          <marker id={`arwD-${title.replace(/\s+/g,'')}`} markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
+          <marker id={`arwD-${title.replace(/\s+/g, '')}`} markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
             <polygon points="0,0 8,4 0,8" fill="#555" />
           </marker>
         </defs>
@@ -147,11 +141,11 @@ function WaterfallChart({
         {(() => {
           let prevValForBox = 0;
           const boxTops = bars.map(b => {
-             const val = b.actual ?? b.target ?? 0;
-             let bt = py(val);
-             if (!b.isTotal && val !== 0) bt = py(Math.max(prevValForBox, val));
-             if (val !== 0) prevValForBox = val;
-             return Math.min(bt, py(val)); // guarantee visual top
+            const val = b.actual ?? b.target ?? 0;
+            let bt = py(val);
+            if (!b.isTotal && val !== 0) bt = py(Math.max(prevValForBox, val));
+            if (val !== 0) prevValForBox = val;
+            return Math.min(bt, py(val)); // guarantee visual top
           });
 
           let prevVal = 0;
@@ -159,8 +153,8 @@ function WaterfallChart({
             const isFloating = !b.isTotal;
             const isTargetMarker = b.target !== undefined && !b.actual;
             const color = b.key === 'base' ? C.baseline :
-                          (b.key === 'end' || isTargetMarker) ? C.target : C.actual;
-            
+              (b.key === 'end' || isTargetMarker) ? C.target : C.actual;
+
             const val = b.actual ?? b.target ?? 0;
             if (val === 0) {
               prevVal = val;
@@ -184,7 +178,7 @@ function WaterfallChart({
 
             // Connector from previous column
             const connLine = i > 0 && (
-              <line x1={cx(i-1) + bw/2} y1={py(prevVal)} x2={bx(i)} y2={py(prevVal)} stroke="#222" strokeWidth="1" />
+              <line x1={cx(i - 1) + bw / 2} y1={py(prevVal)} x2={bx(i)} y2={py(prevVal)} stroke="#222" strokeWidth="1" />
             );
 
             const rawDelta = val - prevVal;
@@ -205,10 +199,10 @@ function WaterfallChart({
                     {/* Stacked 2025 bar (approx match PPT ~ 62.4% Est / 37.6% Act) */}
                     <rect x={bx(i)} y={py(val)} width={bw} height={py(val * 0.376) - py(val)} fill={C.estimated} />
                     <rect x={bx(i)} y={py(val * 0.376)} width={bw} height={py(0) - py(val * 0.376)} fill={C.actual} />
-                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val))/2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#222">
+                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val)) / 2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#222">
                       {fmt(val * 0.624)}
                     </text>
-                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376))/2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="white">
+                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376)) / 2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="white">
                       {fmt(val * 0.376)}
                     </text>
                   </>
@@ -216,8 +210,8 @@ function WaterfallChart({
                   // 2026 TOTAL bar: stands from 0, split at Q1 actual value.
                   // RED (bottom) = Q1 actual emissions; GREEN (top) = Q2-Q4 plan
                   const planVal2026 = val; // full-year plan
-                  const baseY  = py(0);          // bottom axis
-                  const topY   = py(planVal2026); // top of bar
+                  const baseY = py(0);          // bottom axis
+                  const topY = py(planVal2026); // top of bar
                   const totalH = baseY - topY;
 
                   // Compute absolute Q1 value (for split + labels)
@@ -228,39 +222,39 @@ function WaterfallChart({
 
                   // Split geometry
                   const splitY = py(q1Abs);                   // Y coord of Q1/Plan boundary
-                  const q1H   = Math.max(baseY  - splitY, 4); // red height (0 → q1Abs)
-                  const planH = Math.max(splitY - topY,  4);  // green height (q1Abs → plan)
+                  const q1H = Math.max(baseY - splitY, 4); // red height (0 → q1Abs)
+                  const planH = Math.max(splitY - topY, 4);  // green height (q1Abs → plan)
 
                   // Compact number formatter for inside-bar labels
                   const fv = (n: number) =>
-                    n >= 1e6  ? `${(n/1e6).toFixed(1)}M`  :
-                    n >= 1e4  ? `${(n/1e3).toFixed(0)}K`  :
-                    n >= 1000 ? `${(n/1e3).toFixed(1)}K`  :
-                    n.toLocaleString();
+                    n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` :
+                      n >= 1e4 ? `${(n / 1e3).toFixed(0)}K` :
+                        n >= 1000 ? `${(n / 1e3).toFixed(1)}K` :
+                          n.toLocaleString();
 
                   return (
                     <>
                       {/* Connector from previous bar — drawn manually since isTotal suppresses auto connLine */}
                       {i > 0 && (
                         <line
-                          x1={bx(i-1)+bw} y1={py(prevVal)}
-                          x2={bx(i)}      y2={py(prevVal)}
+                          x1={bx(i - 1) + bw} y1={py(prevVal)}
+                          x2={bx(i)} y2={py(prevVal)}
                           stroke="#BBBBBB" strokeWidth={1} strokeDasharray="3,3"
                         />
                       )}
                       {/* Q2-Q4 plan = GREEN (top portion) */}
-                      <rect x={bx(i)} y={topY}  width={bw} height={planH} fill={C.target} rx={2} />
+                      <rect x={bx(i)} y={topY} width={bw} height={planH} fill={C.target} rx={2} />
                       {/* Q1 actual = RED (bottom portion) */}
-                      <rect x={bx(i)} y={splitY} width={bw} height={q1H}   fill={C.actual} />
+                      <rect x={bx(i)} y={splitY} width={bw} height={q1H} fill={C.actual} />
                       {/* Outline + white divider */}
                       <rect x={bx(i)} y={topY} width={bw} height={totalH} fill="none" stroke="#444" strokeWidth={0.8} rx={2} />
-                      <line x1={bx(i)} y1={splitY} x2={bx(i)+bw} y2={splitY} stroke="white" strokeWidth={2.5} />
+                      <line x1={bx(i)} y1={splitY} x2={bx(i) + bw} y2={splitY} stroke="white" strokeWidth={2.5} />
                       {/* Numbers only, no labels */}
                       {planH > 18 && (
-                        <text x={cx(i)} y={topY  + planH/2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(planAbs)}</text>
+                        <text x={cx(i)} y={topY + planH / 2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(planAbs)}</text>
                       )}
-                      {q1H  > 18 && (
-                        <text x={cx(i)} y={splitY + q1H/2  + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(q1Abs)}</text>
+                      {q1H > 18 && (
+                        <text x={cx(i)} y={splitY + q1H / 2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(q1Abs)}</text>
                       )}
                       {/* Total plan value above bar */}
                       <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={13} fontWeight="900" fill={C.target}>{fv(planVal2026)}</text>
@@ -270,9 +264,9 @@ function WaterfallChart({
                   <>
                     <rect x={bx(i)} y={boxY} width={bw} height={boxH} fill={color}
                       stroke={
-                        color === C.actual   ? '#8B1A10' :
-                        color === C.target   ? '#2E6B2E' :
-                        '#555555'
+                        color === C.actual ? '#8B1A10' :
+                          color === C.target ? '#2E6B2E' :
+                            '#555555'
                       }
                       strokeWidth="1.5" rx="2"
                     />
@@ -280,7 +274,7 @@ function WaterfallChart({
                     {/* text delta: short format INSIDE bars, full format OUTSIDE */}
                     {boxH > 26 ? (
                       // Inside tall bar — use short K-format so text fits within bar width
-                      <text x={cx(i)} y={boxY + boxH/2 + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill="white">
+                      <text x={cx(i)} y={boxY + boxH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill="white">
                         {deltaStrShort}
                       </text>
                     ) : (
@@ -304,9 +298,9 @@ function WaterfallChart({
 
           const renderedCallouts = callouts.map((cal, idx) => {
             const fromX = cx(cal.fromCol);
-            const toX   = cx(cal.toCol);
+            const toX = cx(cal.toCol);
             const fromBarTopY = boxTops[cal.fromCol];     // Absolute physical top edge!
-            const toBarTopY   = boxTops[cal.toCol];       // Absolute physical top edge!
+            const toBarTopY = boxTops[cal.toCol];       // Absolute physical top edge!
 
             // Bracket always sits ABOVE the chart area (y < PT) so it never overlaps bars
             const ovalRyLocal = 13;
@@ -340,7 +334,7 @@ function WaterfallChart({
                   x1={toX} y1={bracketY}
                   x2={toX} y2={toBarTopY - (bars[cal.toCol]?.isActualPlanSplit ? 20 : 6)}
                   stroke={lineColor} strokeWidth="1.3" strokeDasharray={dash}
-                  markerEnd={`url(#arwD-${title.replace(/\s+/g,'')})`}
+                  markerEnd={`url(#arwD-${title.replace(/\s+/g, '')})`}
                 />
 
                 {/* Oval label */}
@@ -365,15 +359,7 @@ function WaterfallChart({
 }
 
 
-// ── S3 WTT EFs ───────────────────────────────────────────────
-const WTT_DIESEL_VN  = 0.00055;   // tCO2e/L
-const WTT_DIESEL_IN  = 0.0006058; // tCO2e/L
-const WTT_LPG        = 0.2;       // tCO2e/ton
-const WTT_ELEC_VN    = 0.00008;   // tCO2e/kWh
-const WTT_ELEC_IN    = 0.00012;   // tCO2e/kWh
-const WTT_WOOD_VN    = 0.05214;   // tCO2e/ton
-const WTT_WOOD_IN    = 0.24;      // tCO2e/ton
-const FLAG_TGT_PCT   = 36.4;
+const FLAG_TGT_PCT = 36.4;
 const NONFLAG_TGT_PCT = 30.0;
 const S3_TARGET_YEAR = 2032;
 
@@ -384,8 +370,8 @@ const S3_TARGET_YEAR = 2032;
 // EF used: 0.6592 tCO₂/kWh (national grid EF per solar report)
 // Net annual CO₂ saving (Scope 2, year 1): 1,614 × 0.6592 ≈ 1,064 tCO₂e/year
 // Applied only to Scope 2 target from 2027 onward for PT factory view AND all-VN view
-const PT_SOLAR_ANNUAL_MWH  = 1614;           // MWh/year (year-1 output)
-const PT_SOLAR_EF_VN       = 0.6592;         // tCO₂/kWh (per solar report)
+const PT_SOLAR_ANNUAL_MWH = 1614;           // MWh/year (year-1 output)
+const PT_SOLAR_EF_VN = 0.6592;         // tCO₂/kWh (per solar report)
 const PT_SOLAR_DEGRADATION = 0.01;           // 1%/year panel degradation
 const PT_SOLAR_ONLINE_YEAR = 2027;           // first full year of savings
 /** tCO₂e saved by PT solar in a given year (0 before 2027) */
@@ -447,8 +433,8 @@ function OriginDetailTable({
                     {isEFDriven
                       ? <span>⬆️ <strong style={{ color: '#C8281A' }}>EF-driven:</strong> Em% ({emPct.toFixed(1)}%) &gt; Vol% ({r.volPct.toFixed(1)}%) bởi {diff.toFixed(1)}pp — emission cao vì EF cao ({r.ef} kgCO₂e/kg), không phải do mua nhiều. Giảm sourcing từ origin này hoặc tìm supplier có EF thấp hơn.</span>
                       : isVolDriven
-                      ? <span>📦 <strong style={{ color: '#3E7B3E' }}>Volume-driven:</strong> Em% ({emPct.toFixed(1)}%) &lt; Vol% ({r.volPct.toFixed(1)}%) — EF thấp ({r.ef}), emission share hợp lý với lượng mua. Đây là nguồn an toàn.</span>
-                      : <span>⚖️ <strong>Cân bằng:</strong> Em% ({emPct.toFixed(1)}%) ≈ Vol% ({r.volPct.toFixed(1)}%) — cả volume lẫn EF đều ảnh hưởng tương đương.</span>
+                        ? <span>📦 <strong style={{ color: '#3E7B3E' }}>Volume-driven:</strong> Em% ({emPct.toFixed(1)}%) &lt; Vol% ({r.volPct.toFixed(1)}%) — EF thấp ({r.ef}), emission share hợp lý với lượng mua. Đây là nguồn an toàn.</span>
+                        : <span>⚖️ <strong>Cân bằng:</strong> Em% ({emPct.toFixed(1)}%) ≈ Vol% ({r.volPct.toFixed(1)}%) — cả volume lẫn EF đều ảnh hưởng tương đương.</span>
                     }
                   </td>
                 </tr>
@@ -481,8 +467,8 @@ function OriginDonut({ rows, scaledTotal }: { rows: ScaledRow[]; scaledTotal: nu
   const total = mode === 'em' ? scaledTotal : rows.reduce((s, row) => s + row.qty, 0);
   let angle = -Math.PI / 2;
   const arcs = rows.map(row => {
-    const val  = mode === 'em' ? row.emS : row.qty;
-    const pct  = total > 0 ? val / total : 0;
+    const val = mode === 'em' ? row.emS : row.qty;
+    const pct = total > 0 ? val / total : 0;
     const span = pct * 2 * Math.PI;
     const a0 = angle;
     angle += span;
@@ -531,18 +517,18 @@ function OriginDonut({ rows, scaledTotal }: { rows: ScaledRow[]; scaledTotal: nu
 
 // ── Scope 1 Category Config ───────────────────────────────
 const S1_CATS: { key: string; label: string; color: string }[] = [
-  { key: 'wood_logs',            label: 'Wood logs',              color: '#C8281A' },
-  { key: 'wastewater',           label: 'Wastewater',             color: '#8B1A10' },
-  { key: 'lpg',                  label: 'LPG',                    color: '#E8960E' },
-  { key: 'diesel',               label: 'Diesel',                 color: '#4472C4' },
-  { key: 'f_gas_fugitives_r134a',label: 'F Gas R134A',            color: '#70AD47' },
-  { key: 'f_gas_fugitives_r410a',label: 'F Gas R410A',            color: '#7F7F7F' },
-  { key: 'f_gas_fugitives_r404a',label: 'F Gas R404A',            color: '#595959' },
-  { key: 'co2_cylinder',         label: 'CO₂ cylinder / tanks',   color: '#333333' },
+  { key: 'wood_logs', label: 'Wood logs', color: '#C8281A' },
+  { key: 'wastewater', label: 'Wastewater', color: '#8B1A10' },
+  { key: 'lpg', label: 'LPG', color: '#E8960E' },
+  { key: 'diesel', label: 'Diesel', color: '#4472C4' },
+  { key: 'f_gas_fugitives_r134a', label: 'F Gas R134A', color: '#70AD47' },
+  { key: 'f_gas_fugitives_r410a', label: 'F Gas R410A', color: '#7F7F7F' },
+  { key: 'f_gas_fugitives_r404a', label: 'F Gas R404A', color: '#595959' },
+  { key: 'co2_cylinder', label: 'CO₂ cylinder / tanks', color: '#333333' },
 ];
 
 // ── Scope 1 Breakdown Chart ─────────────────────────────────
-type S1BreakYear = { year: number; cats: Record<string, number>; total: number };
+type S1BreakYear = OpexScope1BreakYear;
 
 function Scope1BreakdownChart({
   years, breakdown, selectedFac,
@@ -683,239 +669,46 @@ export default function OpexReportPage() {
   const { lang, t } = useI18n();
   const searchParams = useSearchParams();
   const showIntensity = searchParams.get('intensity') === '1';  // driven by Header toggle
-  const showOrigin    = searchParams.get('origin')    === '1';  // driven by Header toggle
+  const showOrigin = searchParams.get('origin') === '1';  // driven by Header toggle
 
   const [loading, setLoading] = useState(true);
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
   const [selectedScope, setSelectedScope] = useState<'ops' | 'supply' | 'intensity'>('ops');
   const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2025);
+  const [reportData, setReportData] = useState<OpexReportData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [rawEms, setRawEms] = useState<any[]>([]);
-  const [rawProd, setRawProd] = useState<any[]>([]);
-  const [factories, setFactories] = useState<{id: string, country: string, name: string}[]>([]);
   useEffect(() => {
+    let active = true;
+
     async function load() {
-      const [facRes, prodRes] = await Promise.all([
-        supabase.from('factories').select('id, name, country'),
-        supabase.from('production_data')
-          .select('factory_id, year, category, quantity')
-          .eq('category', 'rcn_input'),
-      ]);
-
-      let allEms: any[] = [];
-      const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
-      for (const yr of YEARS) {
-        let offset = 0;
-        const PAGE = 1000;
-        while (true) {
-          const { data, error } = await supabase
-            .from('emissions_data')
-            .select('factory_id, year, scope, category, activity_data, emissions_tco2e')
-            .eq('year', yr)
-            .in('scope', ['scope_1', 'scope_2'])
-            .range(offset, offset + PAGE - 1);
-            
-          if (error || !data || data.length === 0) break;
-          allEms = allEms.concat(data);
-          if (data.length < PAGE) break;
-          offset += PAGE;
-        }
+      try {
+        const payload = await getOpexReportData();
+        if (!active) return;
+        setReportData(payload);
+        setLoadError(null);
+      } catch (error) {
+        if (!active) return;
+        setLoadError(error instanceof Error ? error.message : 'Failed to load Opex report data');
+      } finally {
+        if (active) setLoading(false);
       }
-
-      setFactories(facRes.data || []);
-      setRawEms(allEms);
-      setRawProd(prodRes.data || []);
-      setLoading(false);
     }
+
     load();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const data = useMemo<AnnualData[]>(() => {
-    if (rawEms.length === 0) return [];
-    
-    const facDict: Record<string, string> = {};
-    factories.forEach(f => facDict[f.id] = f.country);
-
-    const filteredEms = selectedFac === 'ALL' ? rawEms : rawEms.filter(r => r.factory_id === selectedFac);
-    const filteredProd = selectedFac === 'ALL' ? rawProd : rawProd.filter(p => p.factory_id === selectedFac);
-
-
-    const byYear: Record<number, { s1: number; s2: number; rcn: number }> = {};
-    for (const r of filteredEms) {
-      if (!byYear[r.year]) byYear[r.year] = { s1: 0, s2: 0, rcn: 0 };
-      if (r.scope === 'scope_1') {
-        byYear[r.year].s1 += Number(r.emissions_tco2e);
-      } else if (r.scope === 'scope_2') {
-        byYear[r.year].s2 += Number(r.emissions_tco2e);
-      }
-    }
-    if (filteredProd.length > 0) {
-      for (const p of filteredProd) {
-        if (!byYear[p.year]) byYear[p.year] = { s1: 0, s2: 0, rcn: 0 };
-        byYear[p.year].rcn += Number(p.quantity) || 0;
-      }
-    }
-
-    return [2021, 2022, 2023, 2024, 2025, 2026].map(year => ({
-      year,
-      scope1: Math.round(byYear[year]?.s1 || 0),
-      scope2: Math.round(byYear[year]?.s2 || 0),
-      rcn: byYear[year]?.rcn || 0,
-    }));
-  }, [rawEms, rawProd, factories, selectedFac]);
-
-  // ── CO2 Intensity & RCN Production by factory ─────────────
-  const intensityData = useMemo(() => {
-    const YEARS = [2021, 2022, 2023, 2024, 2025];
-    const facOrder = ['Long An', 'Phan Thiết', 'Tây Ninh', 'Tuticorin'];
-    const sorted = [...factories].sort((a, b) => {
-      const ai = facOrder.findIndex(n => a.name.includes(n.split(' ')[0]));
-      const bi = facOrder.findIndex(n => b.name.includes(n.split(' ')[0]));
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    });
-
-    const perFac = sorted.map(fac => {
-      const years = YEARS.map(yr => {
-        const ems = rawEms.filter(r => r.factory_id === fac.id && r.year === yr);
-        const s1 = ems.filter(r => r.scope === 'scope_1').reduce((s, r) => s + (Number(r.emissions_tco2e) || 0), 0);
-        const s2 = ems.filter(r => r.scope === 'scope_2').reduce((s, r) => s + (Number(r.emissions_tco2e) || 0), 0);
-        const rcn = rawProd.filter(p => p.factory_id === fac.id && p.year === yr).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
-        // kg CO₂e per metric ton of RCN
-        const s1Int = rcn > 0 ? Math.round((s1 * 1000) / rcn * 10) / 10 : 0;
-        const s2Int = rcn > 0 ? Math.round((s2 * 1000) / rcn * 10) / 10 : 0;
-        return { year: yr, s1, s2, rcn: Math.round(rcn), s1Int, s2Int, totalInt: Math.round((s1Int + s2Int) * 10) / 10 };
-      });
-      return { fac, years };
-    });
-
-    // Total across all factories
-    const totalYears = YEARS.map(yr => {
-      const s1 = rawEms.filter(r => r.year === yr && r.scope === 'scope_1').reduce((s, r) => s + (Number(r.emissions_tco2e) || 0), 0);
-      const s2 = rawEms.filter(r => r.year === yr && r.scope === 'scope_2').reduce((s, r) => s + (Number(r.emissions_tco2e) || 0), 0);
-      const rcn = rawProd.filter(p => p.year === yr).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
-      const s1Int = rcn > 0 ? Math.round((s1 * 1000) / rcn * 10) / 10 : 0;
-      const s2Int = rcn > 0 ? Math.round((s2 * 1000) / rcn * 10) / 10 : 0;
-      return { year: yr, s1, s2, rcn: Math.round(rcn), s1Int, s2Int, totalInt: Math.round((s1Int + s2Int) * 10) / 10 };
-    });
-    perFac.push({ fac: { id: 'TOTAL', name: lang === 'vi' ? 'Tổng – Tất cả NM' : 'Total – All Factories', country: '' }, years: totalYears });
-    return perFac;
-  }, [rawEms, rawProd, factories, lang]);
-
-  // ── Scope 1 breakdown by category (per year) ──────────────
-  const scope1Breakdown = useMemo<S1BreakYear[]>(() => {
-    const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
-    const filteredEms = selectedFac === 'ALL'
-      ? rawEms
-      : rawEms.filter(r => r.factory_id === selectedFac);
-
-    return YEARS.map(yr => {
-      const cats: Record<string, number> = {};
-      let total = 0;
-      for (const r of filteredEms) {
-        if (r.year !== yr || r.scope !== 'scope_1') continue;
-        const catKey = (r.category || '').toLowerCase().replace(/\s+/g, '_');
-        // Normalize to our known keys
-        const mapped =
-          catKey.includes('wood') ? 'wood_logs' :
-          catKey.includes('wastewater') ? 'wastewater' :
-          catKey === 'lpg' ? 'lpg' :
-          catKey === 'diesel' ? 'diesel' :
-          catKey.includes('r134') ? 'f_gas_fugitives_r134a' :
-          catKey.includes('r410') ? 'f_gas_fugitives_r410a' :
-          catKey.includes('r404') ? 'f_gas_fugitives_r404a' :
-          catKey.includes('co2') || catKey.includes('cylinder') ? 'co2_cylinder' :
-          catKey;
-        const val = Number(r.emissions_tco2e) || 0;
-        cats[mapped] = (cats[mapped] || 0) + val;
-        total += val;
-      }
-      // Round all values
-      for (const k of Object.keys(cats)) cats[k] = Math.round(cats[k]);
-      return { year: yr, cats, total: Math.round(total) };
-    });
-  }, [rawEms, selectedFac]);
-
-  // ── Scope 3 computed data ──────────────────────────────────
-  // Cat.1 (FLAG — Purchased Goods): ORIGIN_MIX × ORIGIN_EF  →  consistent with Origin Risk panel
-  // Cat.4 (Upstream Transport):     TRANSPORT_STATIC km×ton × vessel/road EF
-  // Cat.3 (WTT):                    computed from fuel activity in rawEms
-  const s3Data = useMemo(() => {
-    const facDict: Record<string,string> = {};
-    factories.forEach(f => facDict[f.id] = f.country);
-    const YEARS = [2021,2022,2023,2024,2025,2026];
-
-    // ── Cat.1: sum ORIGIN_MIX × ORIGIN_EF per year ──────────
-    const cat1ByYr: Record<number,number> = {};
-    const qtyByYr:  Record<number,number> = {};
-    YEARS.forEach(yr => {
-      const mix = ORIGIN_MIX[yr] || {};
-      let totalEm = 0, totalQty = 0;
-      for (const [origin, qty] of Object.entries(mix)) {
-        const ef = ORIGIN_EF[origin]?.ef ?? 2.5;  // fallback EF
-        totalEm  += qty * ef;   // tCO2e (qty in MTS, ef in tCO2e/t)
-        totalQty += qty;
-      }
-      cat1ByYr[yr] = Math.round(totalEm);
-      qtyByYr[yr]  = Math.round(totalQty);
-    });
-
-    // ── Cat.4: TRANSPORT_STATIC km×ton × emission factors ───
-    // Vessel EF: 0.01604 kg/km·ton → ÷1000 = tCO2e / (km·ton)
-    // Road EF:   0.07547 kg/km·ton → ÷1000 = tCO2e / (km·ton)
-    const cat4vByYr: Record<number,number> = {};
-    const cat4rByYr: Record<number,number> = {};
-    YEARS.forEach(yr => {
-      const t = TRANSPORT_STATIC[yr];
-      cat4vByYr[yr] = t ? Math.round(t.vessel * 0.01604 / 1000) : 0;
-      cat4rByYr[yr] = t ? Math.round(t.road   * 0.07547 / 1000) : 0;
-    });
-
-    // ── Cat.3 WTT: compute from fuel activity in rawEms ─────
-    const wttByYear: Record<number,number> = {};
-    YEARS.forEach(y => wttByYear[y] = 0);
-    for(const r of rawEms) {
-      if(!YEARS.includes(r.year)) continue;
-      const isIN = facDict[r.factory_id] === 'India';
-      const act = Number(r.activity_data)||0;
-      let wtt = 0;
-      const cat = (r.category||'').toLowerCase();
-      if(cat === 'diesel')           wtt = act * (isIN ? WTT_DIESEL_IN : WTT_DIESEL_VN);
-      else if(cat === 'lpg')         wtt = act * WTT_LPG;
-      else if(cat === 'electricity') wtt = act * (isIN ? WTT_ELEC_IN : WTT_ELEC_VN);
-      else if(cat === 'wood_logs')   wtt = act * (isIN ? WTT_WOOD_IN : WTT_WOOD_VN);
-      wttByYear[r.year] = (wttByYear[r.year]||0) + wtt;
-    }
-
-    return YEARS.map(yr => {
-      const cat1  = cat1ByYr[yr]  || 0;
-      const cat4v = cat4vByYr[yr] || 0;
-      const cat4r = cat4rByYr[yr] || 0;
-      const cat3  = Math.round(wttByYear[yr] || 0);
-      const total = cat1 + cat4v + cat4r + cat3;
-      return { year: yr, cat1, cat4v, cat4r, cat3, total, qty: qtyByYr[yr] || 0 };
-    });
-  }, [rawEms, factories]);
-
-  // ── Origin breakdown data ─────────────────────────────────
-  const originData = useMemo(() => {
-    const YEARS = [2021,2022,2023,2024,2025,2026];
-    return YEARS.map(yr => {
-      const mix = ORIGIN_MIX[yr] || {};
-      const totalQty = Object.values(mix).reduce((s,v) => s+v, 0);
-      const rows = Object.entries(mix)
-        .map(([origin, qty]) => {
-          const cfg = ORIGIN_EF[origin] || { ef: 2.5, flag: true, color: '#999' };
-          const em = Math.round(qty * cfg.ef); // tCO2e
-          return { origin, qty, em, ef: cfg.ef, color: cfg.color, pct: totalQty > 0 ? qty/totalQty*100 : 0 };
-        })
-        .sort((a,b) => b.em - a.em);
-      const totalEm = rows.reduce((s,r) => s+r.em, 0);
-      const highEfEm = rows.filter(r => ORIGIN_EF[r.origin]?.ef > 5).reduce((s,r) => s+r.em, 0);
-      const weightedAvgEF = totalQty > 0 ? rows.reduce((s,r) => s+r.ef*r.qty, 0)/totalQty : 0;
-      return { year: yr, rows, totalQty, totalEm, highEfEm, weightedAvgEF };
-    });
-  }, []);
+  if (loadError) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: '#C8281A', fontWeight: 700 }}>
+        {loadError}
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -925,6 +718,15 @@ export default function OpexReportPage() {
       </div>
     );
   }
+
+  if (!reportData) return null;
+
+  const factories = reportData.factories;
+  const data: AnnualData[] = reportData.annualDataByFactory[selectedFac] || reportData.annualDataByFactory.ALL || [];
+  const intensityData = reportData.intensityData;
+  const scope1Breakdown: S1BreakYear[] = reportData.scope1BreakdownByFactory[selectedFac] || reportData.scope1BreakdownByFactory.ALL || [];
+  const s3Data = reportData.scope3Data;
+  const originData = reportData.originData;
 
   const get = (year: number) => data.find(d => d.year === year) || { year, scope1: 0, scope2: 0, rcn: 0 };
   const b1 = get(2021).scope1;  // Scope 1 baseline
@@ -1085,18 +887,17 @@ export default function OpexReportPage() {
   const pct2_vs_target = s2Target2025 > 0 ? Math.round(((s2_2025 - s2Target2025) / s2Target2025) * 100) : 0;
 
   // ── RCN per year for intensity calc ────────────────────────
-  const rcnByYear: Record<number,number> = {};
-  for(const p of rawProd) {
-    if(!rcnByYear[p.year]) rcnByYear[p.year] = 0;
-    rcnByYear[p.year] += Number(p.quantity)||0;
+  const rcnByYear: Record<number, number> = {};
+  for (const row of data) {
+    rcnByYear[row.year] = row.rcn || 0;
   }
   const fmtInt = (em: number, yr: number): string => {
     const rcn = rcnByYear[yr] || 0;
-    if(rcn === 0) return '—';
+    if (rcn === 0) return '—';
     return (em / rcn).toFixed(3);
   };
   const fmtVal = (v: number | string, yr: number, isIntensity: boolean): string => {
-    if(typeof v !== 'number') return v as string;
+    if (typeof v !== 'number') return v as string;
     return isIntensity ? fmtInt(v, yr) : fmt(v);
   };
 
@@ -1246,8 +1047,8 @@ export default function OpexReportPage() {
           {selectedScope === 'ops'
             ? (lang === 'vi' ? '🎯 Mục tiêu: −50% Phát thải Vận hành so với năm cơ sở 2021 (SBTi Ngắn hạn)' : '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)')
             : selectedScope === 'supply'
-            ? (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')
-            : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
+              ? (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')
+              : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
         </div>
 
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
@@ -1348,36 +1149,37 @@ export default function OpexReportPage() {
 
           {/* ── Scope 1 mini-OGSM table ── */}
           {(() => {
-            const years = [2021,2022,2023,2024,2025];
+            const years = [2021, 2022, 2023, 2024, 2025];
             const ytd26 = get(2026).scope1;
             const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
             return (
-              <div style={{ overflowX:'auto', marginBottom:'6px' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
+              <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
                   <thead>
-                    <tr style={{ background:'#1a3d5c', color:'white' }}>
-                      <th style={{ padding:'3px 6px', textAlign:'left', fontWeight:700, minWidth:130 }}>
+                    <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                      <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700, minWidth: 130 }}>
                         Scope 1 — {label}
                       </th>
-                      {years.map(y => <th key={y} style={{ padding:'3px 6px', textAlign:'right', fontWeight:700 }}>{y}</th>)}
-                      {ytd26 > 0 && <th style={{ padding:'3px 6px', textAlign:'right', fontWeight:700, background:'#E8960E', whiteSpace:'nowrap' }}>Q1'26*</th>}
+                      {years.map(y => <th key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700 }}>{y}</th>)}
+                      {ytd26 > 0 && <th style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, background: '#E8960E', whiteSpace: 'nowrap' }}>Q1'26*</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      { label:'Total Scope 1', vals: years.map(y => get(y).scope1) },
-                    ].map((row,ri) => (
-                      <tr key={ri} style={{ background:'#f9f9f9', borderBottom:'1px solid #ddd' }}>
-                        <td style={{ padding:'3px 6px', fontWeight:700 }}>{row.label}</td>
-                        {row.vals.map((v,vi) => (
-                          <td key={vi} style={{ padding:'3px 6px', textAlign:'right', fontWeight:600,
-                            color: showIntensity && vi>0 ? (v/years[vi] < (row.vals[0]/years[0]) ? '#3E7B3E' : '#C8281A') : '#1a1a1a'
+                      { label: 'Total Scope 1', vals: years.map(y => get(y).scope1) },
+                    ].map((row, ri) => (
+                      <tr key={ri} style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
+                        <td style={{ padding: '3px 6px', fontWeight: 700 }}>{row.label}</td>
+                        {row.vals.map((v, vi) => (
+                          <td key={vi} style={{
+                            padding: '3px 6px', textAlign: 'right', fontWeight: 600,
+                            color: showIntensity && vi > 0 ? (v / years[vi] < (row.vals[0] / years[0]) ? '#3E7B3E' : '#C8281A') : '#1a1a1a'
                           }}>
                             {fmtVal(v, years[vi], showIntensity)}
                           </td>
                         ))}
                         {ytd26 > 0 && (
-                          <td style={{ padding:'3px 6px', textAlign:'right', fontWeight:800, color:'#7a4f00', background:'#fff8e1', whiteSpace:'nowrap' }}>
+                          <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1', whiteSpace: 'nowrap' }}>
                             {fmt(ytd26)}
                           </td>
                         )}
@@ -1496,36 +1298,37 @@ export default function OpexReportPage() {
 
           {/* ── Scope 2 mini-OGSM table ── */}
           {(() => {
-            const years = [2021,2022,2023,2024,2025];
+            const years = [2021, 2022, 2023, 2024, 2025];
             const ytd26 = get(2026).scope2;
             const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
             return (
-              <div style={{ overflowX:'auto', marginBottom:'6px' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'10.5px' }}>
+              <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
                   <thead>
-                    <tr style={{ background:'#1a3d5c', color:'white' }}>
-                      <th style={{ padding:'3px 6px', textAlign:'left', fontWeight:700, minWidth:130 }}>
+                    <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                      <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700, minWidth: 130 }}>
                         Scope 2 — {label}
                       </th>
-                      {years.map(y => <th key={y} style={{ padding:'3px 6px', textAlign:'right', fontWeight:700 }}>{y}</th>)}
-                      {ytd26 > 0 && <th style={{ padding:'3px 6px', textAlign:'right', fontWeight:700, background:'#E8960E', whiteSpace:'nowrap' }}>Q1'26*</th>}
+                      {years.map(y => <th key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700 }}>{y}</th>)}
+                      {ytd26 > 0 && <th style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, background: '#E8960E', whiteSpace: 'nowrap' }}>Q1'26*</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      { label:'Total Scope 2', vals: years.map(y => get(y).scope2) },
-                    ].map((row,ri) => (
-                      <tr key={ri} style={{ background:'#f9f9f9', borderBottom:'1px solid #ddd' }}>
-                        <td style={{ padding:'3px 6px', fontWeight:700 }}>{row.label}</td>
-                        {row.vals.map((v,vi) => (
-                          <td key={vi} style={{ padding:'3px 6px', textAlign:'right', fontWeight:600,
-                            color: showIntensity && vi>0 ? (v/years[vi] < (row.vals[0]/years[0]) ? '#3E7B3E' : '#C8281A') : '#1a1a1a'
+                      { label: 'Total Scope 2', vals: years.map(y => get(y).scope2) },
+                    ].map((row, ri) => (
+                      <tr key={ri} style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
+                        <td style={{ padding: '3px 6px', fontWeight: 700 }}>{row.label}</td>
+                        {row.vals.map((v, vi) => (
+                          <td key={vi} style={{
+                            padding: '3px 6px', textAlign: 'right', fontWeight: 600,
+                            color: showIntensity && vi > 0 ? (v / years[vi] < (row.vals[0] / years[0]) ? '#3E7B3E' : '#C8281A') : '#1a1a1a'
                           }}>
                             {fmtVal(v, years[vi], showIntensity)}
                           </td>
                         ))}
                         {ytd26 > 0 && (
-                          <td style={{ padding:'3px 6px', textAlign:'right', fontWeight:800, color:'#7a4f00', background:'#fff8e1', whiteSpace:'nowrap' }}>
+                          <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1', whiteSpace: 'nowrap' }}>
                             {fmt(ytd26)}
                           </td>
                         )}
@@ -1655,18 +1458,18 @@ export default function OpexReportPage() {
       {/* ── Scope 3 Supply Chain Section ──────────────────── */}
       {selectedScope === 'supply' && (() => {
         const s3Base = s3Data.find(d => d.year === 2021);
-        const s3Cur  = s3Data.find(d => d.year === 2025);
+        const s3Cur = s3Data.find(d => d.year === 2025);
         const s3_2022 = s3Data.find(d => d.year === 2022);
         const s3_2023 = s3Data.find(d => d.year === 2023);
         const s3_2024 = s3Data.find(d => d.year === 2024);
-        if(!s3Base || !s3Cur) return <div style={{padding:24,color:'#888'}}>Loading Scope 3 data...</div>;
+        if (!s3Base || !s3Cur) return <div style={{ padding: 24, color: '#888' }}>Loading Scope 3 data...</div>;
 
         // Targets
-        const flagBase    = s3Base.cat1;
+        const flagBase = s3Base.cat1;
         const nonflagBase = s3Base.cat4v + s3Base.cat4r + s3Base.cat3;
-        const flagTarget2032    = Math.round(flagBase * (1 - FLAG_TGT_PCT/100));
-        const nonflagTarget2032 = Math.round(nonflagBase * (1 - NONFLAG_TGT_PCT/100));
-        const totalTarget2032   = flagTarget2032 + nonflagTarget2032;
+        const flagTarget2032 = Math.round(flagBase * (1 - FLAG_TGT_PCT / 100));
+        const nonflagTarget2032 = Math.round(nonflagBase * (1 - NONFLAG_TGT_PCT / 100));
+        const totalTarget2032 = flagTarget2032 + nonflagTarget2032;
         const cur2032Gap = s3Cur.total - totalTarget2032;
         const annualCutNeeded = Math.round(cur2032Gap / (S3_TARGET_YEAR - 2025));
 
@@ -1683,24 +1486,24 @@ export default function OpexReportPage() {
         const totalCur = s3Cur.total;
         const annualCut = (totalCur - totalTarget2032) / (S3_TARGET_YEAR - 2025);
         const planYears: number[] = [];
-        for(let y = 2026; y <= Math.min(targetEndYear, S3_TARGET_YEAR); y++) planYears.push(y);
+        for (let y = 2026; y <= Math.min(targetEndYear, S3_TARGET_YEAR); y++) planYears.push(y);
         const planVal = (y: number) => Math.round(totalCur - annualCut * (y - 2025));
 
         const pctVsBase = Math.round(((s3Cur.total - s3Base.total) / s3Base.total) * 100);
         const pctFlagVsBase = Math.round(((s3Cur.cat1 - flagBase) / flagBase) * 100);
-        const peakYear = s3Data.reduce((a,b) => b.total > a.total ? b : a);
-        const bestYear = s3Data.slice(1).reduce((a,b) => b.total < a.total ? b : a);
+        const peakYear = s3Data.reduce((a, b) => b.total > a.total ? b : a);
+        const bestYear = s3Data.slice(1).reduce((a, b) => b.total < a.total ? b : a);
 
         // Waterfall bars for scope 3
         // 2025: plain delta bar; seq: +req2026 delta bar -> 2026 total bar split.
         const s3_2026ytd_val = s3Data.find(d => d.year === 2026)?.total || 0;
         const s3Bars: BarPoint[] = [
-          { key:'base', label:['Baseline','2021'], actual: s3Base.total, isTotal:true },
-          { key:'2022', label:['2022'], actual: s3_2022?.total || 0 },
-          { key:'2023', label:['2023'], actual: s3_2023?.total || 0 },
-          { key:'2024', label:['2024'], actual: s3_2024?.total || 0 },
-          { key:'2025', label:['2025'], actual: s3Cur.total },
-          { key:'req_2026', label:['Required', "Plan '26"], target: planVal(2026) },
+          { key: 'base', label: ['Baseline', '2021'], actual: s3Base.total, isTotal: true },
+          { key: '2022', label: ['2022'], actual: s3_2022?.total || 0 },
+          { key: '2023', label: ['2023'], actual: s3_2023?.total || 0 },
+          { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
+          { key: '2025', label: ['2025'], actual: s3Cur.total },
+          { key: 'req_2026', label: ['Required', "Plan '26"], target: planVal(2026) },
           ...planYears.map(y => ({
             key: y.toString(), label: [y.toString()], target: planVal(y),
             ...(y === 2026 ? {
@@ -1711,7 +1514,7 @@ export default function OpexReportPage() {
               splitActualAbsVal: Math.round(planVal(y) * 0.25),
             } : {})
           })),
-          { key:'end', label:['by End', targetEndYear.toString()], target: planVal(targetEndYear), isTotal:true },
+          { key: 'end', label: ['by End', targetEndYear.toString()], target: planVal(targetEndYear), isTotal: true },
         ];
 
         const s3Callouts: Callout[] = [
@@ -1734,62 +1537,71 @@ export default function OpexReportPage() {
 
         // OGSM rows
         const ogsm = [
-          { label:'Scope 3 — absol. CO₂eq (tCO₂e)', vals:[
-            s3Base.total, s3_2022?.total||0, s3_2023?.total||0, s3_2024?.total||0,
-            s3Cur.total,
-            s3_2026ytd ? s3_2026ytd.total : '—',
-            planYears[0] ? planVal(planYears[0]) : '—',
-            planYears[1] ? planVal(planYears[1]) : '—',
-          ]},
-          { label:'  ↳ Cat.1 Cashew (FLAG)', vals:[
-            s3Base.cat1, s3_2022?.cat1||0, s3_2023?.cat1||0, s3_2024?.cat1||0,
-            s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—','—','—',
-          ]},
-          { label:'  ↳ Cat.3 WTT Fuel & Energy', vals:[
-            s3Base.cat3, s3_2022?.cat3||0, s3_2023?.cat3||0, s3_2024?.cat3||0,
-            s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—','—','—',
-          ]},
-          { label:'  ↳ Cat.4 Transport', vals:[
-            s3Base.cat4v+s3Base.cat4r, (s3_2022?.cat4v||0)+(s3_2022?.cat4r||0),
-            (s3_2023?.cat4v||0)+(s3_2023?.cat4r||0),(s3_2024?.cat4v||0)+(s3_2024?.cat4r||0),
-            s3Cur.cat4v+s3Cur.cat4r,
-            s3_2026ytd ? s3_2026ytd.cat4v+s3_2026ytd.cat4r : '—','—','—',
-          ]},
+          {
+            label: 'Scope 3 — absol. CO₂eq (tCO₂e)', vals: [
+              s3Base.total, s3_2022?.total || 0, s3_2023?.total || 0, s3_2024?.total || 0,
+              s3Cur.total,
+              s3_2026ytd ? s3_2026ytd.total : '—',
+              planYears[0] ? planVal(planYears[0]) : '—',
+              planYears[1] ? planVal(planYears[1]) : '—',
+            ]
+          },
+          {
+            label: '  ↳ Cat.1 Cashew (FLAG)', vals: [
+              s3Base.cat1, s3_2022?.cat1 || 0, s3_2023?.cat1 || 0, s3_2024?.cat1 || 0,
+              s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—', '—', '—',
+            ]
+          },
+          {
+            label: '  ↳ Cat.3 WTT Fuel & Energy', vals: [
+              s3Base.cat3, s3_2022?.cat3 || 0, s3_2023?.cat3 || 0, s3_2024?.cat3 || 0,
+              s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—', '—', '—',
+            ]
+          },
+          {
+            label: '  ↳ Cat.4 Transport', vals: [
+              s3Base.cat4v + s3Base.cat4r, (s3_2022?.cat4v || 0) + (s3_2022?.cat4r || 0),
+              (s3_2023?.cat4v || 0) + (s3_2023?.cat4r || 0), (s3_2024?.cat4v || 0) + (s3_2024?.cat4r || 0),
+              s3Cur.cat4v + s3Cur.cat4r,
+              s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : '—', '—', '—',
+            ]
+          },
         ];
 
-        const oKeys = ['2021','2022','2023','2024','2025','Q1 2026*','2026 Plan','2027 Plan'];
+        const oKeys = ['2021', '2022', '2023', '2024', '2025', 'Q1 2026*', '2026 Plan', '2027 Plan'];
         const oYears = [2021, 2022, 2023, 2024, 2025, 2026, 2026, 2027]; // year index per column for intensity
         const s3IntLabel = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
 
         return (
-          <div style={{ padding:'4px 12px', flex:1, display:'flex', flexDirection:'column', gap:'6px' }}>
+          <div style={{ padding: '4px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {/* OGSM Table */}
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'11px' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
-                  <tr style={{ background:'#1a3d5c', color:'white' }}>
-                    <th style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, minWidth:220 }}>
+                  <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                    <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, minWidth: 220 }}>
                       OGSM — {s3IntLabel}
                     </th>
-                    {oKeys.map((k,ki) => (
+                    {oKeys.map((k, ki) => (
                       <th key={k} style={{
-                        padding:'5px 8px', textAlign:'right', fontWeight:700, whiteSpace:'nowrap',
+                        padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap',
                         background: k.includes('2026*') ? '#E8960E' : undefined,
                       }}>{k}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {ogsm.map((row,ri) => (
-                    <tr key={ri} style={{ background: ri===0 ? '#f9f9f9' : 'white', borderBottom:'1px solid #ddd' }}>
-                      <td style={{ padding:'4px 8px', fontWeight: ri===0?700:400, color: ri===0?'#1a1a1a':'#555' }}>{row.label}</td>
-                      {row.vals.map((v,vi) => (
-                        <td key={vi} style={{ padding:'4px 8px', textAlign:'right',
-                          fontWeight: vi===5 ? 800 : ri===0 ? 600 : 400,
-                          color: vi>=6 ? '#777' : vi===5 ? '#7a4f00' : ri===0 ? '#1a1a1a' : '#555',
-                          background: vi===5 ? '#fff8e1' : undefined,
+                  {ogsm.map((row, ri) => (
+                    <tr key={ri} style={{ background: ri === 0 ? '#f9f9f9' : 'white', borderBottom: '1px solid #ddd' }}>
+                      <td style={{ padding: '4px 8px', fontWeight: ri === 0 ? 700 : 400, color: ri === 0 ? '#1a1a1a' : '#555' }}>{row.label}</td>
+                      {row.vals.map((v, vi) => (
+                        <td key={vi} style={{
+                          padding: '4px 8px', textAlign: 'right',
+                          fontWeight: vi === 5 ? 800 : ri === 0 ? 600 : 400,
+                          color: vi >= 6 ? '#777' : vi === 5 ? '#7a4f00' : ri === 0 ? '#1a1a1a' : '#555',
+                          background: vi === 5 ? '#fff8e1' : undefined,
                         }}>
-                          {typeof v==='number'
+                          {typeof v === 'number'
                             ? (showIntensity && vi < 5 ? fmtInt(v, oYears[vi]) : fmt(v))
                             : v}
                         </td>
@@ -1801,21 +1613,21 @@ export default function OpexReportPage() {
             </div>
 
             {/* Chart + Commentary side by side */}
-            <div style={{ display:'flex', gap:'16px', flex:1, minHeight:0 }}>
+            <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
               {/* Chart */}
-              <div style={{ flex:'0 0 55%', minWidth:0 }}>
+              <div style={{ flex: '0 0 55%', minWidth: 0 }}>
                 <WaterfallChart
                   bars={s3Bars}
                   callouts={s3Callouts}
                   title={`<strong>Scope 3 — Supply Chain</strong> – CO₂ eq absol. emission in ton`}
-                  legendOrder={['baseline','actual','target']}
+                  legendOrder={['baseline', 'actual', 'target']}
                 />
                 {/* Target callout box */}
-                <div style={{ marginTop:6, display:'flex', gap:10, fontSize:'10px', color:'#555' }}>
-                  <div style={{ padding:'4px 8px', background:'#eaf5ea', border:'1px solid #3E7B3E', borderRadius:4 }}>
+                <div style={{ marginTop: 6, display: 'flex', gap: 10, fontSize: '10px', color: '#555' }}>
+                  <div style={{ padding: '4px 8px', background: '#eaf5ea', border: '1px solid #3E7B3E', borderRadius: 4 }}>
                     🎯 <strong>FLAG −{FLAG_TGT_PCT}%</strong>: {fmt(flagBase)} → {fmt(flagTarget2032)} tCO₂e by 2032
                   </div>
-                  <div style={{ padding:'4px 8px', background:'#eaf5ea', border:'1px solid #3E7B3E', borderRadius:4 }}>
+                  <div style={{ padding: '4px 8px', background: '#eaf5ea', border: '1px solid #3E7B3E', borderRadius: 4 }}>
                     🎯 <strong>Non-FLAG −{NONFLAG_TGT_PCT}%</strong>: {fmt(nonflagBase)} → {fmt(nonflagTarget2032)} tCO₂e by 2032
                   </div>
                 </div>
@@ -1828,28 +1640,28 @@ export default function OpexReportPage() {
 
                   // Scale emissions to match actual Cat.1 from DB
                   const actualCat1 = cat1ByYear[selectedOriginYear] || 0;
-                  const rawTotal   = selOD.totalEm;
-                  const scale      = rawTotal > 0 && actualCat1 > 0 ? actualCat1 / rawTotal : 1;
+                  const rawTotal = selOD.totalEm;
+                  const scale = rawTotal > 0 && actualCat1 > 0 ? actualCat1 / rawTotal : 1;
                   const scaledRows = selOD.rows.map(r => ({ ...r, emS: Math.round(r.em * scale), volPct: selOD.totalQty > 0 ? r.qty / selOD.totalQty * 100 : 0 }));
-                  const maxEmS     = Math.max(...scaledRows.map(r => r.emS));
+                  const maxEmS = Math.max(...scaledRows.map(r => r.emS));
                   const scaledTotal = Math.round(selOD.totalEm * scale);
                   const scaledHighEf = Math.round(selOD.highEfEm * scale);
 
                   return (
-                    <div style={{ marginTop:10, border:'1.5px solid #C8281A', borderRadius:6, overflow:'hidden' }}>
+                    <div style={{ marginTop: 10, border: '1.5px solid #C8281A', borderRadius: 6, overflow: 'hidden' }}>
                       {/* Header */}
-                      <div style={{ background:'#C8281A', color:'white', padding:'5px 10px', fontSize:'11px', fontWeight:700, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <div style={{ background: '#C8281A', color: 'white', padding: '5px 10px', fontSize: '11px', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>🌍 Cat.1 Origin Risk Analysis</span>
-                        <span style={{ fontWeight:400, opacity:0.85, fontSize:'10px' }}>
+                        <span style={{ fontWeight: 400, opacity: 0.85, fontSize: '10px' }}>
                           Avg EF: {selOD.weightedAvgEF.toFixed(2)} tCO₂e/MT
                           {baseOD ? ` (2021: ${baseOD.weightedAvgEF.toFixed(2)})` : ''}
                         </span>
                       </div>
 
-                      <div style={{ padding:'8px', background:'#fff' }}>
+                      <div style={{ padding: '8px', background: '#fff' }}>
                         {/* Year selector — CLICKABLE */}
-                        <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
-                          {[2021,2022,2023,2024,2025].map(oyr => {
+                        <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
+                          {[2021, 2022, 2023, 2024, 2025].map(oyr => {
                             const od = originData.find(d => d.year === oyr);
                             if (!od) return null;
                             const actCat1 = cat1ByYear[oyr] || 0;
@@ -1861,13 +1673,13 @@ export default function OpexReportPage() {
                                 key={oyr}
                                 onClick={() => setSelectedOriginYear(oyr)}
                                 style={{
-                                  fontSize:'10.5px', padding:'4px 9px',
+                                  fontSize: '10.5px', padding: '4px 9px',
                                   border: `1.5px solid ${isSel ? '#C8281A' : '#ddd'}`,
-                                  borderRadius:4, cursor:'pointer',
+                                  borderRadius: 4, cursor: 'pointer',
                                   background: isSel ? '#C8281A' : '#f9f9f9',
                                   color: isSel ? '#fff' : '#444',
                                   fontWeight: isSel ? 700 : 400,
-                                  transition:'all 0.15s',
+                                  transition: 'all 0.15s',
                                 }}
                               >
                                 <strong>{oyr}</strong> &nbsp;
@@ -1946,76 +1758,332 @@ export default function OpexReportPage() {
                 })()}
               </div>
 
-              {/* Commentary */}
-              <div style={{ flex:1, minWidth:0, fontSize:'11.5px', lineHeight:'1.6' }}>
-                <p style={{ margin:'0 0 6px' }}><strong>{lang === 'vi' ? 'Tổng quan Phát thải Scope 3:' : 'Scope 3 Emissions Overview:'}</strong></p>
-                <ul style={{ margin:'0 0 8px', paddingLeft:'16px' }}>
-                  <li>
-                    {lang === 'vi' ? 'Tính toán dựa trên' : 'Calculated using'} <strong>{lang === 'vi' ? '3 danh mục bắt buộc SBTi' : '3 SBTi-required categories'}</strong>: Cat.1 ({lang === 'vi' ? 'Mua hạt điều thô tại rẫy' : 'Purchased Cashew at-farm'}),
-                    Cat.3 ({lang === 'vi' ? 'Nhiên liệu & Điện WTT' : 'Fuel & Energy WTT'}), {lang === 'vi' ? 'và' : 'and'} Cat.4 ({lang === 'vi' ? 'Vận tải đầu vào' : 'Upstream Transportation'}).
-                  </li>
-                  <li>
-                    {lang === 'vi' ? 'Phát thải Scope 3 năm 2025' : '2025 Scope 3 emissions'}: <strong style={{ color: pctVsBase > 0 ? '#C8281A' : '#3E7B3E' }}>{fmt(s3Cur.total)} tCO₂e</strong>{' '}
-                    (<span style={{ color: pctVsBase > 0 ? '#C8281A' : '#3E7B3E', fontWeight:700 }}>
-                      {pctVsBase > 0 ? '+' : ''}{pctVsBase}%
-                    </span>{' '}vs {lang === 'vi' ? 'Baseline 2021' : '2021 baseline'}).
-                  </li>
-                  {s3_2026ytd && (
-                    <li>
-                      <strong>{lang === 'vi' ? 'Q1 2026 Thực tế (YTD):' : 'Q1 2026 Actual (YTD):'}</strong> {fmt(s3_2026ytd.total)} tCO₂e. {lang === 'vi' ? 'Mức cho phép còn lại theo Plan 2026 là' : 'Expected full-year plan requires an estimated remaining allowance of'} {fmt(planVal(2026) - s3_2026ytd.total)} tCO₂e.
-                    </li>
-                  )}
-                  <li>
-                    <strong>{lang === 'vi' ? 'Hạt điều Cat.1' : 'Cat.1 Cashew'}</strong> {lang === 'vi' ? 'chiếm' : 'accounts for'}{' '}
-                    <strong>{Math.round((s3Cur.cat1/s3Cur.total)*100)}%</strong> {lang === 'vi' ? 'tổng Scope 3 — đòn bẩy chính để đạt mục tiêu FLAG.' : 'of total Scope 3 — the primary lever for FLAG target achievement.'}
-                  </li>
-                </ul>
+              {/* ── Enhanced Scope 3 Analysis Panel ── */}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-                <p style={{ margin:'0 0 4px' }}><strong>{lang === 'vi' ? 'Chiến lược Giảm phát thải Scope 3 (' : 'Scope 3 Reduction Strategy ('}{new Date().getFullYear()}–2032):</strong></p>
-                <ul style={{ margin:'0 0 8px', paddingLeft:'16px' }}>
-                  <li>
-                    <strong>{lang === 'vi' ? 'Tối ưu Nguồn cung (FLAG)' : 'Sourcing Mix Optimization (FLAG)'}</strong>: {lang === 'vi' ? 'Dịch chuyển lượng mua khỏi vùng phát thải cao như Indonesia (24.74) sang các đại diện phát thải thấp: Nigeria (1.56), Benin (2.13), Cambodia (2.7).' : 'Shift procurement away from high-EF origins — Indonesia (24.74) — toward low-EF alternatives: Nigeria (1.56), Benin (2.13), Cambodia (2.7).'} {lang === 'vi' ? 'Mục tiêu' : 'Target'} −{FLAG_TGT_PCT}% FLAG {lang === 'vi' ? 'vào năm 2032.' : 'by 2032.'}
-                  </li>
-                  <li>
-                    <strong>{lang === 'vi' ? 'Chứng nhận Nhà cung cấp' : 'Supplier Certification'}</strong>: {lang === 'vi' ? 'Ưu tiên các nhà cung cấp đạt chứng nhận RA/ASC nhằm đáp ứng cam kết không phá rừng (SBTi target: 2025).' : 'Prioritize Rainforest Alliance / ASC-certified suppliers to support no-deforestation commitment (SBTi target: 2025).'}
-                  </li>
-                  <li>
-                    <strong>{lang === 'vi' ? 'Tối ưu Logistics (Cat.4)' : 'Logistics Optimization (Cat.4)'}</strong>: {lang === 'vi' ? 'Gom đơn hàng, tăng hệ số tải, chuyển đổi vận tải bờ biển sang đa phương thức. Vận tải hiện tại =' : 'Consolidate shipments, improve vessel load factors, and transition coastal road freight to intermodal. Current transport ='} {fmt(s3Cur.cat4v+s3Cur.cat4r)} tCO₂e/{lang === 'vi' ? 'năm' : 'year'}.
-                  </li>
-                </ul>
+                {/* ── Note banner ── */}
+                <div style={{ padding: '6px 10px', background: '#fffbeb', border: '1px solid #E8960E', borderRadius: 5, fontSize: '10.5px', color: '#7a4f00' }}>
+                  ℹ️ <strong>Scope 3 Overview & EF Analysis</strong> —
+                  Phân tích <em>overview tổng thể</em> vì dữ liệu Scope 3 chưa phân theo nhà máy.
+                  EF (tCO₂e / tRCN) giúp đánh giá hiệu quả phát thải độc lập với quy mô hoạt động.
+                  Cần bổ sung dữ liệu phân bổ Scope 3 theo nhà máy cho báo cáo tiếp theo.
+                </div>
 
-                <p style={{ margin:'0 0 4px' }}><strong>{lang === 'vi' ? 'Lộ trình Giảm phát thải:' : 'Reduction Roadmap:'}</strong></p>
-                <ul style={{ margin:0, paddingLeft:'16px' }}>
-                  <li>
-                    {lang === 'vi' ? 'Trạm dừng chân' : 'Horizon target'} <strong>{targetEndYear}</strong>:{' '}
-                    {lang === 'vi' ? 'Cần đạt chỉ tiêu' : 'Must reach'} <strong style={{ color:'#3E7B3E' }}>{fmt(planVal(targetEndYear))} tCO₂e</strong>{' '}
-                    ({lang === 'vi' ? 'buộc phải giảm' : 'requiring a cut of'} {fmt(s3Cur.total - planVal(targetEndYear))} tCO₂e {lang === 'vi' ? 'so với mức 2025' : 'from 2025 levels'}).
-                  </li>
-                  <li>
-                    {lang === 'vi' ? 'Đích đến SBTi cuối cùng' : 'Final SBTi milestone'} <strong>{S3_TARGET_YEAR}</strong>:{' '}
-                    {lang === 'vi' ? 'Giảm tổng Scope 3 xuống' : 'Reduce total Scope 3 to'} <strong style={{ color:'#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong>{' '}
-                    (FLAG: {fmt(flagTarget2032)} + Non-FLAG: {fmt(nonflagTarget2032)}).
-                  </li>
-                  <li>
-                    {lang === 'vi' ? 'Tốc độ yêu cầu (Run-rate):' : 'Required run-rate:'} {lang === 'vi' ? 'Cần duy trì mức giảm tịnh tiến' : 'Needs a steady reduction of'}{' '}
-                    <strong>~{fmt(annualCutNeeded)} tCO₂e/{lang === 'vi' ? 'năm' : 'year'}</strong> {lang === 'vi' ? 'xuyên suốt lộ trình.' : 'throughout the roadmap.'}
-                  </li>
-                </ul>
+                {/* ── EF Trend — all years ── */}
+                {(() => {
+                  const efYears = [2021, 2022, 2023, 2024, 2025].map(y => {
+                    const s3y = s3Data.find(d => d.year === y);
+                    const rcn = rcnByYear[y] || 0;
+                    const ef = rcn > 0 && s3y ? s3y.total / rcn : 0;
+                    const cat1 = rcn > 0 && s3y ? s3y.cat1 / rcn : 0;
+                    const cat3 = rcn > 0 && s3y ? s3y.cat3 / rcn : 0;
+                    const cat4 = rcn > 0 && s3y ? (s3y.cat4v + s3y.cat4r) / rcn : 0;
+                    return { y, ef, cat1, cat3, cat4, total: s3y?.total || 0, rcn };
+                  }).filter(d => d.rcn > 0);
+
+                  if (efYears.length < 2) return null;
+
+                  const W = 520, H = 200, PL = 38, PR = 12, PT = 22, PB = 36;
+                  const cW = (W - PL - PR) / efYears.length;
+                  const SUB_CATS = [
+                    { key: 'cat1' as const, color: '#2F855A', label: 'Cat.1' },
+                    { key: 'cat3' as const, color: '#90BE6D', label: 'Cat.3' },
+                    { key: 'cat4' as const, color: '#4A9E8C', label: 'Cat.4' },
+                  ];
+                  const subW = Math.min(cW / (SUB_CATS.length + 0.6), 34);
+                  const maxEF = Math.max(...efYears.map(d => d.ef)) * 1.3 || 1;
+                  const chartH = H - PB - PT;
+                  const py = (v: number) => PT + chartH - (v / maxEF) * chartH;
+                  const ph = (v: number) => Math.max((v / maxEF) * chartH, 1);
+                  const groupX = (i: number) => PL + cW * i + (cW - subW * SUB_CATS.length) / 2;
+
+                  return (
+                    <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#333', marginBottom: 4 }}>
+                        📊 EF Scope 3 — tCO₂e per tonne RCN (tất cả các năm)
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+                        {[0.25, 0.5, 0.75, 1].map(f => {
+                          const gv = +(maxEF * f).toFixed(2);
+                          const gy = py(maxEF * f);
+                          return (
+                            <g key={f}>
+                              <line x1={PL} y1={gy} x2={W - PR} y2={gy} stroke="#eee" strokeWidth={0.8} />
+                              <text x={PL - 3} y={gy + 3.5} textAnchor="end" fontSize={8} fill="#aaa">{gv}</text>
+                            </g>
+                          );
+                        })}
+                        <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth={1.2} />
+                        {efYears.map((d, i) => {
+                          const gx = groupX(i);
+                          const prev = efYears[i - 1];
+                          const delta = prev ? d.ef - prev.ef : 0;
+                          const isUp = delta > 0.001;
+                          const isDn = delta < -0.001;
+                          return (
+                            <g key={d.y}>
+                              {SUB_CATS.map((cat, si) => {
+                                const val = d[cat.key];
+                                const bx = gx + si * subW;
+                                const bh = ph(val);
+                                const by = py(val);
+                                return (
+                                  <g key={cat.key}>
+                                    <rect x={bx} y={by} width={subW - 1} height={bh} fill={cat.color} rx={1} opacity={0.88} />
+                                    {bh > 14 && (
+                                      <text x={bx + subW / 2 - 0.5} y={by + bh / 2 + 3.5} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="white">
+                                        {val.toFixed(2)}
+                                      </text>
+                                    )}
+                                  </g>
+                                );
+                              })}
+                              <text x={gx + subW * SUB_CATS.length / 2} y={py(d.ef) - 5} textAnchor="middle" fontSize={9} fontWeight={800} fill="#333">
+                                {d.ef.toFixed(2)}
+                              </text>
+                              {i > 0 && (isUp || isDn) && (
+                                <text x={gx + subW * SUB_CATS.length / 2} y={py(d.ef) - 14} textAnchor="middle" fontSize={8.5} fontWeight={800}
+                                  fill={isUp ? '#C8281A' : '#3E7B3E'}>
+                                  {isUp ? '▲' : '▼'}{Math.abs(delta).toFixed(2)}
+                                </text>
+                              )}
+                              <text x={gx + subW * SUB_CATS.length / 2} y={H - 6} textAnchor="middle" fontSize={10} fontWeight={d.y === 2025 ? 800 : 600} fill="#444">
+                                {d.y}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4, fontSize: '10px' }}>
+                        {SUB_CATS.map(c => (
+                          <span key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 10, height: 10, background: c.color, display: 'inline-block', borderRadius: 2 }} />
+                            <span style={{ color: '#555' }}>{c.label}</span>
+                          </span>
+                        ))}
+                        <span style={{ color: '#888', marginLeft: 4 }}>▲▼ = YoY delta EF</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Category % Chart — all years ── */}
+                {(() => {
+                  const catYears = [2021, 2022, 2023, 2024, 2025]
+                    .map(y => s3Data.find(d => d.year === y))
+                    .filter(Boolean) as typeof s3Data;
+                  if (catYears.length === 0) return null;
+                  const W = 520, H = 130, PL = 50, PR = 10, PT = 14, PB = 28;
+                  const chartW = W - PL - PR;
+                  const rowH = (H - PT - PB) / catYears.length;
+                  const cats = [
+                    { key: 'cat1', label: 'Cat.1 Cashew', color: '#2F855A' },
+                    { key: 'cat3', label: 'Cat.3 WTT', color: '#90BE6D' },
+                    { key: 'cat4', label: 'Cat.4 Transport', color: '#4A9E8C' },
+                  ];
+                  return (
+                    <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#333', marginBottom: 4 }}>
+                        🥧 Tỷ trọng % Category Scope 3 — qua các năm
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+                        {catYears.map((row, i) => {
+                          const total = row.total || 1;
+                          const segs = [row.cat1, row.cat3, row.cat4v + row.cat4r];
+                          const y = PT + i * rowH;
+                          let curX = PL;
+                          return (
+                            <g key={row.year}>
+                              <text x={PL - 4} y={y + rowH / 2 + 4} textAnchor="end" fontSize={9.5} fontWeight={row.year === 2025 ? 800 : 600} fill="#444">
+                                {row.year}
+                              </text>
+                              {segs.map((val, si) => {
+                                const pct = val / total;
+                                const sw = chartW * pct;
+                                const bx = curX;
+                                curX += sw;
+                                return (
+                                  <g key={si}>
+                                    <rect x={bx} y={y + 1} width={sw} height={rowH - 3} fill={cats[si].color} rx={1} opacity={0.85} />
+                                    {sw > 28 && (
+                                      <text x={bx + sw / 2} y={y + rowH / 2 + 4} textAnchor="middle" fontSize={8} fontWeight={700} fill="white">
+                                        {Math.round(pct * 100)}%
+                                      </text>
+                                    )}
+                                  </g>
+                                );
+                              })}
+                            </g>
+                          );
+                        })}
+                        {[0, 0.25, 0.5, 0.75, 1].map(f => (
+                          <g key={f}>
+                            <line x1={PL + chartW * f} y1={PT} x2={PL + chartW * f} y2={H - PB + 4} stroke="#ddd" strokeWidth={0.8} />
+                            <text x={PL + chartW * f} y={H - PB + 14} textAnchor="middle" fontSize={8} fill="#aaa">{Math.round(f * 100)}%</text>
+                          </g>
+                        ))}
+                      </svg>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 2, fontSize: '10px' }}>
+                        {cats.map(c => (
+                          <span key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 10, height: 10, background: c.color, display: 'inline-block', borderRadius: 2 }} />
+                            <span style={{ color: '#555' }}>{c.label}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Smart YoY Commentary ── */}
+                {(() => {
+                  const allYrs = [2021, 2022, 2023, 2024, 2025].map(y => {
+                    const s3y = s3Data.find(d => d.year === y);
+                    const rcn = rcnByYear[y] || 0;
+                    return {
+                      y, ef: rcn > 0 && s3y ? s3y.total / rcn : 0,
+                      total: s3y?.total || 0, rcn,
+                      cat1Pct: s3y && s3y.total > 0 ? Math.round(s3y.cat1 / s3y.total * 100) : 0,
+                      cat4Pct: s3y && s3y.total > 0 ? Math.round((s3y.cat4v + s3y.cat4r) / s3y.total * 100) : 0,
+                    };
+                  }).filter(d => d.rcn > 0);
+                  if (allYrs.length < 2) return null;
+                  const rows = allYrs.slice(1).map((cur, i) => {
+                    const prev = allYrs[i];
+                    const delta = cur.ef - prev.ef;
+                    const pctChg = prev.ef > 0 ? (delta / prev.ef) * 100 : 0;
+                    const absDelta = cur.total - prev.total;
+                    return {
+                      from: prev.y, to: cur.y, delta, pctChg, absDelta, curEf: cur.ef, prevEf: prev.ef,
+                      cat1Pct: cur.cat1Pct, cat4Pct: cur.cat4Pct
+                    };
+                  });
+                  const latestRow = rows[rows.length - 1];
+                  return (
+                    <div style={{ fontSize: '11px', lineHeight: '1.65', borderTop: '1px solid #eee', paddingTop: 8 }}>
+                      <p style={{ margin: '0 0 4px', fontWeight: 700, color: '#1a3d5c' }}>
+                        ✏️ So sánh EF Scope 3 — Năm qua Năm ({allYrs[0].y}–{allYrs[allYrs.length - 1].y})
+                      </p>
+                      <div style={{ overflowX: 'auto', marginBottom: 8 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+                          <thead>
+                            <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                              <th style={{ padding: '3px 6px', textAlign: 'left' }}>Giai đoạn</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>EF trước</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>EF hiện tại</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>Δ EF</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>Δ Emission</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'left' }}>Nhận xét</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(r => {
+                              const isUp = r.delta > 0.005;
+                              const isDn = r.delta < -0.005;
+                              const remark = isUp
+                                ? 'EF tăng → nguồn carbon cao hơn hoặc logistics kém hiệu quả'
+                                : isDn
+                                  ? 'EF giảm → tối ưu logistics hoặc nguồn carbon thấp hơn'
+                                  : 'EF ổn định';
+                              return (
+                                <tr key={r.to} style={{ borderBottom: '1px solid #eee', background: isUp ? '#fff5f5' : isDn ? '#f0fdf4' : '#fff' }}>
+                                  <td style={{ padding: '3px 6px', fontWeight: 700 }}>{r.from}→{r.to}</td>
+                                  <td style={{ padding: '3px 6px', textAlign: 'right' }}>{r.prevEf.toFixed(3)}</td>
+                                  <td style={{
+                                    padding: '3px 6px', textAlign: 'right', fontWeight: 700,
+                                    color: isUp ? '#C8281A' : isDn ? '#3E7B3E' : '#333'
+                                  }}>
+                                    {r.curEf.toFixed(3)}
+                                  </td>
+                                  <td style={{
+                                    padding: '3px 6px', textAlign: 'right', fontWeight: 800,
+                                    color: isUp ? '#C8281A' : isDn ? '#3E7B3E' : '#555'
+                                  }}>
+                                    {isUp ? '+' : ''}{r.delta.toFixed(3)} ({r.pctChg > 0 ? '+' : ''}{r.pctChg.toFixed(1)}%)
+                                  </td>
+                                  <td style={{
+                                    padding: '3px 6px', textAlign: 'right',
+                                    color: r.absDelta > 0 ? '#C8281A' : '#3E7B3E', fontWeight: 600
+                                  }}>
+                                    {r.absDelta > 0 ? '+' : ''}{Math.round(r.absDelta).toLocaleString()}
+                                  </td>
+                                  <td style={{ padding: '3px 6px', color: isUp ? '#C8281A' : isDn ? '#3E7B3E' : '#777', fontSize: '10px' }}>
+                                    {isUp ? '⬆️' : isDn ? '⬇️' : '↔️'} {remark}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      {latestRow.delta > 0.005 ? (
+                        <div style={{ padding: '7px 10px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 5, marginBottom: 6 }}>
+                          <strong style={{ color: '#C8281A' }}>⬆️ D. Nguyên nhân EF tăng ({latestRow.from}→{latestRow.to}):</strong>
+                          <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+                            {latestRow.cat4Pct > 30 && <li>📦 Tăng tỷ trọng <strong>vận chuyển dài/hàng không</strong> — Cat.4 chiếm {latestRow.cat4Pct}% Scope 3</li>}
+                            <li>✈️ Tăng <strong>đi lại nhân sự</strong> và chi phí di chuyển</li>
+                            <li>⛽ Nguồn cung <strong>nhiên liệu carbon cao</strong> tăng</li>
+                            {latestRow.cat1Pct > 60 && <li>🌍 Tăng <strong>mua sắm từ nguồn emission cao</strong> — Cat.1 chiếm {latestRow.cat1Pct}% Scope 3</li>}
+                          </ul>
+                        </div>
+                      ) : latestRow.delta < -0.005 ? (
+                        <div style={{ padding: '7px 10px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 5, marginBottom: 6 }}>
+                          <strong style={{ color: '#3E7B3E' }}>⬇️ D. Nguyên nhân EF giảm ({latestRow.from}→{latestRow.to}):</strong>
+                          <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+                            <li>🌿 Chuyển <strong>nhà cung cấp carbon thấp hơn</strong> (Nigeria, Benin, Cambodia)</li>
+                            <li>🚢 Tối ưu <strong>lộ trình và phương tiện vận tải</strong></li>
+                            <li>💻 Giảm travel, <strong>tăng họp trực tuyến</strong></li>
+                            <li>📈 Cải thiện <strong>hiệu suất sử dụng nguyên liệu</strong></li>
+                          </ul>
+                        </div>
+                      ) : (
+                        <div style={{ padding: '6px 10px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: 5, marginBottom: 6, fontSize: '10.5px', color: '#555' }}>
+                          ↔️ EF ổn định trong năm gần nhất — tiếp tục duy trì.
+                        </div>
+                      )}
+                      <div style={{ padding: '7px 10px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 5 }}>
+                        <strong style={{ color: '#0369a1' }}>🎯 Đề xuất hành động — 2 category ưu tiên:</strong>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                          <div style={{ background: '#fff', borderRadius: 4, padding: '6px 8px', border: '1px solid #e0f2fe' }}>
+                            <div style={{ fontWeight: 700, color: '#4A9E8C', marginBottom: 3, fontSize: '10.5px' }}>🚢 Vận chuyển (Cat.4)</div>
+                            <ul style={{ margin: 0, paddingLeft: 14, fontSize: '10px', color: '#444' }}>
+                              <li>Gom đơn hàng → giảm số chuyến</li>
+                              <li>Vessel thay thế road freight cho hàng xa</li>
+                              <li>Load factor target ≥85%</li>
+                            </ul>
+                          </div>
+                          <div style={{ background: '#fff', borderRadius: 4, padding: '6px 8px', border: '1px solid #e0f2fe' }}>
+                            <div style={{ fontWeight: 700, color: '#2F855A', marginBottom: 3, fontSize: '10.5px' }}>🌍 Mua sắm (Cat.1)</div>
+                            <ul style={{ margin: 0, paddingLeft: 14, fontSize: '10px', color: '#444' }}>
+                              <li>Ưu tiên Nigeria/Benin/Cambodia (EF thấp)</li>
+                              <li>Giảm Indonesia/Vietnam (EF cao)</li>
+                              <li>Yêu cầu RA/ASC supplier certification</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 8, fontSize: '10.5px', color: '#555', lineHeight: '1.55' }}>
+                        <strong>Lộ trình:</strong> {targetEndYear}: <strong style={{ color: '#3E7B3E' }}>{fmt(planVal(targetEndYear))} tCO₂e</strong> →{' '}
+                        SBTi 2032: <strong style={{ color: '#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong>{' '}
+                        (run-rate: ~<strong>{fmt(annualCutNeeded)} tCO₂e/năm</strong>).
+                      </div>
+                    </div>
+                  );
+                })()}
+
               </div>
             </div>
           </div>
         );
       })()}
 
-      {/* ── CO₂ Intensity & RCN Production Trend ────────────── */}
       {selectedScope === 'intensity' && (() => {
         const S1_COLOR = C.actual;          // #C8281A — đỏ (Scope 1)
         const S2_COLOR = '#9ab0c4';         // xanh xám nhạt — Scope 2
         const HDR_COLOR = '#1a3d5c';        // navy — factory headers
         const ACCENT = C.actual;            // #C8281A
-
         // ── RCN line chart ─────────────────────────────────────────
-        function RcnChart({ yrs }: { yrs: {year:number; rcn:number}[] }) {
+        function RcnChart({ yrs }: { yrs: { year: number; rcn: number }[] }) {
           const W = 300, H = 170;
           const PL = 38, PR = 38, PT = 36, PB = 24;
           const n = yrs.length;
@@ -2050,7 +2118,7 @@ export default function OpexReportPage() {
         }
 
         // ── Intensity stacked bar chart ─────────────────────────────
-        function IntChart({ yrs }: { yrs: {year:number; s1Int:number; s2Int:number; totalInt:number}[] }) {
+        function IntChart({ yrs }: { yrs: { year: number; s1Int: number; s2Int: number; totalInt: number }[] }) {
           const W = 300, H = 190;
           const PL = 10, PR = 10, PT = 26, PB = 38;
           const n = yrs.length;
@@ -2074,7 +2142,7 @@ export default function OpexReportPage() {
               {yrs.map((d, i) => {
                 const s2H = ph(d.s2Int);
                 const s1H = ph(d.s1Int);
-                const topY  = py(d.totalInt);
+                const topY = py(d.totalInt);
                 const s1StartY = topY + s2H;
                 return (
                   <g key={d.year}>
@@ -2165,7 +2233,9 @@ export default function OpexReportPage() {
                           textAlign: 'center', padding: '5px 4px',
                           fontSize: 11, fontWeight: 800, lineHeight: 1.2,
                         }}>
-                          {col.fac.name}
+                          {col.fac.id === 'TOTAL'
+                            ? (lang === 'vi' ? 'Tổng – Tất cả NM' : 'Total – All Factories')
+                            : col.fac.name}
                         </div>
 
                         {/* RCN chart */}
