@@ -2126,67 +2126,59 @@ export default function OpexReportPage() {
         return (
           <div style={{ padding: '8px 10px', animation: 'scaleIn 0.3s ease both', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
-            {/* PPT-like slide wrapper — 16:9 */}
+            {/* Slide-style wrapper — natural height, no aspect-ratio constraint */}
             <div style={{
               width: '100%',
-              aspectRatio: '16 / 9',
               background: '#fff',
               border: `1.5px solid #b8ccd9`,
-              borderRadius: 6,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-              display: 'flex',
-              flexDirection: 'column',
+              borderRadius: 8,
+              boxShadow: '0 3px 16px rgba(26,61,92,0.10)',
               overflow: 'hidden',
-              minHeight: 0,
             }}>
               {/* ── Slide title bar ── */}
-              <div style={{ padding: '6px 14px 4px', borderBottom: `2.5px solid ${ACCENT}`, flexShrink: 0 }}>
-                <div style={{ fontSize: 'clamp(11px, 1.5vw, 16px)', fontWeight: 900, color: '#111', lineHeight: 1.2 }}>
+              <div style={{ padding: '8px 16px 6px', borderBottom: `2.5px solid ${ACCENT}`, background: '#fff' }}>
+                <div style={{ fontSize: 17, fontWeight: 900, color: '#111', lineHeight: 1.2 }}>
                   CO₂ Intensity &amp; RCN Production Trend (2021–2025)
                 </div>
-                <div style={{ fontSize: 'clamp(9px, 1vw, 12px)', color: '#555', fontWeight: 600, marginTop: 1 }}>
+                <div style={{ fontSize: 12, color: '#555', fontWeight: 600, marginTop: 2 }}>
                   Scope 1 &amp; Scope 2 — {lang === 'vi' ? 'theo Nhà máy và Tổng' : 'by Factory and Total'}
                 </div>
               </div>
 
               {/* ── Main body: charts left + commentary right ── */}
-              <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'stretch' }}>
 
-                {/* LEFT: 5-col chart grid (75%) */}
-                <div style={{ flex: '0 0 75%', display: 'flex', flexDirection: 'column', borderRight: '1.5px solid #ddd', minWidth: 0 }}>
+                {/* LEFT: 5-col chart grid (~76%) */}
+                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', borderRight: '1.5px solid #d0dde8' }}>
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(${intensityData.length}, minmax(0,1fr))`,
-                    flex: 1,
-                    minHeight: 0,
                   }}>
                     {intensityData.map((col, ci) => (
                       <div key={col.fac.id} style={{
                         borderLeft: ci > 0 ? '1px solid #e0e0e0' : 'none',
                         display: 'flex', flexDirection: 'column',
-                        minWidth: 0,
                       }}>
                         {/* Factory header */}
                         <div style={{
                           background: HDR_COLOR, color: 'white',
-                          textAlign: 'center', padding: '3px 2px',
-                          fontSize: 'clamp(8px, 0.9vw, 11px)', fontWeight: 800, lineHeight: 1.2,
-                          flexShrink: 0,
+                          textAlign: 'center', padding: '5px 4px',
+                          fontSize: 11, fontWeight: 800, lineHeight: 1.2,
                         }}>
                           {col.fac.name}
                         </div>
 
                         {/* RCN chart */}
-                        <div style={{ borderBottom: '1px solid #eee', padding: '2px 0 0', flexShrink: 0 }}>
-                          <div style={{ fontSize: 'clamp(7px,0.7vw,9px)', color: '#666', fontWeight: 600, textAlign: 'center' }}>
+                        <div style={{ borderBottom: '1px solid #eee', padding: '4px 2px 0' }}>
+                          <div style={{ fontSize: 9, color: '#666', fontWeight: 600, textAlign: 'center' }}>
                             RCN {lang === 'vi' ? 'Đầu vào (tấn)' : 'Input (t)'}
                           </div>
                           <RcnChart yrs={col.years} />
                         </div>
 
                         {/* Intensity chart */}
-                        <div style={{ flex: 1, padding: '2px 0 0' }}>
-                          <div style={{ fontSize: 'clamp(7px,0.7vw,9px)', color: '#666', fontWeight: 600, textAlign: 'center' }}>
+                        <div style={{ padding: '4px 2px 0' }}>
+                          <div style={{ fontSize: 9, color: '#666', fontWeight: 600, textAlign: 'center' }}>
                             CO₂ Intensity (kg CO₂e / t RCN)
                           </div>
                           <IntChart yrs={col.years} />
@@ -2196,31 +2188,30 @@ export default function OpexReportPage() {
                   </div>
 
                   {/* Legend + footnote */}
-                  <div style={{ padding: '4px 8px', background: '#f0f4f8', borderTop: `1px solid #c8d8e8`, flexShrink: 0 }}>
-                    <div style={{ fontSize: 'clamp(7px,0.75vw,9.5px)', color: '#444', lineHeight: 1.4 }}>
-                      <strong>SCOPE:</strong>{' '}
-                      <span style={{ color: S1_COLOR, fontWeight: 700 }}>■ Scope 1</span>
-                      {lang === 'vi' ? ' — Đốt nhiên liệu trực tiếp (củi, diesel, LPG…)' : ' — Direct fuel combustion (firewood, diesel, LPG…)'}
+                  <div style={{ padding: '6px 10px', background: '#f0f4f8', borderTop: '1px solid #c8d8e8', marginTop: 'auto' }}>
+                    <div style={{ fontSize: 10, color: '#444', lineHeight: 1.5 }}>
+                      <strong>SCOPE DEFINITION:&nbsp;</strong>
+                      <span style={{ color: S1_COLOR, fontWeight: 700 }}>■ Scope 1 (Dark Red)</span>
+                      {lang === 'vi' ? ': Phát thải trực tiếp từ đốt nhiên liệu tại chỗ.' : ': Direct emissions from on-site fuel combustion (firewood, diesel, LPG…).'}
                       {'  '}
-                      <span style={{ color: S2_COLOR, fontWeight: 700 }}>■ Scope 2</span>
-                      {lang === 'vi' ? ' — Điện lưới mua vào' : ' — Purchased electricity'}
+                      <span style={{ color: S2_COLOR, fontWeight: 700 }}>■ Scope 2 (Blue-gray)</span>
+                      {lang === 'vi' ? ': Phát thải gián tiếp từ điện lưới mua vào.' : ': Indirect emissions from purchased electricity.'}
                     </div>
-                    <div style={{ fontSize: 'clamp(6px,0.65vw,8.5px)', color: '#aaa', fontStyle: 'italic', marginTop: 1 }}>
+                    <div style={{ fontSize: 9, color: '#999', fontStyle: 'italic', marginTop: 2 }}>
                       {lang === 'vi'
                         ? 'Cường độ CO₂ = kg CO₂e / tấn RCN đầu vào. Scope 1 = đốt nhiên liệu | Scope 2 = điện mua vào.'
-                        : 'CO₂ intensity = kg CO₂e per metric ton of RCN input. Scope 1 = fuel combustion | Scope 2 = purchased electricity.'}
+                        : 'CO₂ intensity = kg CO₂e per metric ton of RCN input. Scope 1 = direct fuel combustion | Scope 2 = purchased electricity only.'}
                     </div>
                   </div>
                 </div>
 
-                {/* RIGHT: Commentary panel (25%) */}
+                {/* RIGHT: Commentary panel — fixed 220px */}
                 <div style={{
-                  flex: '0 0 25%', minWidth: 0,
-                  background: 'linear-gradient(160deg,#edf2f7 0%,#dde8f0 100%)',
+                  width: 220, flexShrink: 0,
+                  background: 'linear-gradient(180deg,#edf2f7 0%,#dde8f0 100%)',
                   display: 'flex', flexDirection: 'column',
-                  padding: '8px 10px',
-                  gap: 6,
-                  overflowY: 'auto',
+                  padding: '10px 10px 10px',
+                  gap: 7,
                 }}>
                   <div style={{ fontSize: 'clamp(8px,0.85vw,11px)', fontWeight: 800, color: HDR_COLOR, borderBottom: `1.5px solid ${HDR_COLOR}`, paddingBottom: 3, marginBottom: 2 }}>
                     {lang === 'vi' ? '📋 Nhận xét' : '📋 Key Observations'}
