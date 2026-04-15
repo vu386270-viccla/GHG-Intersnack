@@ -2009,82 +2009,37 @@ export default function OpexReportPage() {
 
       {/* ── CO₂ Intensity & RCN Production Trend ────────────── */}
       {selectedScope === 'intensity' && (() => {
-        const YEARS = [2021, 2022, 2023, 2024, 2025];
         const S1_COLOR = '#8B1A1A';
-        const S2_COLOR = '#c0bfbf';
+        const S2_COLOR = '#b8b6b6';
 
-        function RcnChart({ years }: { years: {year:number; rcn:number}[] }) {
-          const W = 200, H = 120;
-          const PL = 10, PR = 10, PT = 28, PB = 22;
-          const n = years.length;
-          const cw = (W - PL - PR) / (n - 1);
-          const maxV = Math.max(...years.map(d => d.rcn)) || 1;
-          const px = (i: number) => PL + i * cw;
-          const py = (v: number) => PT + (H - PT - PB) * (1 - v / (maxV * 1.2));
-          const pts = years.map((d, i) => `${px(i)},${py(d.rcn)}`).join(' ');
+        // ── RCN line chart ─────────────────────────────────────────
+        function RcnChart({ yrs }: { yrs: {year:number; rcn:number}[] }) {
+          const W = 300, H = 170;
+          const PL = 38, PR = 38, PT = 36, PB = 24;
+          const n = yrs.length;
+          const step = (W - PL - PR) / (n - 1);
+          const maxV = Math.max(...yrs.map(d => d.rcn)) * 1.22 || 1;
+          const px = (i: number) => PL + i * step;
+          const py = (v: number) => PT + (H - PT - PB) * (1 - v / maxV);
+          const pts = yrs.map((d, i) => `${px(i)},${py(d.rcn)}`).join(' ');
           return (
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-              <polyline points={pts} fill="none" stroke={S1_COLOR} strokeWidth={2} />
-              {years.map((d, i) => (
-                <g key={d.year}>
-                  <circle cx={px(i)} cy={py(d.rcn)} r={3.5} fill={S1_COLOR} />
-                  <text x={px(i)} y={Math.max(py(d.rcn) - 7, PT - 2)} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="#222">
-                    {d.rcn.toLocaleString()}
-                  </text>
-                  <text x={px(i)} y={H - 4} textAnchor="middle" fontSize={8.5} fill="#666">
-                    {d.year}
-                  </text>
-                </g>
-              ))}
-            </svg>
-          );
-        }
-
-        function IntChart({ years }: { years: {year:number; s1Int:number; s2Int:number; totalInt:number}[] }) {
-          const W = 200, H = 140;
-          const PL = 8, PR = 8, PT = 22, PB = 32;
-          const n = years.length;
-          const cw = (W - PL - PR) / n;
-          const bw = cw * 0.62;
-          const bx = (i: number) => PL + i * cw + (cw - bw) / 2;
-          const cx = (i: number) => PL + i * cw + cw / 2;
-          const chartH = H - PT - PB;
-          const maxV = Math.max(...years.map(d => d.totalInt)) * 1.28 || 1;
-          const py = (v: number) => PT + chartH * (1 - v / maxV);
-          const ph = (v: number) => Math.max(chartH * v / maxV, 0);
-
-          return (
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-              {years.map((d, i) => {
-                const s2H = ph(d.s2Int);
-                const s1H = ph(d.s1Int);
-                const s2Y = py(d.totalInt);
-                const s1Y = s2Y + s2H;
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+              {/* baseline rule */}
+              <line x1={PL} y1={H - PB} x2={W - PR} y2={H - PB} stroke="#ddd" strokeWidth={1} />
+              <polyline points={pts} fill="none" stroke={S1_COLOR} strokeWidth={2.2} strokeLinejoin="round" />
+              {yrs.map((d, i) => {
+                const cx = px(i);
+                const cy = py(d.rcn);
+                // stagger label: even indices go above, odd below — prevents overlap
+                const labelY = i % 2 === 0 ? cy - 9 : cy + 17;
                 return (
                   <g key={d.year}>
-                    {/* S2 bar — gray */}
-                    <rect x={bx(i)} y={s2Y} width={bw} height={s2H} fill={S2_COLOR} />
-                    {/* S1 bar — dark red */}
-                    <rect x={bx(i)} y={s1Y} width={bw} height={s1H} fill={S1_COLOR} />
-                    {/* Total above bar */}
-                    <text x={cx(i)} y={s2Y - 4} textAnchor="middle" fontSize={8} fontWeight={700} fill="#222">
-                      {d.totalInt.toFixed(1)}
+                    <circle cx={cx} cy={cy} r={4} fill={S1_COLOR} stroke="white" strokeWidth={1} />
+                    <text x={cx} y={Math.min(Math.max(labelY, 12), H - PB - 3)}
+                      textAnchor="middle" fontSize={9.5} fontWeight={700} fill="#1a1a1a">
+                      {d.rcn.toLocaleString()}
                     </text>
-                    {/* S2 value inside gray bar */}
-                    {s2H > 16 && (
-                      <text x={cx(i)} y={s2Y + s2H / 2 + 4} textAnchor="middle" fontSize={7.5} fill="#444">
-                        {d.s2Int.toFixed(1)}
-                      </text>
-                    )}
-                    {/* S1 label in dark red box below bars */}
-                    <rect x={bx(i)} y={H - PB + 4} width={bw} height={11} rx={2} fill={S1_COLOR} />
-                    <text x={cx(i)} y={H - PB + 12} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="white">
-                      {d.s1Int.toFixed(1)}
-                    </text>
-                    {/* Year label */}
-                    <text x={cx(i)} y={H - 3} textAnchor="middle" fontSize={8.5} fill="#555">
-                      {d.year}
-                    </text>
+                    <text x={cx} y={H - 5} textAnchor="middle" fontSize={9} fill="#666">{d.year}</text>
                   </g>
                 );
               })}
@@ -2092,86 +2047,237 @@ export default function OpexReportPage() {
           );
         }
 
-        return (
-          <div style={{ padding: '8px 12px', animation: 'scaleIn 0.3s ease both', flex: 1 }}>
-            {/* Slide title */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 'clamp(13px, 2vw, 17px)', fontWeight: 900, lineHeight: 1.25, color: '#1a1a1a' }}>
-                CO₂ Intensity &amp; RCN Production Trend (2021–2025)
-              </div>
-              <div style={{ fontSize: 13, color: '#555', fontWeight: 600, marginTop: 2 }}>
-                Scope 1 &amp; Scope 2 — {lang === 'vi' ? 'theo Nhà máy và Tổng' : 'by Factory and Total'}
-              </div>
-            </div>
+        // ── Intensity stacked bar chart ─────────────────────────────
+        function IntChart({ yrs }: { yrs: {year:number; s1Int:number; s2Int:number; totalInt:number}[] }) {
+          const W = 300, H = 190;
+          const PL = 10, PR = 10, PT = 26, PB = 38;
+          const n = yrs.length;
+          const cw = (W - PL - PR) / n;
+          const bw = Math.min(cw * 0.68, 48);
+          const bx = (i: number) => PL + i * cw + (cw - bw) / 2;
+          const cx = (i: number) => PL + i * cw + cw / 2;
+          const chartH = H - PT - PB;
+          const maxV = Math.max(...yrs.map(d => d.totalInt)) * 1.26 || 1;
+          const py = (v: number) => PT + chartH * (1 - v / maxV);
+          const ph = (v: number) => Math.max(chartH * v / maxV, 1);
+          const s1BoxH = 14, s1BoxY = H - PB + 5, yrY = H - 5;
 
-            {/* 5-column grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${intensityData.length}, minmax(0,1fr))`,
-              gap: '0 6px',
-              border: '1px solid #ddd',
-              borderRadius: 6,
-              overflow: 'hidden',
-            }}>
-              {intensityData.map((col, ci) => {
-                const isTotal = col.fac.id === 'TOTAL';
+          return (
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+              {/* horizontal grid */}
+              {[0.25, 0.5, 0.75, 1].map(f => (
+                <line key={f} x1={PL} y1={py(maxV * f / 1.26)} x2={W - PR} y2={py(maxV * f / 1.26)}
+                  stroke="#eee" strokeWidth={1} strokeDasharray="3,3" />
+              ))}
+              {yrs.map((d, i) => {
+                const s2H = ph(d.s2Int);
+                const s1H = ph(d.s1Int);
+                const topY  = py(d.totalInt);
+                const s1StartY = topY + s2H;
                 return (
-                  <div key={col.fac.id} style={{
-                    borderLeft: ci > 0 ? '1px solid #ddd' : 'none',
-                    display: 'flex', flexDirection: 'column',
-                  }}>
-                    {/* Factory name header */}
-                    <div style={{
-                      background: '#7a1f1f',
-                      color: 'white',
-                      textAlign: 'center',
-                      padding: '5px 4px',
-                      fontSize: 'clamp(9px, 1.1vw, 12px)',
-                      fontWeight: 800,
-                      lineHeight: 1.2,
-                    }}>
-                      {col.fac.name}
-                    </div>
-
-                    {/* RCN Production chart */}
-                    <div style={{ padding: '4px 2px 0', borderBottom: '1px solid #eee' }}>
-                      <div style={{ fontSize: 9, color: '#555', fontWeight: 600, textAlign: 'center', marginBottom: 1 }}>
-                        RCN {lang === 'vi' ? 'Đầu vào (tấn)' : 'Input (t)'}
-                      </div>
-                      <RcnChart years={col.years} />
-                    </div>
-
-                    {/* CO₂ Intensity chart */}
-                    <div style={{ padding: '4px 2px 0' }}>
-                      <div style={{ fontSize: 9, color: '#555', fontWeight: 600, textAlign: 'center', marginBottom: 1 }}>
-                        CO₂ Intensity (kg CO₂e / t RCN)
-                      </div>
-                      <IntChart years={col.years} />
-                    </div>
-                  </div>
+                  <g key={d.year}>
+                    {/* S2 gray bar */}
+                    <rect x={bx(i)} y={topY} width={bw} height={s2H} fill={S2_COLOR} rx={1} />
+                    {/* S1 dark red bar */}
+                    <rect x={bx(i)} y={s1StartY} width={bw} height={s1H} fill={S1_COLOR} rx={1} />
+                    {/* Total label above bar */}
+                    <text x={cx(i)} y={topY - 5} textAnchor="middle" fontSize={10} fontWeight={800} fill="#111">
+                      {d.totalInt.toFixed(1)}
+                    </text>
+                    {/* S2 value inside gray bar */}
+                    {s2H > 20 && (
+                      <text x={cx(i)} y={topY + s2H / 2 + 4} textAnchor="middle" fontSize={9} fontWeight={600} fill="#333">
+                        {d.s2Int.toFixed(1)}
+                      </text>
+                    )}
+                    {/* S1 box + label below bars */}
+                    <rect x={bx(i)} y={s1BoxY} width={bw} height={s1BoxH} rx={2} fill={S1_COLOR} />
+                    <text x={cx(i)} y={s1BoxY + s1BoxH - 3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">
+                      {d.s1Int.toFixed(1)}
+                    </text>
+                    {/* Year */}
+                    <text x={cx(i)} y={yrY} textAnchor="middle" fontSize={9.5} fill="#555">{d.year}</text>
+                  </g>
                 );
               })}
-            </div>
+            </svg>
+          );
+        }
 
-            {/* Legend */}
-            <div style={{ marginTop: 8, padding: '6px 10px', background: '#f7f7f7', borderRadius: 4, fontSize: 10.5, lineHeight: 1.5 }}>
-              <strong>SCOPE DEFINITION:&nbsp;</strong>
-              <span style={{ color: S1_COLOR, fontWeight: 700 }}>Scope 1 (Dark Red)</span>
-              {lang === 'vi'
-                ? ': Phát thải trực tiếp từ đốt nhiên liệu tại chỗ (nhiên liệu lò hơi, củi/sinh khối, diesel, LPG, phương tiện công ty).'
-                : ': Direct emissions from on-site fuel combustion (e.g., boiler fuel, firewood/biomass, diesel, LPG, company vehicles).'}
-              &nbsp;&nbsp;
-              <span style={{ color: '#888', fontWeight: 700 }}>Scope 2 (Light Gray)</span>
-              {lang === 'vi'
-                ? ': Phát thải gián tiếp từ điện lưới mua vào.'
-                : ': Indirect emissions from purchased electricity consumed by the factory.'}
-            </div>
+        // ── Commentary: auto-computed insights ────────────────────────
+        const YEARS5 = [2021, 2022, 2023, 2024, 2025];
+        const facCols = intensityData.filter(c => c.fac.id !== 'TOTAL');
+        const totalCol = intensityData.find(c => c.fac.id === 'TOTAL');
+        const get5 = (col: typeof intensityData[0], yr: number) => col.years.find(y => y.year === yr)!;
 
-            {/* Footnote */}
-            <div style={{ marginTop: 4, fontSize: 10, color: '#999', fontStyle: 'italic' }}>
-              {lang === 'vi'
-                ? 'Cường độ CO₂ tính bằng kg CO₂e trên mỗi tấn RCN đầu vào. Scope 1 = đốt nhiên liệu trực tiếp | Scope 2 = điện mua vào.'
-                : 'CO₂ intensity calculated as kg CO₂e per metric ton of RCN input. Scope 1 = direct fuel combustion | Scope 2 = purchased electricity only.'}
+        // Best factory 2025 (lowest total intensity)
+        const best25 = [...facCols].sort((a, b) => get5(a, 2025).totalInt - get5(b, 2025).totalInt)[0];
+        const worst25 = [...facCols].sort((a, b) => get5(b, 2025).totalInt - get5(a, 2025).totalInt)[0];
+        const totalInt21 = totalCol ? get5(totalCol, 2021).totalInt : 0;
+        const totalInt25 = totalCol ? get5(totalCol, 2025).totalInt : 0;
+        const totalPct = totalInt21 > 0 ? Math.round(((totalInt25 - totalInt21) / totalInt21) * 100) : 0;
+        const totalRcn25 = totalCol ? get5(totalCol, 2025).rcn : 0;
+        const totalRcn21 = totalCol ? get5(totalCol, 2021).rcn : 0;
+        const rcnPct = totalRcn21 > 0 ? Math.round(((totalRcn25 - totalRcn21) / totalRcn21) * 100) : 0;
+        const s2Share25 = totalInt25 > 0 && totalCol ? Math.round(get5(totalCol, 2025).s2Int / totalInt25 * 100) : 0;
+
+        return (
+          <div style={{ padding: '8px 10px', animation: 'scaleIn 0.3s ease both', flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+            {/* PPT-like slide wrapper — 16:9 */}
+            <div style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              background: '#fff',
+              border: '1px solid #d0d0d0',
+              borderRadius: 6,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              minHeight: 0,
+            }}>
+              {/* ── Slide title bar ── */}
+              <div style={{ padding: '6px 14px 4px', borderBottom: '2.5px solid #8B1A1A', flexShrink: 0 }}>
+                <div style={{ fontSize: 'clamp(11px, 1.5vw, 16px)', fontWeight: 900, color: '#111', lineHeight: 1.2 }}>
+                  CO₂ Intensity &amp; RCN Production Trend (2021–2025)
+                </div>
+                <div style={{ fontSize: 'clamp(9px, 1vw, 12px)', color: '#555', fontWeight: 600, marginTop: 1 }}>
+                  Scope 1 &amp; Scope 2 — {lang === 'vi' ? 'theo Nhà máy và Tổng' : 'by Factory and Total'}
+                </div>
+              </div>
+
+              {/* ── Main body: charts left + commentary right ── */}
+              <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+
+                {/* LEFT: 5-col chart grid (75%) */}
+                <div style={{ flex: '0 0 75%', display: 'flex', flexDirection: 'column', borderRight: '1.5px solid #ddd', minWidth: 0 }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${intensityData.length}, minmax(0,1fr))`,
+                    flex: 1,
+                    minHeight: 0,
+                  }}>
+                    {intensityData.map((col, ci) => (
+                      <div key={col.fac.id} style={{
+                        borderLeft: ci > 0 ? '1px solid #e0e0e0' : 'none',
+                        display: 'flex', flexDirection: 'column',
+                        minWidth: 0,
+                      }}>
+                        {/* Factory header */}
+                        <div style={{
+                          background: '#8B1A1A', color: 'white',
+                          textAlign: 'center', padding: '3px 2px',
+                          fontSize: 'clamp(8px, 0.9vw, 11px)', fontWeight: 800, lineHeight: 1.2,
+                          flexShrink: 0,
+                        }}>
+                          {col.fac.name}
+                        </div>
+
+                        {/* RCN chart */}
+                        <div style={{ borderBottom: '1px solid #eee', padding: '2px 0 0', flexShrink: 0 }}>
+                          <div style={{ fontSize: 'clamp(7px,0.7vw,9px)', color: '#666', fontWeight: 600, textAlign: 'center' }}>
+                            RCN {lang === 'vi' ? 'Đầu vào (tấn)' : 'Input (t)'}
+                          </div>
+                          <RcnChart yrs={col.years} />
+                        </div>
+
+                        {/* Intensity chart */}
+                        <div style={{ flex: 1, padding: '2px 0 0' }}>
+                          <div style={{ fontSize: 'clamp(7px,0.7vw,9px)', color: '#666', fontWeight: 600, textAlign: 'center' }}>
+                            CO₂ Intensity (kg CO₂e / t RCN)
+                          </div>
+                          <IntChart yrs={col.years} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Legend + footnote */}
+                  <div style={{ padding: '4px 8px', background: '#f8f8f8', borderTop: '1px solid #e8e8e8', flexShrink: 0 }}>
+                    <div style={{ fontSize: 'clamp(7px,0.75vw,9.5px)', color: '#444', lineHeight: 1.4 }}>
+                      <strong>SCOPE:</strong>{' '}
+                      <span style={{ color: S1_COLOR, fontWeight: 700 }}>■ Scope 1</span>
+                      {lang === 'vi' ? ' — Đốt nhiên liệu trực tiếp (củi, diesel, LPG…)' : ' — Direct fuel combustion (firewood, diesel, LPG…)'}
+                      {'  '}
+                      <span style={{ color: '#888', fontWeight: 700 }}>■ Scope 2</span>
+                      {lang === 'vi' ? ' — Điện lưới mua vào' : ' — Purchased electricity'}
+                    </div>
+                    <div style={{ fontSize: 'clamp(6px,0.65vw,8.5px)', color: '#aaa', fontStyle: 'italic', marginTop: 1 }}>
+                      {lang === 'vi'
+                        ? 'Cường độ CO₂ = kg CO₂e / tấn RCN đầu vào. Scope 1 = đốt nhiên liệu | Scope 2 = điện mua vào.'
+                        : 'CO₂ intensity = kg CO₂e per metric ton of RCN input. Scope 1 = fuel combustion | Scope 2 = purchased electricity.'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT: Commentary panel (25%) */}
+                <div style={{
+                  flex: '0 0 25%', minWidth: 0,
+                  background: 'linear-gradient(160deg,#fafafa 0%,#f3f3f3 100%)',
+                  display: 'flex', flexDirection: 'column',
+                  padding: '8px 10px',
+                  gap: 6,
+                  overflowY: 'auto',
+                }}>
+                  <div style={{ fontSize: 'clamp(8px,0.85vw,11px)', fontWeight: 800, color: '#8B1A1A', borderBottom: '1.5px solid #8B1A1A', paddingBottom: 3, marginBottom: 2 }}>
+                    {lang === 'vi' ? '📋 Nhận xét' : '📋 Key Observations'}
+                  </div>
+
+                  {/* Bullet items */}
+                  {[
+                    {
+                      icon: '📈',
+                      title: lang === 'vi' ? 'Sản lượng RCN' : 'RCN Production',
+                      body: lang === 'vi'
+                        ? `Tổng sản lượng 2025: ${totalRcn25.toLocaleString()} t (${rcnPct > 0 ? '+' : ''}${rcnPct}% so với 2021). Xu hướng tăng ổn định qua các năm.`
+                        : `Total 2025: ${totalRcn25.toLocaleString()} t (${rcnPct > 0 ? '+' : ''}${rcnPct}% vs 2021). Stable upward production trend.`,
+                    },
+                    {
+                      icon: totalPct <= 0 ? '✅' : '⚠️',
+                      title: lang === 'vi' ? 'Cường độ Tổng (2021→2025)' : 'Overall Intensity Trend',
+                      body: lang === 'vi'
+                        ? `Cường độ CO₂ tổng thể ${totalPct <= 0 ? 'giảm' : 'tăng'} ${Math.abs(totalPct)}% từ ${totalInt21.toFixed(1)} → ${totalInt25.toFixed(1)} kg CO₂e/t RCN. ${totalPct <= 0 ? 'Cải thiện hiệu quả phát thải trên sản lượng.' : 'Cần chú ý kiểm soát phát thải.'}`
+                        : `Group CO₂ intensity ${totalPct <= 0 ? 'decreased' : 'increased'} ${Math.abs(totalPct)}% from ${totalInt21.toFixed(1)} → ${totalInt25.toFixed(1)} kg CO₂e/t RCN. ${totalPct <= 0 ? 'Emission efficiency improved.' : 'Emission control attention needed.'}`,
+                    },
+                    {
+                      icon: '🏆',
+                      title: lang === 'vi' ? 'Nhà máy tốt nhất 2025' : 'Best Factory 2025',
+                      body: lang === 'vi'
+                        ? `${best25.fac.name}: ${get5(best25, 2025).totalInt.toFixed(1)} kg CO₂e/t RCN — cường độ thấp nhất trong nhóm. Là benchmark cho các nhà máy còn lại.`
+                        : `${best25.fac.name}: ${get5(best25, 2025).totalInt.toFixed(1)} kg CO₂e/t RCN — lowest intensity in the group. Sets the internal benchmark.`,
+                    },
+                    {
+                      icon: '🔴',
+                      title: lang === 'vi' ? 'Nhà máy cần cải thiện' : 'Factory to Watch',
+                      body: lang === 'vi'
+                        ? `${worst25.fac.name}: ${get5(worst25, 2025).totalInt.toFixed(1)} kg CO₂e/t RCN — cường độ cao nhất 2025. Ưu tiên tối ưu tiêu thụ điện và nhiên liệu.`
+                        : `${worst25.fac.name}: ${get5(worst25, 2025).totalInt.toFixed(1)} kg CO₂e/t RCN — highest intensity in 2025. Priority: optimize electricity & fuel use.`,
+                    },
+                    {
+                      icon: '⚡',
+                      title: lang === 'vi' ? 'Scope 2 chiếm ưu thế' : 'Scope 2 Dominates',
+                      body: lang === 'vi'
+                        ? `Scope 2 (điện) chiếm ~${s2Share25}% cường độ CO₂ năm 2025. Chuyển sang điện tái tạo hoặc lắp đặt solar là đòn bẩy giảm phát thải chính.`
+                        : `Scope 2 (electricity) accounts for ~${s2Share25}% of CO₂ intensity in 2025. Renewable energy transition or solar installation is the primary lever.`,
+                    },
+                  ].map((item, idx) => (
+                    <div key={idx} style={{
+                      background: '#fff',
+                      borderRadius: 5,
+                      border: '1px solid #e8e8e8',
+                      padding: '5px 7px',
+                      fontSize: 'clamp(7px,0.72vw,9.5px)',
+                      lineHeight: 1.45,
+                    }}>
+                      <div style={{ fontWeight: 800, color: '#333', marginBottom: 2, fontSize: 'clamp(7.5px,0.78vw,10px)' }}>
+                        {item.icon} {item.title}
+                      </div>
+                      <div style={{ color: '#555' }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         );
