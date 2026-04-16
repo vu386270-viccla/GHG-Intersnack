@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import { getOpexReportData } from '@/lib/data-service';
 import type { OpexAnnualData, OpexReportData, OpexScope1BreakYear } from '@/lib/data-service';
+import { downloadSvgAsPng } from '@/lib/chart-exports';
 
 // ── Types ──────────────────────────────────────────────────
 type AnnualData = OpexAnnualData;
@@ -74,12 +75,16 @@ function WaterfallChart({
   callouts = [],
   title,
   legendOrder,
+  downloadName,
 }: {
   bars: BarPoint[];
   callouts?: Callout[];
   title: string;
   legendOrder?: ('baseline' | 'actual' | 'estimated' | 'target')[];
+  downloadName?: string;
 }) {
+  const svgRef = React.useRef<SVGSVGElement>(null);
+
   // SVG dimensions — tall chart with generous top pad for callout brackets
   const W = 560, H = 400;
   const PL = 8, PR = 8, PT = 130, PB = 46;
@@ -108,10 +113,21 @@ function WaterfallChart({
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      {/* Chart title */}
-      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#222', marginBottom: '5px', lineHeight: 1.3 }}
-        dangerouslySetInnerHTML={{ __html: title }}
-      />
+      {/* Chart title & Export row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px' }}>
+        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#222', lineHeight: 1.3 }}
+          dangerouslySetInnerHTML={{ __html: title }}
+        />
+        {downloadName && (
+          <button
+            onClick={() => downloadSvgAsPng(svgRef.current, downloadName)}
+            style={{ fontSize: '10px', padding: '3px 6px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+            title="Tải ảnh PNG độ phân giải cao"
+          >
+            <span>📸</span> HD
+          </button>
+        )}
+      </div>
       {/* Legend — top right position matching PPT */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '2px', fontSize: '10.5px', alignItems: 'center', justifyContent: 'flex-end' }}>
         {legendItems.map(item => (
@@ -123,7 +139,7 @@ function WaterfallChart({
       </div>
 
       {/* SVG chart — overflow visible so callout brackets show above viewBox */}
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
         <defs>
           {/*
             Arrow marker: right-pointing triangle.
@@ -538,6 +554,7 @@ function Scope1BreakdownChart({
   selectedFac: string;
 }) {
   const [hovYear, setHovYear] = React.useState<number | null>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
 
   const W = 540, H = 230;
   const PL = 6, PR = 6, PT = 14, PB = 50;
@@ -558,10 +575,19 @@ function Scope1BreakdownChart({
 
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#C8281A', marginBottom: 4 }}>
-        🔥 Scope 1 — Breakdown by Fuel / Source (tCO₂e)
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#C8281A' }}>
+          🔥 Scope 1 — Breakdown by Fuel / Source (tCO₂e)
+        </div>
+        <button
+          onClick={() => downloadSvgAsPng(svgRef.current, `Scope1_FuelBreakdown_${selectedFac}.png`)}
+          style={{ fontSize: '10px', padding: '3px 6px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+          title="Tải ảnh PNG độ phân giải cao"
+        >
+          <span>📸</span> HD
+        </button>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
         {/* Gridlines */}
         {[0.25, 0.5, 0.75, 1].map(f => {
           const gv = yMax * f;
@@ -1145,6 +1171,7 @@ export default function OpexReportPage() {
             callouts={s1Callouts}
             title={`<strong>Scope 1 (reduce firewood usage)</strong> – CO₂ eq ${showIntensity ? 'intensity tCO₂e/RCN' : 'absol. emission in ton'}`}
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
+            downloadName={`Scope1_Emissions_${selectedFac}.png`}
           />
 
           {/* ── Scope 1 mini-OGSM table ── */}
@@ -1294,6 +1321,7 @@ export default function OpexReportPage() {
             callouts={s2Callouts}
             title={`<strong>Scope 2 (grid electricity)</strong> – CO₂ eq ${showIntensity ? 'intensity tCO₂e/RCN' : 'absol. emission in ton'}`}
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
+            downloadName={`Scope2_Emissions_${selectedFac}.png`}
           />
 
           {/* ── Scope 2 mini-OGSM table ── */}
@@ -1621,6 +1649,7 @@ export default function OpexReportPage() {
                   callouts={s3Callouts}
                   title={`<strong>Scope 3 — Supply Chain</strong> – CO₂ eq absol. emission in ton`}
                   legendOrder={['baseline', 'actual', 'target']}
+                  downloadName="Scope3_Emissions.png"
                 />
                 {/* Target callout box */}
                 <div style={{ marginTop: 6, display: 'flex', gap: 10, fontSize: '10px', color: '#555' }}>
@@ -1799,10 +1828,19 @@ export default function OpexReportPage() {
 
                   return (
                     <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#333', marginBottom: 4 }}>
-                        📊 EF Scope 3 — tCO₂e per tonne RCN (tất cả các năm)
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>
+                          📊 EF Scope 3 — tCO₂e per tonne RCN (tất cả các năm)
+                        </div>
+                        <button
+                          onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-ef') as unknown as SVGSVGElement, 'Scope3_EF_Trend.png')}
+                          style={{ fontSize: '10px', padding: '3px 6px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                          title="Tải ảnh PNG độ phân giải cao"
+                        >
+                          <span>📸</span> HD
+                        </button>
                       </div>
-                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+                      <svg id="svg-s3-ef" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                         {[0.25, 0.5, 0.75, 1].map(f => {
                           const gv = +(maxEF * f).toFixed(2);
                           const gy = py(maxEF * f);
@@ -1883,10 +1921,19 @@ export default function OpexReportPage() {
                   ];
                   return (
                     <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#333', marginBottom: 4 }}>
-                        🥧 Tỷ trọng % Category Scope 3 — qua các năm
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>
+                          🥧 Tỷ trọng % Category Scope 3 — qua các năm
+                        </div>
+                        <button
+                          onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-cat') as unknown as SVGSVGElement, 'Scope3_Category_Percentage.png')}
+                          style={{ fontSize: '10px', padding: '3px 6px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                          title="Tải ảnh PNG độ phân giải cao"
+                        >
+                          <span>📸</span> HD
+                        </button>
                       </div>
-                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+                      <svg id="svg-s3-cat" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
                         {catYears.map((row, i) => {
                           const total = row.total || 1;
                           const segs = [row.cat1, row.cat3, row.cat4v + row.cat4r];
@@ -2093,27 +2140,36 @@ export default function OpexReportPage() {
           const py = (v: number) => PT + (H - PT - PB) * (1 - v / maxV);
           const pts = yrs.map((d, i) => `${px(i)},${py(d.rcn)}`).join(' ');
           return (
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-              {/* baseline rule */}
-              <line x1={PL} y1={H - PB} x2={W - PR} y2={H - PB} stroke="#ddd" strokeWidth={1} />
-              <polyline points={pts} fill="none" stroke={S1_COLOR} strokeWidth={2.2} strokeLinejoin="round" />
-              {yrs.map((d, i) => {
-                const cx = px(i);
-                const cy = py(d.rcn);
-                // stagger label: even indices go above, odd below — prevents overlap
-                const labelY = i % 2 === 0 ? cy - 9 : cy + 17;
-                return (
-                  <g key={d.year}>
-                    <circle cx={cx} cy={cy} r={4} fill={S1_COLOR} stroke="white" strokeWidth={1} />
-                    <text x={cx} y={Math.min(Math.max(labelY, 12), H - PB - 3)}
-                      textAnchor="middle" fontSize={9.5} fontWeight={700} fill="#1a1a1a">
-                      {d.rcn.toLocaleString()}
-                    </text>
-                    <text x={cx} y={H - 5} textAnchor="middle" fontSize={9} fill="#666">{d.year}</text>
-                  </g>
-                );
-              })}
-            </svg>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => downloadSvgAsPng(document.getElementById('svg-rcn') as unknown as SVGSVGElement, `RCN_Production_Trend_${selectedFac}.png`)}
+                style={{ position: 'absolute', top: 0, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                title="Tải ảnh PNG độ phân giải cao"
+              >
+                <span>📸</span> HD
+              </button>
+              <svg id="svg-rcn" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                {/* baseline rule */}
+                <line x1={PL} y1={H - PB} x2={W - PR} y2={H - PB} stroke="#ddd" strokeWidth={1} />
+                <polyline points={pts} fill="none" stroke={S1_COLOR} strokeWidth={2.2} strokeLinejoin="round" />
+                {yrs.map((d, i) => {
+                  const cx = px(i);
+                  const cy = py(d.rcn);
+                  // stagger label: even indices go above, odd below — prevents overlap
+                  const labelY = i % 2 === 0 ? cy - 9 : cy + 17;
+                  return (
+                    <g key={d.year}>
+                      <circle cx={cx} cy={cy} r={4} fill={S1_COLOR} stroke="white" strokeWidth={1} />
+                      <text x={cx} y={Math.min(Math.max(labelY, 12), H - PB - 3)}
+                        textAnchor="middle" fontSize={9.5} fontWeight={700} fill="#1a1a1a">
+                        {d.rcn.toLocaleString()}
+                      </text>
+                      <text x={cx} y={H - 5} textAnchor="middle" fontSize={9} fill="#666">{d.year}</text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
           );
         }
 
@@ -2133,44 +2189,53 @@ export default function OpexReportPage() {
           const s1BoxH = 14, s1BoxY = H - PB + 5, yrY = H - 5;
 
           return (
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-              {/* horizontal grid */}
-              {[0.25, 0.5, 0.75, 1].map(f => (
-                <line key={f} x1={PL} y1={py(maxV * f / 1.26)} x2={W - PR} y2={py(maxV * f / 1.26)}
-                  stroke="#eee" strokeWidth={1} strokeDasharray="3,3" />
-              ))}
-              {yrs.map((d, i) => {
-                const s2H = ph(d.s2Int);
-                const s1H = ph(d.s1Int);
-                const topY = py(d.totalInt);
-                const s1StartY = topY + s2H;
-                return (
-                  <g key={d.year}>
-                    {/* S2 gray bar */}
-                    <rect x={bx(i)} y={topY} width={bw} height={s2H} fill={S2_COLOR} rx={1} />
-                    {/* S1 dark red bar */}
-                    <rect x={bx(i)} y={s1StartY} width={bw} height={s1H} fill={S1_COLOR} rx={1} />
-                    {/* Total label above bar */}
-                    <text x={cx(i)} y={topY - 5} textAnchor="middle" fontSize={10} fontWeight={800} fill="#111">
-                      {d.totalInt.toFixed(1)}
-                    </text>
-                    {/* S2 value inside gray bar */}
-                    {s2H > 20 && (
-                      <text x={cx(i)} y={topY + s2H / 2 + 4} textAnchor="middle" fontSize={9} fontWeight={600} fill="#333">
-                        {d.s2Int.toFixed(1)}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => downloadSvgAsPng(document.getElementById('svg-int') as unknown as SVGSVGElement, `Emission_Intensity_${selectedFac}.png`)}
+                style={{ position: 'absolute', top: -14, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                title="Tải ảnh PNG độ phân giải cao"
+              >
+                <span>📸</span> HD
+              </button>
+              <svg id="svg-int" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                {/* horizontal grid */}
+                {[0.25, 0.5, 0.75, 1].map(f => (
+                  <line key={f} x1={PL} y1={py(maxV * f / 1.26)} x2={W - PR} y2={py(maxV * f / 1.26)}
+                    stroke="#eee" strokeWidth={1} strokeDasharray="3,3" />
+                ))}
+                {yrs.map((d, i) => {
+                  const s2H = ph(d.s2Int);
+                  const s1H = ph(d.s1Int);
+                  const topY = py(d.totalInt);
+                  const s1StartY = topY + s2H;
+                  return (
+                    <g key={d.year}>
+                      {/* S2 gray bar */}
+                      <rect x={bx(i)} y={topY} width={bw} height={s2H} fill={S2_COLOR} rx={1} />
+                      {/* S1 dark red bar */}
+                      <rect x={bx(i)} y={s1StartY} width={bw} height={s1H} fill={S1_COLOR} rx={1} />
+                      {/* Total label above bar */}
+                      <text x={cx(i)} y={topY - 5} textAnchor="middle" fontSize={10} fontWeight={800} fill="#111">
+                        {d.totalInt.toFixed(1)}
                       </text>
-                    )}
-                    {/* S1 box + label below bars */}
-                    <rect x={bx(i)} y={s1BoxY} width={bw} height={s1BoxH} rx={2} fill={S1_COLOR} />
-                    <text x={cx(i)} y={s1BoxY + s1BoxH - 3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">
-                      {d.s1Int.toFixed(1)}
-                    </text>
-                    {/* Year */}
-                    <text x={cx(i)} y={yrY} textAnchor="middle" fontSize={9.5} fill="#555">{d.year}</text>
-                  </g>
-                );
-              })}
-            </svg>
+                      {/* S2 value inside gray bar */}
+                      {s2H > 20 && (
+                        <text x={cx(i)} y={topY + s2H / 2 + 4} textAnchor="middle" fontSize={9} fontWeight={600} fill="#333">
+                          {d.s2Int.toFixed(1)}
+                        </text>
+                      )}
+                      {/* S1 box + label below bars */}
+                      <rect x={bx(i)} y={s1BoxY} width={bw} height={s1BoxH} rx={2} fill={S1_COLOR} />
+                      <text x={cx(i)} y={s1BoxY + s1BoxH - 3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">
+                        {d.s1Int.toFixed(1)}
+                      </text>
+                      {/* Year */}
+                      <text x={cx(i)} y={yrY} textAnchor="middle" fontSize={9.5} fill="#555">{d.year}</text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
           );
         }
 
