@@ -1213,7 +1213,7 @@ export default function OpexReportPage() {
           <WaterfallChart
             bars={s1Bars}
             callouts={s1Callouts}
-            title={`<strong>Scope 1 (reduce firewood usage)</strong> – CO₂ eq ${showIntensity ? 'intensity tCO₂e/RCN' : 'absol. emission in ton'}`}
+            title={`<strong>Scope 1 (reduce firewood usage)</strong> – ${showIntensity ? 'CO₂ Intensity (tCO₂e/tRCN)' : 'Absolute emissions (tCO₂e)'}`}
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
             downloadName={`Scope1_Emissions_${selectedFac}.png`}
           />
@@ -1222,7 +1222,7 @@ export default function OpexReportPage() {
           {(() => {
             const years = [2021, 2022, 2023, 2024, 2025];
             const ytd26 = get(2026).scope1;
-            const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
+            const label = showIntensity ? 'CO₂ Intensity (tCO₂e/tRCN)' : 'tCO₂e';
             return (
               <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
