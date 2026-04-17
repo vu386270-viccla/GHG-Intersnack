@@ -964,6 +964,10 @@ export default function OpexReportPage() {
   for (const row of data) {
     rcnByYear[row.year] = row.rcn || 0;
   }
+  // Q1 2026 fallback: if DB has no RCN for 2026, use RCN 2025 / 4 as proxy
+  if (!rcnByYear[2026] || rcnByYear[2026] === 0) {
+    rcnByYear[2026] = (rcnByYear[2025] || 0) / 4;
+  }
   const fmtInt = (em: number, yr: number): string => {
     const rcn = rcnByYear[yr] || 0;
     if (rcn === 0) return '—';
@@ -1251,7 +1255,7 @@ export default function OpexReportPage() {
                         ))}
                         {ytd26 > 0 && (
                           <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1', whiteSpace: 'nowrap' }}>
-                            {fmt(ytd26)}
+                            {fmtVal(ytd26, 2026, showIntensity)}
                           </td>
                         )}
                       </tr>
@@ -1530,7 +1534,7 @@ export default function OpexReportPage() {
           {(() => {
             const years = [2021, 2022, 2023, 2024, 2025];
             const ytd26 = get(2026).scope2;
-            const label = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
+            const label = showIntensity ? 'CO₂ Intensity (tCO₂e/tRCN)' : 'tCO₂e';
             return (
               <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
@@ -1559,7 +1563,7 @@ export default function OpexReportPage() {
                         ))}
                         {ytd26 > 0 && (
                           <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1', whiteSpace: 'nowrap' }}>
-                            {fmt(ytd26)}
+                            {fmtVal(ytd26, 2026, showIntensity)}
                           </td>
                         )}
                       </tr>
