@@ -158,10 +158,7 @@ function WaterfallChart({
                 width={bw + 4}
                 height={chartH}
                 style={{
-                  animation: `wfGrow ${Math.min(0.55 + i * 0.04, 0.85)}s cubic-bezier(0.34,1.56,0.64,1) forwards`,
-                  animationDelay: `${i * 60}ms`,
                   transformOrigin: `${cx(i)}px ${PT + chartH}px`,
-                  transform: 'scaleY(0)',
                 }}
               />
             </clipPath>
@@ -1049,7 +1046,6 @@ export default function OpexReportPage() {
       {/* ── Slide Header ────────────────────────────────────────────── */}
       <div style={{
         padding: '10px 20px 8px',
-        animation: 'fadeSlideIn 0.35s ease both',
       }}>
         {/* Single unified control bar */}
         <div style={{
@@ -1118,7 +1114,6 @@ export default function OpexReportPage() {
         {/* Subtitle / context line */}
         <div style={{
           fontSize: '12px', color: '#888', fontStyle: 'italic',
-          animation: 'fadeSlideIn 0.45s 0.1s ease both',
         }}>
           {selectedScope === 'ops'
             ? (lang === 'vi' ? '🎯 Mục tiêu: −50% Phát thải Vận hành so với năm cơ sở 2021 (SBTi Ngắn hạn)' : '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)')
@@ -1156,7 +1151,6 @@ export default function OpexReportPage() {
             border: '1.5px solid #E8960E',
             background: 'linear-gradient(135deg, #fffbeb 0%, #fff8e1 100%)',
             overflow: 'hidden',
-            animation: 'scaleIn 0.3s ease both',
           }}>
             {/* Banner header */}
             <div style={{ background: '#E8960E', color: '#fff', padding: '5px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2488,7 +2482,7 @@ export default function OpexReportPage() {
         const s2Share25 = totalInt25 > 0 && totalCol ? Math.round(get5(totalCol, 2025).s2Int / totalInt25 * 100) : 0;
 
         return (
-          <div style={{ padding: '8px 10px', animation: 'scaleIn 0.3s ease both', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '8px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
             {/* Slide-style wrapper — natural height, no aspect-ratio constraint */}
             <div style={{
@@ -2661,7 +2655,7 @@ export default function OpexReportPage() {
         const CIN = '#8A8A8A'; // Grey
 
         return (
-          <div style={{ padding: '24px 10px 10px', animation: 'scaleIn 0.3s ease both', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '24px 10px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{
               width: '100%',
               background: '#F0EFEF', // Light gray background of slide
