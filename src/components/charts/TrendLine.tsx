@@ -49,6 +49,17 @@ export default function TrendLine({
   const getY = (val: number) =>
     padding.top + chartH - (val / niceMax) * chartH;
 
+  // Approximate path length for dasharray trick (good enough for straight segments)
+  const approxLen = (ki: number) => {
+    const pts = data.map((d, i) => ({ x: getX(i), y: getY(d.values[ki].value) }));
+    return pts.reduce((sum, pt, i) => {
+      if (i === 0) return 0;
+      const dx = pt.x - pts[i - 1].x;
+      const dy = pt.y - pts[i - 1].y;
+      return sum + Math.sqrt(dx * dx + dy * dy);
+    }, 0);
+  };
+
   return (
     <div className="chart-container">
       <svg
@@ -63,7 +74,26 @@ export default function TrendLine({
               <stop offset="100%" stopColor={data[0].values[ki].color} stopOpacity="0.02" />
             </linearGradient>
           ))}
+          {/* Glow filter for lines */}
+          <filter id="tl-glow" x="-20%" y="-60%" width="140%" height="220%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
         </defs>
+
+        <style>{`
+          @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+          }
+          @keyframes tlFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes tlPulse {
+            0%, 100% { r: 5px; opacity: 1; }
+            50%       { r: 8px; opacity: 0.55; }
+          }
+        `}</style>
 
         {/* Y grid */}
         {yTickValues.map((tick) => {
@@ -77,7 +107,7 @@ export default function TrendLine({
               />
               <text x={padding.left - 8} y={y + 4} textAnchor="end"
                 fill="#999" fontSize="11" fontFamily="Inter, sans-serif">
-                {currency ? '$'+formatNumber(tick) : formatNumber(tick)}
+                {currency ? '$' + formatNumber(tick) : formatNumber(tick)}
               </text>
             </g>
           );
@@ -100,61 +130,111 @@ export default function TrendLine({
 
         {/* Area fills */}
         {showArea && keys.map((key, ki) => {
-          const points = data.map((d, i) => `${getX(i)},${getY(d.values[ki].value)}`).join(' ');
           const areaPath = `M${getX(0)},${getY(data[0].values[ki].value)} ` +
             data.map((d, i) => `L${getX(i)},${getY(d.values[ki].value)}`).join(' ') +
             ` L${getX(data.length - 1)},${padding.top + chartH} L${getX(0)},${padding.top + chartH} Z`;
-
+          const lineDelay = ki * 300;
+          const lineDur = 800;
           return (
             <path
               key={key}
               d={areaPath}
               fill={`url(#area-${key})`}
-              style={{ animation: 'fadeIn 0.8s ease forwards', animationDelay: `${ki * 200}ms` }}
+              style={{
+                opacity: 0,
+                animation: `tlFadeIn 0.5s ease forwards`,
+                animationDelay: `${lineDelay + lineDur * 0.6}ms`,
+              }}
             />
           );
         })}
 
-        {/* Lines */}
+        {/* Lines — stroke-dasharray draw effect */}
         {keys.map((key, ki) => {
           const pathD = data.map((d, i) => {
             const x = getX(i);
             const y = getY(d.values[ki].value);
             return `${i === 0 ? 'M' : 'L'}${x},${y}`;
           }).join(' ');
+          const len = approxLen(ki) || 800;
+          const color = data[0].values[ki].color;
+          const lineDelay = ki * 300;
+          const lastIdx = data.length - 1;
+          const tipX = getX(lastIdx);
+          const tipY = getY(data[lastIdx].values[ki].value);
 
           return (
             <g key={key}>
+              {/* Glow layer (behind) */}
               <path
                 d={pathD}
                 fill="none"
-                stroke={data[0].values[ki].color}
+                stroke={color}
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.25"
+                filter="url(#tl-glow)"
+                style={{
+                  strokeDasharray: len,
+                  strokeDashoffset: len,
+                  animation: `drawLine 0.9s cubic-bezier(0.25,0.46,0.45,0.94) forwards`,
+                  animationDelay: `${lineDelay}ms`,
+                }}
+              />
+              {/* Main line */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke={color}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 style={{
-                  animation: 'fadeIn 0.6s ease forwards',
-                  animationDelay: `${ki * 200}ms`,
+                  strokeDasharray: len,
+                  strokeDashoffset: len,
+                  animation: `drawLine 0.9s cubic-bezier(0.25,0.46,0.45,0.94) forwards`,
+                  animationDelay: `${lineDelay}ms`,
                 }}
               />
-              {/* Data points */}
-              {data.map((d, i) => (
-                <circle
-                  key={i}
-                  cx={getX(i)}
-                  cy={getY(d.values[ki].value)}
-                  r="4"
-                  fill="white"
-                  stroke={d.values[ki].color}
-                  strokeWidth="2.5"
-                  style={{
-                    animation: 'fadeIn 0.4s ease forwards',
-                    animationDelay: `${ki * 200 + i * 50}ms`,
-                  }}
-                >
-                  <title>{`${d.label}: ${currency ? '$' + formatNumber(d.values[ki].value) : formatNumber(d.values[ki].value) + ' tCO₂e'}`}</title>
-                </circle>
-              ))}
+              {/* Data points — fade in after line */}
+              {data.map((d, i) => {
+                const isLast = i === lastIdx;
+                return (
+                  <g key={i}>
+                    <circle
+                      cx={getX(i)}
+                      cy={getY(d.values[ki].value)}
+                      r={isLast ? 5 : 4}
+                      fill="white"
+                      stroke={d.values[ki].color}
+                      strokeWidth="2.5"
+                      style={{
+                        opacity: 0,
+                        animation: `tlFadeIn 0.3s ease forwards`,
+                        animationDelay: `${lineDelay + 700 + i * 40}ms`,
+                      }}
+                    >
+                      <title>{`${d.label}: ${currency ? '$' + formatNumber(d.values[ki].value) : formatNumber(d.values[ki].value) + ' tCO₂e'}`}</title>
+                    </circle>
+                    {/* Pulsing ring on the latest/last data point */}
+                    {isLast && (
+                      <circle
+                        cx={tipX}
+                        cy={tipY}
+                        r={5}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth="2"
+                        style={{
+                          animation: `tlPulse 1.8s ease-in-out infinite`,
+                          animationDelay: `${lineDelay + 1100}ms`,
+                        }}
+                      />
+                    )}
+                  </g>
+                );
+              })}
             </g>
           );
         })}
@@ -173,3 +253,4 @@ export default function TrendLine({
     </div>
   );
 }
+

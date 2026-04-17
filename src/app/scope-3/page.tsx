@@ -5,16 +5,16 @@ import { getScope3SummaryData } from '@/lib/data-service';
 import type { Scope3YearRow } from '@/lib/data-service';
 import { useI18n } from '@/lib/i18n';
 
-const FLAG_TARGET_PCT    = 36.4;
+const FLAG_TARGET_PCT = 36.4;
 const NONFLAG_TARGET_PCT = 30.0;
-const TARGET_YEAR        = 2032;
-const BASE_YEAR          = 2021;
-const GREEN              = '#68B52A';
-const DARK_GREEN         = '#2F855A';
+const TARGET_YEAR = 2032;
+const BASE_YEAR = 2021;
+const GREEN = '#68B52A';
+const DARK_GREEN = '#2F855A';
 
 function fmt(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return n.toLocaleString();
 }
 
@@ -41,9 +41,10 @@ function ProgressBlock({
   label: string; sublabel: string; progressLbl: string; currentLbl: string;
   current: number; baseline: number; targetPct: number; color: string;
 }) {
-  const achieved  = pct(current, baseline);
-  const progress  = Math.max(0, Math.min(100, (achieved / targetPct) * 100));
-  const achColor  = achieved < 0 ? '#EF4444' : achieved >= targetPct ? '#10B981' : '#F59E0B';
+  const { t } = useI18n();
+  const achieved = pct(current, baseline);
+  const progress = Math.max(0, Math.min(100, (achieved / targetPct) * 100));
+  const achColor = achieved < 0 ? '#EF4444' : achieved >= targetPct ? '#10B981' : '#F59E0B';
   const target2032 = Math.round(baseline * (1 - targetPct / 100));
 
   return (
@@ -57,7 +58,7 @@ function ProgressBlock({
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: achColor, lineHeight: 1 }}>
             {achieved > 0 ? '−' : '+'}{Math.abs(achieved)}%
           </div>
-          <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>vs 2021</div>
+          <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{t('s3_vs_2021')}</div>
         </div>
       </div>
 
@@ -75,9 +76,9 @@ function ProgressBlock({
       {/* 3 stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
         {[
-          { l: `2021 base`, v: baseline },
+          { l: t('s3_base_2021'), v: baseline },
           { l: currentLbl, v: current, hi: true },
-          { l: `${TARGET_YEAR} target`, v: target2032 },
+          { l: `${TARGET_YEAR} ${t('s3_target_year')}`, v: target2032 },
         ].map(({ l, v, hi }) => (
           <div key={l} style={{ background: 'var(--color-card-bg)', borderRadius: 4, padding: '6px 8px', textAlign: 'center', border: hi ? `1px solid ${color}40` : 'none' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: hi ? color : 'var(--color-text)' }}>{fmt(v)}</div>
@@ -91,15 +92,16 @@ function ProgressBlock({
 
 // ── Stacked Bar Chart ──
 function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: Scope3YearRow | undefined }) {
+  const { t } = useI18n();
   const W = 800, H = 200, PAD_L = 50, PAD_B = 30, PAD_T = 16, PAD_R = 16;
   const chartW = W - PAD_L - PAD_R;
   const chartH = H - PAD_B - PAD_T;
   const maxVal = Math.max(...rows.map(r => r.total), 1);
-  const cols   = [DARK_GREEN, '#4A9E8C', '#4A7A12', '#90BE6D'];
-  const lbls   = ['Cat.1 Cashew', 'Cat.4 Vessel', 'Cat.4 Road', 'Cat.3 WTT'];
-  const barW   = Math.floor(chartW / rows.length * 0.5);
+  const cols = [DARK_GREEN, '#4A9E8C', '#4A7A12', '#90BE6D'];
+  const lbls = ['Cat.1 Cashew', 'Cat.4 Vessel', 'Cat.4 Road', 'Cat.3 WTT'];
+  const barW = Math.floor(chartW / rows.length * 0.5);
   const barGap = chartW / rows.length;
-  const ticks  = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(maxVal * f));
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(maxVal * f));
 
   return (
     <div>
@@ -145,7 +147,7 @@ function StackedBarChart({ rows, baseline }: { rows: Scope3YearRow[]; baseline: 
                   <rect key={si} x={x} y={y} width={barW} height={segH}
                     fill={isPreBase && si < 3 ? `${cols[si]}60` : cols[si]}
                     rx={si === segs.length - 1 ? 2 : 0}>
-                    <title>{lbls[si]}: {fmt(seg)} tCO₂e{isPreBase && si < 3 ? ' (no data)' : ''}</title>
+                    <title>{lbls[si]}: {fmt(seg)} tCO₂e{isPreBase && si < 3 ? ` ${t('s3_no_data_tooltip')}` : ''}</title>
                   </rect>
                 );
               })}
@@ -178,10 +180,10 @@ const CURRENT_YEAR = new Date().getFullYear();
 export default function Scope3Page() {
   const { t, lang } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [rows,    setRows]     = useState<Scope3YearRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<Scope3YearRow[]>([]);
   const [baseline, setBaseline] = useState<Scope3YearRow | undefined>();
-  const [selYear, setSelYear]  = useState<number>(new Date().getFullYear());
+  const [selYear, setSelYear] = useState<number>(new Date().getFullYear());
 
   const isYtd = (yr: number) => yr >= CURRENT_YEAR;
 
@@ -196,15 +198,15 @@ export default function Scope3Page() {
   }, []);
 
   const availYears = useMemo(() => rows.map(r => r.year), [rows]);
-  const selected   = useMemo(() => rows.find(r => r.year === selYear) || rows[rows.length - 1], [rows, selYear]);
+  const selected = useMemo(() => rows.find(r => r.year === selYear) || rows[rows.length - 1], [rows, selYear]);
 
   // ⚠️ All hooks MUST be declared before any early returns
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const breakdownItems = useMemo(() => [
     { label: t('s3_cat1_ocean_label'), value: selected?.cat1_cashew ?? 0, color: DARK_GREEN, note: t('s3_cat1_ocean_note') },
-    { label: t('s3_cat4_ocean_label'), value: selected?.cat4_vessel ?? 0, color: '#4A9E8C',  note: t('s3_cat4_ocean_note') },
-    { label: t('s3_cat4_road_label'),  value: selected?.cat4_road  ?? 0,  color: '#4A7A12',  note: t('s3_cat4_road_note') },
-    { label: t('s3_cat3_wtt_label'),  value: selected?.cat3_wtt   ?? 0,  color: '#90BE6D',  note: t('s3_cat3_wtt_note') },
+    { label: t('s3_cat4_ocean_label'), value: selected?.cat4_vessel ?? 0, color: '#4A9E8C', note: t('s3_cat4_ocean_note') },
+    { label: t('s3_cat4_road_label'), value: selected?.cat4_road ?? 0, color: '#4A7A12', note: t('s3_cat4_road_note') },
+    { label: t('s3_cat3_wtt_label'), value: selected?.cat3_wtt ?? 0, color: '#90BE6D', note: t('s3_cat3_wtt_note') },
   ], [selected, lang, t]);
 
   if (loading) return (
@@ -407,7 +409,7 @@ export default function Scope3Page() {
             <tbody>
               {rows.map((r) => {
                 const diffPct = baseline ? pct(r.total, baseline.total) : 0;
-                const isBase  = r.year === BASE_YEAR;
+                const isBase = r.year === BASE_YEAR;
                 const isSelected = r.year === selYear;
                 return (
                   <tr key={r.year} style={{
@@ -417,10 +419,10 @@ export default function Scope3Page() {
                   }}>
                     <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
                       {r.year}
-                      {isBase && <span style={{ marginLeft: 5, fontSize: 9, color: GREEN, background: `${GREEN}20`, padding: '1px 5px', borderRadius: 8 }}>BASE</span>}
-                      {isSelected && !isBase && !isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#6366F1', background: '#6366F115', padding: '1px 5px', borderRadius: 8 }}>ACTIVE</span>}
+                      {isBase && <span style={{ marginLeft: 5, fontSize: 9, color: GREEN, background: `${GREEN}20`, padding: '1px 5px', borderRadius: 8 }}>{t('s3_base_badge')}</span>}
+                      {isSelected && !isBase && !isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#6366F1', background: '#6366F115', padding: '1px 5px', borderRadius: 8 }}>{t('s3_active_badge')}</span>}
                       {isYtd(r.year) && <span style={{ marginLeft: 5, fontSize: 9, color: '#F59E0B', background: '#F59E0B20', padding: '1px 5px', borderRadius: 8 }}>⚠️ YTD</span>}
-                      {r.year < BASE_YEAR && <span style={{ marginLeft: 5, fontSize: 9, color: '#64748b', background: '#64748b18', padding: '1px 5px', borderRadius: 8 }}>Cat.3 only</span>}
+                      {r.year < BASE_YEAR && <span style={{ marginLeft: 5, fontSize: 9, color: '#64748b', background: '#64748b18', padding: '1px 5px', borderRadius: 8 }}>{t('s3_cat3_only_badge')}</span>}
                     </td>
                     {[r.cat1_cashew, r.cat4_vessel, r.cat4_road, r.cat3_wtt, r.totalFlag, r.totalNonFlag, r.total].map((v, vi) => (
                       <td key={vi} style={{ padding: '7px 10px', textAlign: 'right', color: vi >= 4 ? 'var(--color-text)' : 'var(--color-text-secondary)', fontWeight: vi >= 4 ? 600 : 400 }}>{fmt(v)}</td>

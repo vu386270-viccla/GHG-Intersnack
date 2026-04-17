@@ -10,6 +10,7 @@ import TrendLine from '@/components/charts/TrendLine';
 import FactoryBarChart from '@/components/charts/FactoryBarChart';
 import DualAxisChart from '@/components/charts/DualAxisChart';
 import BarChart from '@/components/charts/BarChart';
+import { useI18n } from '@/lib/i18n';
 
 type MonthlyByCat = {
   month: number; label: string;
@@ -18,14 +19,6 @@ type MonthlyByCat = {
 };
 
 type ViewMode = 'overview' | 'compare' | 'vs-rcn' | 'ef-ref' | 'multi-year';
-
-const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
-  { key: 'overview',   label: 'Tổng quan',   icon: '📊' },
-  { key: 'compare',    label: 'So sánh NM',  icon: '🏭' },
-  { key: 'vs-rcn',     label: 'vs RCN',      icon: '⚖️' },
-  { key: 'ef-ref',     label: 'Hệ số điện',  icon: '⚡' },
-  { key: 'multi-year', label: 'Nhiều năm',   icon: '📅' },
-];
 
 function StatBox({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
@@ -38,20 +31,29 @@ function StatBox({ label, value, color, sub }: { label: string; value: string; c
 }
 
 export default function Scope2Page() {
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scopeData, setScopeData] = useState<ScopeSummary | null>(null);
   const [factories, setFactories] = useState<FactorySummary[]>([]);
   const [s2Monthly, setS2Monthly] = useState<MonthlyByCat[]>([]);
   const [monthlyRCN, setMonthlyRCN] = useState<number[]>([]);
-  const [totalRCN, setTotalRCN]   = useState(0);
+  const [totalRCN, setTotalRCN] = useState(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [viewMode, setViewMode]   = useState<ViewMode>('overview');
+  const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [useIntensity, setUseIntensity] = useState(false);
-  const [useUSD, setUseUSD]       = useState(false);
-  const [totalKwh, setTotalKwh]   = useState(0);
+  const [useUSD, setUseUSD] = useState(false);
+  const [totalKwh, setTotalKwh] = useState(0);
   const [kwhByFactory, setKwhByFactory] = useState<Record<string, number>>({});
   const [annualRows, setAnnualRows] = useState<AnnualScopeRow[]>([]);
+
+  const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
+    { key: 'overview', label: t('tab_overview'), icon: '📊' },
+    { key: 'compare', label: t('tab_compare'), icon: '🏭' },
+    { key: 'vs-rcn', label: t('tab_vs_rcn'), icon: '⚖️' },
+    { key: 'ef-ref', label: t('tab_ef_ref'), icon: '⚡' },
+    { key: 'multi-year', label: t('tab_multi_year'), icon: '📅' },
+  ];
 
   useEffect(() => {
     setLoading(true);
@@ -73,13 +75,13 @@ export default function Scope2Page() {
   useEffect(() => {
     getAnnualScopeBreakdown(2018, new Date().getFullYear())
       .then(rows => setAnnualRows(rows))
-      .catch(() => {/* silently skip */});
+      .catch(() => {/* silently skip */ });
   }, []);
 
   const scopeColor = useUSD ? '#E8960E' : SCOPE_COLORS.scope_2;
   const vnEFs = GRID_EMISSION_FACTORS.filter(ef => ef.country === 'Vietnam');
   const inEFs = GRID_EMISSION_FACTORS.filter(ef => ef.country === 'India');
-  
+
   const formatVal = (v: number) => useUSD ? '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : formatTCO2e(v);
   const unitStr = useUSD ? 'USD' : 'tCO₂e';
 
@@ -90,7 +92,7 @@ export default function Scope2Page() {
   const overviewTrendData = useMemo(() => {
     if (!factories.length) return [];
     return Array.from({ length: 12 }, (_, i) => ({
-      label: factories[0]?.monthlyTrend[i].label || `T${i+1}`,
+      label: factories[0]?.monthlyTrend[i].label || `T${i + 1}`,
       values: factories.map((fs, fi) => {
         const mVal = useUSD ? (fs.monthlyTrend[i].costScope2 || 0) : fs.monthlyTrend[i].scope2;
         return {
@@ -122,7 +124,7 @@ export default function Scope2Page() {
 
   if (loading || !scopeData) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
-      <div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span>
+      <div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>{t('loading_text')}</span>
     </div>
   );
   if (error) return (
@@ -136,7 +138,7 @@ export default function Scope2Page() {
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ color: scopeColor }}>⚡</span>
           Scope 2
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>Năng lượng mua (Location-based)</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>{t('purchased_energy')}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -148,9 +150,9 @@ export default function Scope2Page() {
               color: useUSD ? '#b45309' : 'var(--color-text-muted)', transition: 'all 0.15s',
             }}
           >
-            {useUSD ? '💰 Đang phân tích Chi phí' : '💰 Quy đổi Chi phí USD'}
+            {useUSD ? t('analyzing_cost') : t('convert_cost_usd')}
           </button>
-          
+
           <button
             onClick={() => setUseIntensity(v => !v)}
             style={{
@@ -174,17 +176,17 @@ export default function Scope2Page() {
 
       {/* ── KPI strip ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
-        <StatBox label={`Tổng Scope 2 (${useUSD ? 'Chi phí' : 'YTD'})`} value={formatVal(totalMetric)} color={scopeColor} sub={unitStr} />
-        <StatBox label="Tỷ trọng" value={`${scopeData.percentOfTotal}%`} color={scopeColor} sub="trong tổng phát thải" />
+        <StatBox label={`${t('total_scope')} 2 (${useUSD ? t('cost_label') : t('ytd_label')})`} value={formatVal(totalMetric)} color={scopeColor} sub={unitStr} />
+        <StatBox label={t('proportion')} value={`${scopeData.percentOfTotal}%`} color={scopeColor} sub={t('in_total_emissions')} />
         <StatBox
-          label="vs Năm trước"
+          label={t('vs_last_year')}
           value={`${scopeData.changePercent > 0 ? '+' : ''}${scopeData.changePercent}%`}
           color={scopeData.changePercent < 0 ? '#10B981' : '#EF4444'}
-          sub={scopeData.changePercent < 0 ? '▼ Giảm' : '▲ Tăng'}
+          sub={scopeData.changePercent < 0 ? t('decrease') : t('increase')}
         />
-        <StatBox label="Cường độ" value={intensity > 0 ? intensity.toFixed(useUSD ? 2 : 3) : '—'} color="#6366F1" sub={`${unitStr} / MT RCN`} />
+        <StatBox label={t('intensity_label')} value={intensity > 0 ? intensity.toFixed(useUSD ? 2 : 3) : '—'} color="#6366F1" sub={`${unitStr} / MT RCN`} />
         <StatBox
-          label="EF Điện VN"
+          label={t('s2_ef_vn')}
           value={`${(GRID_EMISSION_FACTORS.find(ef => ef.country === 'Vietnam' && ef.year === selectedYear)?.factor ?? 0.6592).toFixed(4)}`}
           color={scopeColor}
           sub={`kg CO₂e/kWh · ${selectedYear}`}
@@ -205,12 +207,12 @@ export default function Scope2Page() {
         ))}
       </div>
 
-      {/* ── View: Tổng quan ── */}
+      {/* ── View: Overview ── */}
       {viewMode === 'overview' && (
         <div>
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              📈 Xu hướng điện tiêu thụ theo nhà máy — {selectedYear}
+              {t('s2_trend_by_factory')} — {selectedYear}
             </div>
             <TrendLine
               data={overviewTrendData}
@@ -245,7 +247,7 @@ export default function Scope2Page() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 18, fontWeight: 800, color: col }}>{pct}%</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>của {useUSD ? 'tổng tiền S2' : 'Scope 2'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{t('of_scope')} {useUSD ? t('total_cost_s') : 'Scope 2'}</div>
                       {ef && !useUSD && <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>EF: {ef} kg/kWh</div>}
                     </div>
                   </div>
@@ -259,11 +261,11 @@ export default function Scope2Page() {
         </div>
       )}
 
-      {/* ── View: So sánh nhà máy ── */}
+      {/* ── View: Factory Compare ── */}
       {viewMode === 'compare' && (
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(factories.length, 4)}, 1fr)`, gap: 8, marginBottom: 10 }}>
-            {[...factories].sort((a, b) => (useUSD?b.scope2Cost||0:b.scope2) - (useUSD?a.scope2Cost||0:a.scope2)).map((fs, rank) => {
+            {[...factories].sort((a, b) => (useUSD ? b.scope2Cost || 0 : b.scope2) - (useUSD ? a.scope2Cost || 0 : a.scope2)).map((fs, rank) => {
               const fi = factories.findIndex(f => f.factory.id === fs.factory.id);
               const col = getFactoryColor(fs.factory.code, fi);
               const fVal = useUSD ? (fs.scope2Cost || 0) : fs.scope2;
@@ -279,7 +281,7 @@ export default function Scope2Page() {
                   <div style={{ height: 3, background: 'var(--color-border-light)', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: col }} />
                   </div>
-                  <div style={{ fontSize: 10, color: col, fontWeight: 700, marginTop: 3 }}>{pct}% tổng S2</div>
+                  <div style={{ fontSize: 10, color: col, fontWeight: 700, marginTop: 3 }}>{pct}% {t('s2_pct_total_s2')}</div>
                 </div>
               );
             })}
@@ -287,10 +289,10 @@ export default function Scope2Page() {
 
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              So sánh điện tiêu thụ hàng tháng — {useIntensity ? `${unitStr}/MT RCN` : unitStr}
+              {t('s2_compare_monthly')} — {useIntensity ? `${unitStr}/MT RCN` : unitStr}
             </div>
             <FactoryBarChart
-              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i].label || `T${i+1}`)}
+              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i].label || `T${i + 1}`)}
               series={compareFactorySeries}
               height={200}
               yLabel={useIntensity ? `${unitStr}/MT` : unitStr}
@@ -303,13 +305,13 @@ export default function Scope2Page() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                  {['Nhà máy', 'Quốc gia', `Scope 2 (${unitStr})`, 'EF Điện', 'Cường độ', '% tổng S2'].map(h => (
-                    <th key={h} style={{ padding: '7px 12px', textAlign: h.includes('tCO') || h.includes('USD') || h.includes('%') || h.includes('độ') ? 'right' : 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                  {[t('factory'), t('s2_country_col'), `Scope 2 (${unitStr})`, t('s2_ef_col'), t('intensity_label'), `% ${t('s2_pct_total_s2')}`].map(h => (
+                    <th key={h} style={{ padding: '7px 12px', textAlign: h.includes('tCO') || h.includes('USD') || h.includes('%') || h.includes(t('intensity_label')) ? 'right' : 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...factories].sort((a, b) => (useUSD?b.scope2Cost||0:b.scope2) - (useUSD?a.scope2Cost||0:a.scope2)).map((fs, rank) => {
+                {[...factories].sort((a, b) => (useUSD ? b.scope2Cost || 0 : b.scope2) - (useUSD ? a.scope2Cost || 0 : a.scope2)).map((fs, rank) => {
                   const fi = factories.findIndex(f => f.factory.id === fs.factory.id);
                   const col = getFactoryColor(fs.factory.code, fi);
                   const fVal = useUSD ? (fs.scope2Cost || 0) : fs.scope2;
@@ -325,7 +327,7 @@ export default function Scope2Page() {
                           <span style={{ fontWeight: 700, color: col }}>{fs.factory.name}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px' }}>{fs.factory.country === 'India' ? '🇮🇳 India' : '🇻🇳 Vietnam'}</td>
+                      <td style={{ padding: '8px 12px' }}>{fs.factory.country === 'India' ? t('s2_india') : t('s2_vietnam')}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: col }}>{formatVal(fVal)}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right' }}>
                         <code style={{ fontSize: 10, background: 'var(--color-bg-secondary)', padding: '1px 5px', borderRadius: 3 }}>
@@ -349,15 +351,15 @@ export default function Scope2Page() {
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                {useUSD ? 'Chi phí' : 'Phát thải'} Scope 2 vs RCN nhập — tương quan hàng tháng
+                {useUSD ? t('s2_cost_vs_rcn') : t('s2_emission_vs_rcn')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'flex', gap: 12 }}>
-                <span>Tổng RCN: <strong>{totalRCN.toLocaleString()} MT</strong></span>
-                <span>Cường độ TB: <strong>{intensity.toFixed(useUSD ? 2 : 4)} {unitStr}/MT</strong></span>
+                <span>{t('total_rcn')} <strong>{totalRCN.toLocaleString()} MT</strong></span>
+                <span>{t('avg_intensity')} <strong>{intensity.toFixed(useUSD ? 2 : 4)} {unitStr}/MT</strong></span>
               </div>
             </div>
             <DualAxisChart
-              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i]?.label || `T${i+1}`)}
+              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i]?.label || `T${i + 1}`)}
               emissionValues={monthlyTotals}
               rcnValues={monthlyRCN}
               emissionColor={scopeColor}
@@ -396,12 +398,12 @@ export default function Scope2Page() {
         </div>
       )}
 
-      {/* ── View: Nhiều năm ── */}
+      {/* ── View: Multi-year ── */}
       {viewMode === 'multi-year' && (
         <div>
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              📅 Xu hướng Scope 2 — tổng phát thải theo năm (tCO₂e)
+              {t('s2_multi_year_title')}
             </div>
             {annualRows.length > 0 ? (
               <BarChart
@@ -414,7 +416,7 @@ export default function Scope2Page() {
               />
             ) : (
               <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>
-                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />Đang tải dữ liệu nhiều năm...
+                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />{t('loading_multi_year')}
               </div>
             )}
           </div>
@@ -424,8 +426,8 @@ export default function Scope2Page() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                    {['Năm', 'Scope 2 (tCO₂e)', 'EF Điện VN', 'vs Năm trước', 'vs Baseline 2021'].map(h => (
-                      <th key={h} style={{ padding: '7px 14px', textAlign: h === 'Năm' ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                    {[t('s2_year_col'), t('s2_scope2_col'), t('s2_ef_vn_col'), t('s2_vs_prev_year_col'), t('s2_vs_baseline_col')].map(h => (
+                      <th key={h} style={{ padding: '7px 14px', textAlign: h === t('s2_year_col') ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -440,7 +442,7 @@ export default function Scope2Page() {
                     return (
                       <tr key={r.year} style={{ borderBottom: '1px solid var(--color-border-light)', background: isSelected ? `${SCOPE_COLORS.scope_2}08` : undefined }}>
                         <td style={{ padding: '8px 14px', fontWeight: isSelected ? 800 : 500 }}>
-                          {r.year}{isSelected && <span style={{ marginLeft: 6, fontSize: 10, color: SCOPE_COLORS.scope_2, background: `${SCOPE_COLORS.scope_2}20`, padding: '1px 6px', borderRadius: 8 }}>Đang xem</span>}
+                          {r.year}{isSelected && <span style={{ marginLeft: 6, fontSize: 10, color: SCOPE_COLORS.scope_2, background: `${SCOPE_COLORS.scope_2}20`, padding: '1px 6px', borderRadius: 8 }}>{t('viewing_badge')}</span>}
                         </td>
                         <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: SCOPE_COLORS.scope_2 }}>
                           {formatTCO2e(r.s2)}
@@ -466,12 +468,12 @@ export default function Scope2Page() {
         </div>
       )}
 
-      {/* ── View: Hệ số điện ── */}
+      {/* ── View: Grid EF Reference ── */}
       {viewMode === 'ef-ref' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {[
-            { country: '🇻🇳 Việt Nam', efs: vnEFs },
-            { country: '🇮🇳 Ấn Độ', efs: inEFs },
+            { country: t('s2_vietnam'), efs: vnEFs },
+            { country: t('s2_india'), efs: inEFs },
           ].map(({ country, efs }) => (
             <div key={country} className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -486,7 +488,7 @@ export default function Scope2Page() {
                       borderBottom: '1px solid var(--color-border-light)',
                     }}>
                       <td style={{ padding: '6px 14px', fontWeight: ef.year === selectedYear ? 800 : 400 }}>
-                        {ef.year}{ef.year === selectedYear && <span style={{ marginLeft: 6, fontSize: 10, color: scopeColor, background: `${scopeColor}20`, padding: '1px 5px', borderRadius: 8 }}>Active</span>}
+                        {ef.year}{ef.year === selectedYear && <span style={{ marginLeft: 6, fontSize: 10, color: scopeColor, background: `${scopeColor}20`, padding: '1px 5px', borderRadius: 8 }}>{t('s2_active_badge')}</span>}
                       </td>
                       <td style={{ padding: '6px 14px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: ef.year === selectedYear ? scopeColor : 'var(--color-text)' }}>
                         {ef.factor.toFixed(4)}

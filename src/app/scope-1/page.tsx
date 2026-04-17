@@ -10,6 +10,7 @@ import TrendLine from '@/components/charts/TrendLine';
 import FactoryBarChart from '@/components/charts/FactoryBarChart';
 import DualAxisChart from '@/components/charts/DualAxisChart';
 import BarChart from '@/components/charts/BarChart';
+import { useI18n } from '@/lib/i18n';
 
 // Palette for source categories
 const CAT_COLORS = [
@@ -27,14 +28,6 @@ type MonthlyByCat = {
 
 type ViewMode = 'overview' | 'by-source' | 'compare' | 'vs-rcn' | 'multi-year';
 
-const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
-  { key: 'overview',    label: 'Tổng quan',   icon: '📊' },
-  { key: 'by-source',   label: 'Theo nguồn',  icon: '🔍' },
-  { key: 'compare',     label: 'So sánh NM',  icon: '🏭' },
-  { key: 'vs-rcn',      label: 'vs RCN',      icon: '⚖️' },
-  { key: 'multi-year',  label: 'Nhiều năm',   icon: '📅' },
-];
-
 function StatBox({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
     <div style={{
@@ -49,18 +42,19 @@ function StatBox({ label, value, color, sub }: { label: string; value: string; c
 }
 
 export default function Scope1Page() {
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scopeData, setScopeData] = useState<ScopeSummary | null>(null);
   const [factories, setFactories] = useState<FactorySummary[]>([]);
   const [s1Monthly, setS1Monthly] = useState<MonthlyByCat[]>([]);
   const [monthlyRCN, setMonthlyRCN] = useState<number[]>([]);
-  const [totalRCN, setTotalRCN]   = useState(0);
+  const [totalRCN, setTotalRCN] = useState(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [viewMode, setViewMode]   = useState<ViewMode>('overview');
+  const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [annualRows, setAnnualRows] = useState<AnnualScopeRow[]>([]);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
-  
+
   // Toggles
   const [useIntensity, setUseIntensity] = useState(false);
   const [useUSD, setUseUSD] = useState(false);
@@ -68,6 +62,14 @@ export default function Scope1Page() {
   // Helper functions for Dynamic Mode
   const formatVal = (v: number) => useUSD ? '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : formatTCO2e(v);
   const unitStr = useUSD ? 'USD' : 'tCO₂e';
+
+  const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
+    { key: 'overview', label: t('tab_overview'), icon: '📊' },
+    { key: 'by-source', label: t('tab_by_source'), icon: '🔍' },
+    { key: 'compare', label: t('tab_compare'), icon: '🏭' },
+    { key: 'vs-rcn', label: t('tab_vs_rcn'), icon: '⚖️' },
+    { key: 'multi-year', label: t('tab_multi_year'), icon: '📅' },
+  ];
 
   useEffect(() => {
     setLoading(true);
@@ -91,7 +93,7 @@ export default function Scope1Page() {
   useEffect(() => {
     getAnnualScopeBreakdown(2018, new Date().getFullYear())
       .then(rows => setAnnualRows(rows))
-      .catch(() => {/* silently skip */});
+      .catch(() => {/* silently skip */ });
   }, []);
 
   const allCats = useMemo(() => {
@@ -117,7 +119,7 @@ export default function Scope1Page() {
   const overviewTrendData = useMemo(() => {
     if (!factories.length) return [];
     return Array.from({ length: 12 }, (_, i) => ({
-      label: factories[0]?.monthlyTrend[i].label || `T${i+1}`,
+      label: factories[0]?.monthlyTrend[i].label || `T${i + 1}`,
       values: factories.map((fs, fi) => {
         const mVal = useUSD ? (fs.monthlyTrend[i].costScope1 || 0) : fs.monthlyTrend[i].scope1;
         return {
@@ -152,7 +154,7 @@ export default function Scope1Page() {
 
   if (loading || !scopeData) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
-      <div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span>
+      <div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>{t('loading_text')}</span>
     </div>
   );
   if (error) return (
@@ -166,12 +168,12 @@ export default function Scope1Page() {
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ color: scopeColor }}>🔥</span>
-            Scope 1 
-            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>Phát thải trực tiếp</span>
+            Scope 1
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 4 }}>{t('direct_emissions')}</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          
+
           {/* USD Toggle */}
           <button
             onClick={() => { setUseUSD(v => !v); setUseIntensity(false); }}
@@ -183,7 +185,7 @@ export default function Scope1Page() {
               transition: 'all 0.15s',
             }}
           >
-            {useUSD ? '💰 Đang phân tích Chi phí' : '💰 Quy đổi Chi phí USD'}
+            {useUSD ? t('analyzing_cost') : t('convert_cost_usd')}
           </button>
 
           {/* Intensity toggle */}
@@ -211,16 +213,16 @@ export default function Scope1Page() {
 
       {/* ── KPI strip — compact 5 stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
-        <StatBox label={`Tổng Scope 1 (${useUSD ? 'Chi phí' : 'YTD'})`} value={formatVal(totalMetric)} color={scopeColor} sub={unitStr} />
-        <StatBox label="Tỷ trọng" value={`${scopeData.percentOfTotal}%`} color={scopeColor} sub="trong tổng phát thải" />
+        <StatBox label={`${t('total_scope')} 1 (${useUSD ? t('cost_label') : t('ytd_label')})`} value={formatVal(totalMetric)} color={scopeColor} sub={unitStr} />
+        <StatBox label={t('proportion')} value={`${scopeData.percentOfTotal}%`} color={scopeColor} sub={t('in_total_emissions')} />
         <StatBox
-          label="vs Năm trước"
+          label={t('vs_last_year')}
           value={`${scopeData.changePercent > 0 ? '+' : ''}${scopeData.changePercent}%`}
           color={scopeData.changePercent < 0 ? '#10B981' : '#EF4444'}
-          sub={scopeData.changePercent < 0 ? '▼ Giảm' : '▲ Tăng'}
+          sub={scopeData.changePercent < 0 ? t('decrease') : t('increase')}
         />
-        <StatBox label="Cường độ" value={intensity > 0 ? intensity.toFixed(useUSD ? 2 : 3) : '—'} color="#6366F1" sub={`${unitStr} / MT RCN`} />
-        <StatBox label="Nguồn chính" value={scopeData.categories[0]?.percentOfScope + '%'} color={scopeColor} sub={scopeData.categories[0]?.label?.slice(0, 14) || '—'} />
+        <StatBox label={t('intensity_label')} value={intensity > 0 ? intensity.toFixed(useUSD ? 2 : 3) : '—'} color="#6366F1" sub={`${unitStr} / MT RCN`} />
+        <StatBox label={t('main_source')} value={scopeData.categories[0]?.percentOfScope + '%'} color={scopeColor} sub={scopeData.categories[0]?.label?.slice(0, 14) || '—'} />
       </div>
 
       {/* ── View tabs ── */}
@@ -241,13 +243,13 @@ export default function Scope1Page() {
         ))}
       </div>
 
-      {/* ── View: Tổng quan ── */}
+      {/* ── View: Overview ── */}
       {viewMode === 'overview' && (
         <div>
-          {/* Trend tổng */}
+          {/* Trend */}
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              📈 Xu hướng {useUSD ? 'chi phí' : ''} theo nhà máy — {selectedYear}
+              {useUSD ? t('s1_cost_trend_by_factory') : t('s1_trend_by_factory')} — {selectedYear}
             </div>
             <TrendLine
               data={overviewTrendData}
@@ -284,14 +286,14 @@ export default function Scope1Page() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 18, fontWeight: 800, color: col }}>{pct}%</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>của {useUSD ? 'tổng tiền S1' : 'Scope 1'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{t('of_scope')} {useUSD ? t('total_cost_s') : 'Scope 1'}</div>
                     </div>
                   </div>
                   {/* Mini bar */}
                   <div style={{ marginTop: 8, height: 4, background: 'var(--color-border-light)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: col, borderRadius: 2 }} />
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>Cường độ: {intens} {unitStr}/MT RCN</div>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>{t('intensity_label')}: {intens} {unitStr}/MT RCN</div>
                 </div>
               );
             })}
@@ -300,7 +302,7 @@ export default function Scope1Page() {
           {/* Source breakdown — compact table */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border)', fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-              Phân tích theo nguồn
+              {t('s1_analysis_by_source')}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <tbody>
@@ -332,13 +334,13 @@ export default function Scope1Page() {
         </div>
       )}
 
-      {/* ── View: Theo nguồn ── */}
+      {/* ── View: By Source ── */}
       {viewMode === 'by-source' && (
         <div>
           {/* Filter bar */}
           <div className="card" style={{ padding: '10px 14px', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Nguồn:</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{t('s1_source_filter')}</span>
               {allCats.map((cat, idx) => {
                 const isOn = selectedCats.has(cat.key);
                 const col = CAT_COLORS[idx % CAT_COLORS.length];
@@ -359,13 +361,13 @@ export default function Scope1Page() {
 
           <div className="card" style={{ padding: '12px 16px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-              Xu hướng theo nguồn — {useIntensity ? `${unitStr} / MT RCN` : unitStr}
+              {t('s1_source_trend')} — {useIntensity ? `${unitStr} / MT RCN` : unitStr}
             </div>
             {selectedCats.size === 0
-              ? <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>☝️ Chọn ít nhất một nguồn</div>
+              ? <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>{t('s1_select_source')}</div>
               : <TrendLine data={sourceTrendData}
-                  legendLabels={Object.fromEntries(allCats.filter(c => selectedCats.has(c.key)).map((c, i) => [c.key, `${c.icon} ${c.label}`]))}
-                  height={230} showArea={false} currency={useUSD} />
+                legendLabels={Object.fromEntries(allCats.filter(c => selectedCats.has(c.key)).map((c, i) => [c.key, `${c.icon} ${c.label}`]))}
+                height={230} showArea={false} currency={useUSD} />
             }
           </div>
 
@@ -374,7 +376,7 @@ export default function Scope1Page() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>Nguồn</th>
+                  <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>{t('s1_source_col')}</th>
                   <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>EF</th>
                   <th style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>{unitStr}</th>
                   <th style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 11 }}>%</th>
@@ -415,12 +417,12 @@ export default function Scope1Page() {
         </div>
       )}
 
-      {/* ── View: So sánh nhà máy ── */}
+      {/* ── View: Factory Compare ── */}
       {viewMode === 'compare' && (
         <div>
           {/* Ranking cards */}
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(factories.length, 4)}, 1fr)`, gap: 8, marginBottom: 10 }}>
-            {[...factories].sort((a, b) => (useUSD?b.scope1Cost||0:b.scope1) - (useUSD?a.scope1Cost||0:a.scope1)).map((fs, rank) => {
+            {[...factories].sort((a, b) => (useUSD ? b.scope1Cost || 0 : b.scope1) - (useUSD ? a.scope1Cost || 0 : a.scope1)).map((fs, rank) => {
               const fVal = useUSD ? (fs.scope1Cost || 0) : fs.scope1;
               const fi = factories.findIndex(f => f.factory.id === fs.factory.id);
               const col = getFactoryColor(fs.factory.code, fi);
@@ -440,7 +442,7 @@ export default function Scope1Page() {
                   <div style={{ height: 3, background: 'var(--color-border-light)', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: col }} />
                   </div>
-                  <div style={{ fontSize: 10, color: col, fontWeight: 700, marginTop: 3 }}>{pct}% {useUSD ? 'tổng tiền' : 'tổng S1'}</div>
+                  <div style={{ fontSize: 10, color: col, fontWeight: 700, marginTop: 3 }}>{pct}% {useUSD ? t('total_cost_s') : t('s1_total_s1')}</div>
                 </div>
               );
             })}
@@ -448,10 +450,10 @@ export default function Scope1Page() {
 
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              Grouped bar — {useIntensity ? `${unitStr} / MT RCN` : `${unitStr} / tháng`}
+              {t('s1_grouped_bar')} — {useIntensity ? `${unitStr} / MT RCN` : `${unitStr}${t('s1_per_month')}`}
             </div>
             <FactoryBarChart
-              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i].label || `T${i+1}`)}
+              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i].label || `T${i + 1}`)}
               series={compareFactorySeries}
               height={200}
               yLabel={useIntensity ? `${unitStr}/MTRCN` : unitStr}
@@ -463,20 +465,20 @@ export default function Scope1Page() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                  {['Nhà máy', `${unitStr}`, `Cường độ (${unitStr}/MT)`, 'Tháng cao nhất', `% tổng`].map(h => (
-                    <th key={h} style={{ padding: '7px 12px', textAlign: h.includes('Cường độ') || h.includes('%') || h.includes('USD') || h.includes('tCO₂e') ? 'right' : 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                  {[t('factory'), `${unitStr}`, `${t('intensity_label')} (${unitStr}/MT)`, t('s1_peak_month'), t('s1_pct_total')].map(h => (
+                    <th key={h} style={{ padding: '7px 12px', textAlign: h.includes(t('intensity_label')) || h.includes('%') || h.includes('USD') || h.includes('tCO₂e') ? 'right' : 'left', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...factories].sort((a, b) => (useUSD?b.scope1Cost||0:b.scope1) - (useUSD?a.scope1Cost||0:a.scope1)).map((fs, rank) => {
+                {[...factories].sort((a, b) => (useUSD ? b.scope1Cost || 0 : b.scope1) - (useUSD ? a.scope1Cost || 0 : a.scope1)).map((fs, rank) => {
                   const fVal = useUSD ? (fs.scope1Cost || 0) : fs.scope1;
                   const fi = factories.findIndex(f => f.factory.id === fs.factory.id);
                   const col = getFactoryColor(fs.factory.code, fi);
                   const pct = totalMetric > 0 ? Math.round((fVal / totalMetric) * 100) : 0;
                   const fRCN = Array.from({ length: 12 }, (_, i) => monthlyRCN[i] || 0).reduce((s, v) => s + v, 0);
                   const intens = fRCN > 0 ? (fVal / fRCN).toFixed(useUSD ? 2 : 3) : '—';
-                  const maxMonth = fs.monthlyTrend.reduce((max, m) => (useUSD?m.costScope1||0:m.scope1) > (useUSD?max.costScope1||0:max.scope1) ? m : max, fs.monthlyTrend[0]);
+                  const maxMonth = fs.monthlyTrend.reduce((max, m) => (useUSD ? m.costScope1 || 0 : m.scope1) > (useUSD ? max.costScope1 || 0 : max.scope1) ? m : max, fs.monthlyTrend[0]);
                   return (
                     <tr key={fs.factory.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
                       <td style={{ padding: '8px 12px' }}>
@@ -491,7 +493,7 @@ export default function Scope1Page() {
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: col }}>{formatVal(fVal)}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{intens}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        {maxMonth.label} ({formatVal(useUSD ? (maxMonth.costScope1||0) : maxMonth.scope1)})
+                        {maxMonth.label} ({formatVal(useUSD ? (maxMonth.costScope1 || 0) : maxMonth.scope1)})
                       </td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: col }}>{pct}%</td>
                     </tr>
@@ -509,15 +511,15 @@ export default function Scope1Page() {
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                {useUSD ? 'Chi phí' : 'Phát thải'} Scope 1 vs RCN nhập — tương quan hàng tháng
+                {useUSD ? t('s1_cost_vs_rcn') : t('s1_emission_vs_rcn')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'flex', gap: 12 }}>
-                <span>Tổng RCN: <strong>{totalRCN.toLocaleString()} MT</strong></span>
-                <span>Cường độ TB: <strong>{intensity.toFixed(useUSD ? 2 : 3)} {unitStr}/MT</strong></span>
+                <span>{t('total_rcn')} <strong>{totalRCN.toLocaleString()} MT</strong></span>
+                <span>{t('avg_intensity')} <strong>{intensity.toFixed(useUSD ? 2 : 3)} {unitStr}/MT</strong></span>
               </div>
             </div>
             <DualAxisChart
-              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i]?.label || `T${i+1}`)}
+              labels={Array.from({ length: 12 }, (_, i) => factories[0]?.monthlyTrend[i]?.label || `T${i + 1}`)}
               emissionValues={monthlyTotals}
               rcnValues={monthlyRCN}
               emissionColor={scopeColor}
@@ -544,7 +546,7 @@ export default function Scope1Page() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: col }}>{formatVal(fVal)} {unitStr}</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Cường độ: {avgIntens.toFixed(useUSD ? 2 : 3)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{t('intensity_label')}: {avgIntens.toFixed(useUSD ? 2 : 3)}</div>
                     </div>
                   </div>
                   <DualAxisChart
@@ -563,7 +565,7 @@ export default function Scope1Page() {
 
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 10 }}>
             <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border)', fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-              Xếp hạng cường độ {useUSD ? 'chi phí' : 'phát thải'} Scope 1
+              {useUSD ? t('s1_cost_intensity_rank_full') : t('s1_emission_intensity_rank')}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <tbody>
@@ -606,12 +608,12 @@ export default function Scope1Page() {
         </div>
       )}
 
-      {/* ── View: Nhiều năm ── */}
+      {/* ── View: Multi-year ── */}
       {viewMode === 'multi-year' && (
         <div>
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              📅 Xu hướng Scope 1 — tổng phát thải theo năm (tCO₂e)
+              {t('s1_multi_year_title')}
             </div>
             {annualRows.length > 0 ? (
               <BarChart
@@ -624,7 +626,7 @@ export default function Scope1Page() {
               />
             ) : (
               <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>
-                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />Đang tải dữ liệu nhiều năm...
+                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />{t('loading_multi_year')}
               </div>
             )}
           </div>
@@ -634,8 +636,8 @@ export default function Scope1Page() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                    {['Năm', 'Scope 1 (tCO₂e)', 'vs Năm trước', 'Tỷ lệ so baseline 2021'].map(h => (
-                      <th key={h} style={{ padding: '7px 14px', textAlign: h === 'Năm' ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
+                    {[t('s1_year_col'), 'Scope 1 (tCO₂e)', t('s1_vs_prev_year_col'), t('s1_vs_baseline_col')].map(h => (
+                      <th key={h} style={{ padding: '7px 14px', textAlign: h === t('s1_year_col') ? 'left' : 'right', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -649,7 +651,7 @@ export default function Scope1Page() {
                     return (
                       <tr key={r.year} style={{ borderBottom: '1px solid var(--color-border-light)', background: isSelected ? `${SCOPE_COLORS.scope_1}08` : undefined }}>
                         <td style={{ padding: '8px 14px', fontWeight: isSelected ? 800 : 500 }}>
-                          {r.year}{isSelected && <span style={{ marginLeft: 6, fontSize: 10, color: SCOPE_COLORS.scope_1, background: `${SCOPE_COLORS.scope_1}18`, padding: '1px 6px', borderRadius: 8 }}>Đang xem</span>}
+                          {r.year}{isSelected && <span style={{ marginLeft: 6, fontSize: 10, color: SCOPE_COLORS.scope_1, background: `${SCOPE_COLORS.scope_1}18`, padding: '1px 6px', borderRadius: 8 }}>{t('viewing_badge')}</span>}
                         </td>
                         <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: SCOPE_COLORS.scope_1 }}>
                           {formatTCO2e(r.s1)}

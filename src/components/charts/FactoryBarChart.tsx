@@ -43,7 +43,7 @@ export default function FactoryBarChart({
 }: FactoryBarChartProps) {
   if (!labels.length || !series.length) return null;
 
-  const PAD = { top: 16, right: 12, bottom: 32, left: 48 };
+  const PAD = { top: 24, right: 12, bottom: 32, left: 48 };
   const W = 800;
   const H = height;
   const cW = W - PAD.left - PAD.right;
@@ -67,6 +67,40 @@ export default function FactoryBarChart({
   return (
     <div style={{ position: 'relative' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+        <defs>
+          <filter id="fbc-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {/* Per-group clipPath for grow animation */}
+          {labels.map((_, gi) => {
+            const gxCenter = PAD.left + gi * groupW + groupW / 2;
+            return (
+              <clipPath key={gi} id={`fbc-clip-${gi}`}>
+                <rect
+                  x={PAD.left + gi * groupW - 4}
+                  y={PAD.top - 10}
+                  width={groupW + 8}
+                  height={cH + 10}
+                  style={{
+                    animation: `fbcGrow 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards`,
+                    animationDelay: `${gi * 60}ms`,
+                    transformOrigin: `${gxCenter}px ${PAD.top + cH}px`,
+                    transform: 'scaleY(0)',
+                  }}
+                />
+              </clipPath>
+            );
+          })}
+        </defs>
+
+        <style>{`
+          @keyframes fbcGrow {
+            0%   { transform: scaleY(0); }
+            100% { transform: scaleY(1); }
+          }
+        `}</style>
+
         {/* Y grid + labels */}
         {yTicks.map(t => {
           const y = PAD.top + cH - (t / maxVal) * cH;
@@ -76,27 +110,30 @@ export default function FactoryBarChart({
                 stroke="#E0DFDB" strokeWidth={0.8} strokeDasharray="3,3" />
               <text x={PAD.left - 5} y={y + 4} textAnchor="end"
                 fontSize={9} fill="#888" fontFamily="Inter, sans-serif">
-                {currency ? '$'+formatVal(t) : formatVal(t)}
+                {currency ? '$' + formatVal(t) : formatVal(t)}
               </text>
             </g>
           );
         })}
 
         {/* Bars */}
-        {series.map((s, si) =>
-          s.values.map((v, gi) => {
-            const x = getBarX(gi, si);
-            const bh = getBarH(v);
-            const y = getBarY(v);
-            if (v === 0) return null;
-            return (
-              <rect key={`${si}-${gi}`} x={x} y={y} width={barW} height={bh}
-                fill={s.color} rx={2} opacity={0.9}>
-                <title>{`${s.label} — ${labels[gi]}: ${currency ? '$' + formatVal(v) : formatVal(v) + ' ' + yLabel}`}</title>
-              </rect>
-            );
-          })
-        )}
+        {labels.map((_, gi) => (
+          <g key={`group-${gi}`} clipPath={`url(#fbc-clip-${gi})`}>
+            {series.map((s, si) => {
+              const v = s.values[gi];
+              if (!v) return null;
+              const x = getBarX(gi, si);
+              const bh = getBarH(v);
+              const y = getBarY(v);
+              return (
+                <rect key={`${si}-${gi}`} x={x} y={y} width={barW} height={bh}
+                  fill={s.color} rx={2} opacity={0.9}>
+                  <title>{`${s.label} — ${labels[gi]}: ${currency ? '$' + formatVal(v) : formatVal(v) + ' ' + yLabel}`}</title>
+                </rect>
+              );
+            })}
+          </g>
+        ))}
 
         {/* X labels */}
         {labels.map((lbl, gi) => (

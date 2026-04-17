@@ -57,6 +57,34 @@ export default function BarChart({
         preserveAspectRatio="xMidYMid meet"
         style={{ width: '100%', height: 'auto' }}
       >
+        <defs>
+          <filter id="bc-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {/* Per-group clipPath for grow animation */}
+          {data.map((_, gi) => {
+            const gx = padding.left + gi * barGroupWidth + barPadding / 2;
+            const cx = gx + (barGroupWidth - barPadding) / 2;
+            return (
+              <clipPath key={gi} id={`bc-clip-${gi}`}>
+                <rect
+                  x={gx - 4}
+                  y={padding.top}
+                  width={barGroupWidth}
+                  height={chartH}
+                  style={animated ? {
+                    animation: `bcGrow 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards`,
+                    animationDelay: `${gi * 70}ms`,
+                    transformOrigin: `${cx}px ${padding.top + chartH}px`,
+                    transform: 'scaleY(0)',
+                  } : undefined}
+                />
+              </clipPath>
+            );
+          })}
+        </defs>
+
         {/* Y-axis grid lines */}
         {yTickValues.map((tick) => {
           const y = padding.top + chartH - (tick / niceMax) * chartH;
@@ -91,7 +119,7 @@ export default function BarChart({
           let stackY = 0;
 
           return (
-            <g key={gi}>
+            <g key={gi} clipPath={animated ? `url(#bc-clip-${gi})` : undefined}>
               {/* Stacked bars */}
               {group.values.map((v, vi) => {
                 const barH = (v.value / niceMax) * chartH;
@@ -109,28 +137,30 @@ export default function BarChart({
                     rx="3"
                     ry="3"
                     opacity="0.9"
-                    style={animated ? {
-                      animation: `growHeight 0.6s ease forwards`,
-                      animationDelay: `${gi * 50 + vi * 100}ms`,
-                    } : undefined}
                   >
                     <title>{`${v.key}: ${formatNumber(v.value)} tCO₂e`}</title>
                   </rect>
                 );
               })}
-
-              {/* X-axis label */}
-              <text
-                x={gx + (barGroupWidth - barPadding) / 2}
-                y={height - 8}
-                textAnchor="middle"
-                fill="#666"
-                fontSize="11"
-                fontFamily="Inter, sans-serif"
-              >
-                {group.label}
-              </text>
             </g>
+          );
+        })}
+
+        {/* X-labels rendered outside clipPath so they're always visible */}
+        {data.map((group, gi) => {
+          const gx = padding.left + gi * barGroupWidth + barPadding / 2;
+          return (
+            <text
+              key={`lbl-${gi}`}
+              x={gx + (barGroupWidth - barPadding) / 2}
+              y={height - 8}
+              textAnchor="middle"
+              fill="#666"
+              fontSize="11"
+              fontFamily="Inter, sans-serif"
+            >
+              {group.label}
+            </text>
           );
         })}
       </svg>
@@ -149,16 +179,10 @@ export default function BarChart({
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes growHeight {
-          from {
-            transform: scaleY(0);
-            transform-origin: bottom;
-          }
-          to {
-            transform: scaleY(1);
-            transform-origin: bottom;
-          }
+      <style>{`
+        @keyframes bcGrow {
+          0%   { transform: scaleY(0); }
+          100% { transform: scaleY(1); }
         }
       `}</style>
     </div>

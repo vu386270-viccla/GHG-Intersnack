@@ -38,7 +38,7 @@ export default function DualAxisChart({
 }: DualAxisChartProps) {
   if (!labels.length) return null;
 
-  const PAD = { top: 16, right: 52, bottom: 32, left: 48 };
+  const PAD = { top: 24, right: 52, bottom: 32, left: 48 };
   const W = 800;
   const H = height;
   const cW = W - PAD.left - PAD.right;
@@ -58,19 +58,70 @@ export default function DualAxisChart({
     `${i === 0 ? 'M' : 'L'}${getX(i)},${getEmY(v)}`
   ).join(' ');
 
+  // Approximate line length
+  const approxLen = emissionValues.reduce((sum, val, i) => {
+    if (i === 0) return 0;
+    const dx = getX(i) - getX(i - 1);
+    const dy = getEmY(val) - getEmY(emissionValues[i - 1]);
+    return sum + Math.sqrt(dx * dx + dy * dy);
+  }, 0);
+
+  const lastIdx = n - 1;
+
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+        <defs>
+          <filter id="da-glow" x="-20%" y="-40%" width="140%" height="180%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {rcnValues.map((_, i) => (
+            <clipPath key={`da-clip-${i}`} id={`da-clip-${i}`}>
+              <rect
+                x={getX(i) - barW / 2 - 2}
+                y={PAD.top - 10}
+                width={barW + 4}
+                height={cH + 10}
+                style={{
+                  animation: `daGrow 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards`,
+                  animationDelay: `${i * 60}ms`,
+                  transformOrigin: `${getX(i)}px ${PAD.top + cH}px`,
+                  transform: 'scaleY(0)',
+                }}
+              />
+            </clipPath>
+          ))}
+        </defs>
+
+        <style>{`
+          @keyframes daGrow {
+            0%   { transform: scaleY(0); }
+            100% { transform: scaleY(1); }
+          }
+          @keyframes daDrawLine {
+            to { stroke-dashoffset: 0; }
+          }
+          @keyframes daFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes daPulse {
+            0%, 100% { r: 5px; opacity: 1; }
+            50%      { r: 8px; opacity: 0.55; }
+          }
+        `}</style>
+
         {/* Y left ticks (emission) */}
         {yTicks.map(f => {
           const t = Math.round(maxEm * f);
           const y = PAD.top + cH - f * cH;
           return (
-            <g key={f}>
+            <g key={`yL-${f}`}>
               <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y}
                 stroke="#E0DFDB" strokeWidth={0.8} strokeDasharray="3,3" />
               <text x={PAD.left - 5} y={y + 4} textAnchor="end"
-                fontSize={9} fill="#888" fontFamily="Inter, sans-serif">{currency ? '$'+fmt(t) : fmt(t)}</text>
+                fontSize={9} fill="#888" fontFamily="Inter, sans-serif">{currency ? '$' + fmt(t) : fmt(t)}</text>
             </g>
           );
         })}
@@ -80,8 +131,8 @@ export default function DualAxisChart({
           const t = Math.round(maxRcn * f);
           const y = PAD.top + cH - f * cH;
           return (
-            <text key={f} x={W - PAD.right + 5} y={y + 4} textAnchor="start"
-              fontSize={9} fill={rcnColor} fontFamily="Inter, sans-serif">{fmt(t)}</text>
+            <text key={`yR-${f}`} x={W - PAD.right + 5} y={y + 4} textAnchor="start"
+              fontSize={9} fill={rcnColor} opacity={0.6} fontFamily="Inter, sans-serif">{fmt(t)}</text>
           );
         })}
 
@@ -90,9 +141,10 @@ export default function DualAxisChart({
           const bh = (v / maxRcn) * cH;
           const x = getX(i) - barW / 2;
           const y = PAD.top + cH - bh;
+          if (v === 0) return null;
           return (
-            <rect key={i} x={x} y={y} width={barW} height={bh}
-              fill={rcnColor} opacity={0.18} rx={2}>
+            <rect key={`bar-${i}`} x={x} y={y} width={barW} height={bh}
+              fill={rcnColor} opacity={0.18} rx={2} clipPath={`url(#da-clip-${i})`}>
               <title>{`${labels[i]} RCN: ${fmt(v)} MT`}</title>
             </rect>
           );
@@ -101,20 +153,59 @@ export default function DualAxisChart({
         {/* Emission area */}
         <path
           d={`${linePath} L${getX(n - 1)},${PAD.top + cH} L${getX(0)},${PAD.top + cH} Z`}
-          fill={emissionColor} opacity={0.08}
+          fill={emissionColor}
+          style={{
+            opacity: 0,
+            animation: 'daFadeIn 0.8s ease forwards',
+            animationDelay: '600ms'
+          }}
+        />
+
+        {/* Emission line glow */}
+        <path d={linePath} fill="none" stroke={emissionColor}
+          strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" opacity={0.25} filter="url(#da-glow)"
+          style={{
+            strokeDasharray: approxLen,
+            strokeDashoffset: approxLen,
+            animation: 'daDrawLine 0.9s cubic-bezier(0.25,0.46,0.45,0.94) forwards'
+          }}
         />
 
         {/* Emission line */}
         <path d={linePath} fill="none" stroke={emissionColor}
-          strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+          style={{
+            strokeDasharray: approxLen,
+            strokeDashoffset: approxLen,
+            animation: 'daDrawLine 0.9s cubic-bezier(0.25,0.46,0.45,0.94) forwards'
+          }}
+        />
 
         {/* Dots */}
-        {emissionValues.map((v, i) => (
-          <circle key={i} cx={getX(i)} cy={getEmY(v)} r={3.5}
-            fill="white" stroke={emissionColor} strokeWidth={2}>
-            <title>{`${labels[i]} ${currency ? 'chi phí' : 'phát thải'}: ${currency ? '$' + fmt(v) : fmt(v) + ' tCO₂e'}`}</title>
-          </circle>
-        ))}
+        {emissionValues.map((v, i) => {
+          const isLast = i === lastIdx;
+          return (
+            <g key={`dot-${i}`}>
+              <circle cx={getX(i)} cy={getEmY(v)} r={isLast ? 4 : 3.5}
+                fill="white" stroke={emissionColor} strokeWidth={2}
+                style={{
+                  opacity: 0,
+                  animation: 'daFadeIn 0.3s ease forwards',
+                  animationDelay: `${700 + i * 40}ms`
+                }}>
+                <title>{`${labels[i]} ${currency ? 'chi phí' : 'phát thải'}: ${currency ? '$' + fmt(v) : fmt(v) + ' tCO₂e'}`}</title>
+              </circle>
+              {isLast && (
+                <circle cx={getX(i)} cy={getEmY(v)} r={5} fill="none" stroke={emissionColor} strokeWidth={1.5}
+                  style={{
+                    animation: 'daPulse 1.8s ease-in-out infinite',
+                    animationDelay: '1100ms'
+                  }}
+                />
+              )}
+            </g>
+          );
+        })}
 
         {/* X labels */}
         {labels.map((lbl, i) => (

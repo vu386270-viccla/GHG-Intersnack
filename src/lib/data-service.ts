@@ -77,10 +77,10 @@ async function fetchData(year: number) {
       .range(offset, offset + PAGE - 1);
 
     if (error) {
-       throw new Error(`[DB] emissions_data (${year}): ${error.message}`);
+      throw new Error(`[DB] emissions_data (${year}): ${error.message}`);
     }
     if (!data || data.length === 0) break;
-    
+
     allEmissions = allEmissions.concat(data as RawEmission[]);
     if (data.length < PAGE) break;
     offset += PAGE;
@@ -101,7 +101,7 @@ async function fetchPrevYear(year: number) {
       .select('scope,emissions_tco2e,factory_id')
       .eq('year', year - 1)
       .range(offset, offset + PAGE - 1);
-    
+
     if (error) {
       console.warn(`[DB] emissions_data prev year (${year - 1}):`, error.message);
       break;
@@ -131,21 +131,21 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   const byScopeCost: Record<string, number> = {};
   const byScopeCategory: Record<string, Record<string, number>> = {};
   const byScopeCategoryCost: Record<string, Record<string, number>> = {};
-  
+
   for (const e of emissions) {
     byScope[e.scope] = (byScope[e.scope] || 0) + Number(e.emissions_tco2e);
     byScopeCost[e.scope] = (byScopeCost[e.scope] || 0) + Number(e.cost_usd || 0);
-    
+
     if (!byScopeCategory[e.scope]) byScopeCategory[e.scope] = {};
     byScopeCategory[e.scope][e.category] = (byScopeCategory[e.scope][e.category] || 0) + Number(e.emissions_tco2e);
-    
+
     if (!byScopeCategoryCost[e.scope]) byScopeCategoryCost[e.scope] = {};
     byScopeCategoryCost[e.scope][e.category] = (byScopeCategoryCost[e.scope][e.category] || 0) + Number(e.cost_usd || 0);
   }
 
   const totalS1 = byScope['scope_1'] || 0;
   const totalS2 = byScope['scope_2'] || 0;
-  let   totalS3 = byScope['scope_3'] || 0; // will be replaced by scope3_transport_data below
+  let totalS3 = byScope['scope_3'] || 0; // will be replaced by scope3_transport_data below
   const totalS1Cost = byScopeCost['scope_1'] || 0;
   const totalS2Cost = byScopeCost['scope_2'] || 0;
 
@@ -159,15 +159,15 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   const facCtry: Record<string, string> = Object.fromEntries(
     factories.map(f => [f.id, (f as any).country || ''])
   );
-  
+
   let s3Cat3Wtt = 0;
   for (const e of emissions) {
     const isIndia = facCtry[e.factory_id] === 'India';
     const act = Number(e.activity_data) || 0;
-    if      (e.category === 'diesel')      s3Cat3Wtt += act * (isIndia ? WTT_FAC.diesel_IN : WTT_FAC.diesel_VN);
-    else if (e.category === 'lpg')         s3Cat3Wtt += act * WTT_FAC.lpg;
-    else if (e.category === 'electricity') s3Cat3Wtt += act * (isIndia ? WTT_FAC.elec_IN   : WTT_FAC.elec_VN);
-    else if (e.category === 'wood_logs')   s3Cat3Wtt += act * (isIndia ? WTT_FAC.wood_IN   : WTT_FAC.wood_VN);
+    if (e.category === 'diesel') s3Cat3Wtt += act * (isIndia ? WTT_FAC.diesel_IN : WTT_FAC.diesel_VN);
+    else if (e.category === 'lpg') s3Cat3Wtt += act * WTT_FAC.lpg;
+    else if (e.category === 'electricity') s3Cat3Wtt += act * (isIndia ? WTT_FAC.elec_IN : WTT_FAC.elec_VN);
+    else if (e.category === 'wood_logs') s3Cat3Wtt += act * (isIndia ? WTT_FAC.wood_IN : WTT_FAC.wood_VN);
   }
 
   const s3Cur = getS3StaticCat1and4(year);
@@ -187,7 +187,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   // ── Factory Summaries ──
   const factorySummaries: FactorySummary[] = factories.map(factory => {
     const fEmissions = emissions.filter(e => e.factory_id === factory.id);
-    
+
     const monthlyTrend: MonthlyData[] = Array.from({ length: 12 }, (_, i) => {
       const monthData = fEmissions.filter(e => e.month === i + 1);
       const s1 = monthData.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
@@ -195,8 +195,8 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
       const s3 = monthData.filter(e => e.scope === 'scope_3').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
       const c1 = monthData.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
       const c2 = monthData.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
-      return { 
-        month: i + 1, label: MONTHS_VI[i], 
+      return {
+        month: i + 1, label: MONTHS_VI[i],
         scope1: Math.round(s1), scope2: Math.round(s2), scope3: Math.round(s3), total: Math.round(s1 + s2 + s3),
         costScope1: Math.round(c1), costScope2: Math.round(c2)
       };
@@ -343,21 +343,21 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   // ── Monthly RCN totals (all factories) for intensity calc ──
   const monthlyRCN = Array.from({ length: 12 }, (_, i) =>
     prodRows.filter(p => p.category === 'rcn_input' && p.month === i + 1)
-            .reduce((s, p) => s + Number(p.quantity), 0)
+      .reduce((s, p) => s + Number(p.quantity), 0)
   );
 
   // ── SBTi Targets ──
   // Use 2021 as base year — fetch 2021 emissions
   let baseS1S2 = 0;
   let baseS3 = 0;
-  
+
   if (year !== 2021) {
     const { data: base2021 } = await supabase
       .from('emissions_data')
       .select('scope,emissions_tco2e')
       .eq('year', 2021)
       .limit(5000);
-    
+
     if (base2021) {
       for (const e of base2021) {
         const val = Number(e.emissions_tco2e);
@@ -387,7 +387,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
 
   // Linear on-track threshold: expected reduction at current year
   const s12LinearThreshold = baseS1S2 * (1 - 0.50 * (yearsElapsed / totalYears));
-  const s3LinearThreshold  = baseS3  * (1 - 0.30 * (yearsElapsed / totalYears));
+  const s3LinearThreshold = baseS3 * (1 - 0.30 * (yearsElapsed / totalYears));
 
   const currentS12 = totalS1 + totalS2;
   const targets: TargetProgress[] = [
@@ -419,7 +419,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
 
   // ── RCN / CK Production Intensity ──
   const totalRCN = prodRows.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-  const totalCK  = prodRows.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
+  const totalCK = prodRows.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
   const monthlyIntensity = Array.from({ length: 12 }, (_, i) => {
     const mRCN = prodRows
       .filter(p => p.category === 'rcn_input' && p.month === i + 1)
@@ -465,13 +465,13 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
   for (const factory of factories) {
     const fProd = prodRows.filter(p => p.factory_id === factory.id);
     const fRCN = fProd.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-    const fCK  = fProd.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
+    const fCK = fProd.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
     rcnByFactory[factory.id] = {
       totalRCN: Math.round(fRCN),
       totalCK: Math.round(fCK),
       monthlyRCN: Array.from({ length: 12 }, (_, i) =>
         fProd.filter(p => p.category === 'rcn_input' && p.month === i + 1)
-             .reduce((s, p) => s + Number(p.quantity), 0)
+          .reduce((s, p) => s + Number(p.quantity), 0)
       ),
     };
   }
@@ -594,10 +594,10 @@ export async function getAnnualTotals(fromYear: number, toYear: number): Promise
       for (const r of fuelData || []) {
         const isIndia = factoryCountry[r.factory_id] === 'India';
         const act = Number(r.activity_data) || 0;
-        if (r.category === 'diesel')           wtt += act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
-        else if (r.category === 'lpg')         wtt += act * WTT.lpg;
+        if (r.category === 'diesel') wtt += act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
+        else if (r.category === 'lpg') wtt += act * WTT.lpg;
         else if (r.category === 'electricity') wtt += act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
-        else if (r.category === 'wood_logs')   wtt += act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
+        else if (r.category === 'wood_logs') wtt += act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
       }
 
       // S3: static Cat.1 + Cat.4 + dynamic WTT (Cat.3)
@@ -636,13 +636,13 @@ export interface Scope3YearRow {
 
 // WTT emission factors (kg CO2e per activity unit, effectively tCO2e/unit)
 const WTT = {
-  diesel_VN:   0.00055,   // tCO2e/L
-  diesel_IN:   0.0006058, // tCO2e/L
-  lpg:         0.2,       // tCO2e/ton 
-  elec_VN:     0.00008,   // tCO2e/kWh
-  elec_IN:     0.00012,   // tCO2e/kWh
-  wood_VN:     0.05214,   // tCO2e/ton
-  wood_IN:     0.24,      // tCO2e/ton
+  diesel_VN: 0.00055,   // tCO2e/L
+  diesel_IN: 0.0006058, // tCO2e/L
+  lpg: 0.2,       // tCO2e/ton 
+  elec_VN: 0.00008,   // tCO2e/kWh
+  elec_IN: 0.00012,   // tCO2e/kWh
+  wood_VN: 0.05214,   // tCO2e/ton
+  wood_IN: 0.24,      // tCO2e/ton
 };
 
 export async function getScope3SummaryData(): Promise<{
@@ -650,7 +650,7 @@ export async function getScope3SummaryData(): Promise<{
   baseline2021: Scope3YearRow | undefined;
 }> {
   const START_YEAR = 2018;
-  const END_YEAR   = new Date().getFullYear(); // current year only — next year has no real data yet
+  const END_YEAR = new Date().getFullYear(); // current year only — next year has no real data yet
   const YEARS: number[] = [];
   for (let y = START_YEAR; y <= END_YEAR; y++) YEARS.push(y);
 
@@ -669,7 +669,7 @@ export async function getScope3SummaryData(): Promise<{
       .in('year', YEARS)
       .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
       .range(offset, offset + PAGE - 1);
-      
+
     if (error || !data || data.length === 0) break;
     fuelRows = fuelRows.concat(data);
     if (data.length < PAGE) break;
@@ -684,17 +684,17 @@ export async function getScope3SummaryData(): Promise<{
     const isIndia = factoryCountry[r.factory_id] === 'India';
     const act = Number(r.activity_data) || 0;
     let wtt = 0;
-    if (r.category === 'diesel')      wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
-    else if (r.category === 'lpg')    wtt = act * WTT.lpg;
+    if (r.category === 'diesel') wtt = act * (isIndia ? WTT.diesel_IN : WTT.diesel_VN);
+    else if (r.category === 'lpg') wtt = act * WTT.lpg;
     else if (r.category === 'electricity') wtt = act * (isIndia ? WTT.elec_IN : WTT.elec_VN);
-    else if (r.category === 'wood_logs')   wtt = act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
+    else if (r.category === 'wood_logs') wtt = act * (isIndia ? WTT.wood_IN : WTT.wood_VN);
     wttByYear[yr] = (wttByYear[yr] || 0) + wtt;
   }
 
   const rows: Scope3YearRow[] = YEARS.map(yr => {
     const s3 = getS3StaticCat1and4(yr);
-    const cat1  = Math.round(s3.cat1);
-    const cat3  = Math.round(wttByYear[yr] || 0);
+    const cat1 = Math.round(s3.cat1);
+    const cat3 = Math.round(wttByYear[yr] || 0);
     const cat4v = Math.round(s3.cat4v);
     const cat4r = Math.round(s3.cat4r);
     return {
@@ -780,6 +780,19 @@ export interface OpexOriginYearData {
   weightedAvgEF: number;
 }
 
+export interface OpexScope3RegionalRow {
+  year: number;
+  vn: number;    // tCO2e (Cat1 + Cat3 + Cat4)
+  india: number; // tCO2e (Cat1 + Cat3 + Cat4)
+  total: number;
+  cat1_vn: number;
+  cat1_in: number;
+  cat3_vn: number;
+  cat3_in: number;
+  cat4_vn: number;
+  cat4_in: number;
+}
+
 export interface OpexReportData {
   factories: OpexFactory[];
   annualDataByFactory: Record<string, OpexAnnualData[]>;
@@ -787,6 +800,7 @@ export interface OpexReportData {
   scope1BreakdownByFactory: Record<string, OpexScope1BreakYear[]>;
   scope3Data: OpexScope3Row[];
   originData: OpexOriginYearData[];
+  scope3Regional: OpexScope3RegionalRow[];
 }
 
 function createEmptyAnnualRows(): Record<number, OpexAnnualData> {
@@ -890,12 +904,110 @@ async function fetchOpexProduction(): Promise<OpexProductionRow[]> {
   return rows;
 }
 
+async function fetchScope3Regional(): Promise<OpexScope3RegionalRow[]> {
+  // Cat.1 + Cat.4 from scope3_transport_data, split by region
+  const { data: s3rows } = await supabase
+    .from('scope3_transport_data')
+    .select('year,region,em_cashew_kg,km_ton_vessel,km_ton_road')
+    .in('year', [...OPEX_YEARS])
+    .limit(5000);
+
+  // Cat.3 WTT from emissions_data — needs factory country lookup
+  const { data: factRows } = await supabase.from('factories').select('id,country');
+  const facCountry: Record<string, string> = {};
+  for (const f of factRows || []) facCountry[f.id] = f.country;
+
+  const WTT_C = {
+    diesel_VN: 0.00055, diesel_IN: 0.0006058,
+    lpg: 0.2, elec_VN: 0.00008, elec_IN: 0.00012,
+    wood_VN: 0.05214, wood_IN: 0.24,
+  };
+
+  let wttRows: any[] = [];
+  let off = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('emissions_data')
+      .select('factory_id,year,category,activity_data')
+      .in('year', [...OPEX_YEARS])
+      .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
+      .range(off, off + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    wttRows = wttRows.concat(data);
+    if (data.length < PAGE) break;
+    off += PAGE;
+  }
+
+  const map: Record<number, OpexScope3RegionalRow> = {};
+  for (const y of OPEX_YEARS) {
+    map[y] = { year: y, vn: 0, india: 0, total: 0, cat1_vn: 0, cat1_in: 0, cat3_vn: 0, cat3_in: 0, cat4_vn: 0, cat4_in: 0 };
+  }
+
+  // Cat.1 + Cat.4
+  for (const r of s3rows || []) {
+    if (!map[r.year]) continue;
+    const c1 = (r.em_cashew_kg || 0) / 1000;
+    const c4v = (r.km_ton_vessel || 0) * 0.01604 / 1000;
+    const c4r = (r.km_ton_road || 0) * 0.07547 / 1000;
+    const c4 = c4v + c4r;
+    const rgn = (r.region || '').toLowerCase();
+
+    if (rgn.includes('in') || rgn.includes('india')) {
+      map[r.year].india += (c1 + c4);
+      map[r.year].cat1_in += c1;
+      map[r.year].cat4_in += c4;
+    } else {
+      map[r.year].vn += (c1 + c4);
+      map[r.year].cat1_vn += c1;
+      map[r.year].cat4_vn += c4;
+    }
+  }
+
+  // Cat.3 WTT by factory country
+  for (const r of wttRows) {
+    if (!map[r.year]) continue;
+    const isIndia = facCountry[r.factory_id] === 'India';
+    const act = Number(r.activity_data) || 0;
+    let wtt = 0;
+    if (r.category === 'diesel') wtt = act * (isIndia ? WTT_C.diesel_IN : WTT_C.diesel_VN);
+    else if (r.category === 'lpg') wtt = act * WTT_C.lpg;
+    else if (r.category === 'electricity') wtt = act * (isIndia ? WTT_C.elec_IN : WTT_C.elec_VN);
+    else if (r.category === 'wood_logs') wtt = act * (isIndia ? WTT_C.wood_IN : WTT_C.wood_VN);
+
+    if (isIndia) {
+      map[r.year].india += wtt;
+      map[r.year].cat3_in += wtt;
+    } else {
+      map[r.year].vn += wtt;
+      map[r.year].cat3_vn += wtt;
+    }
+  }
+
+  return OPEX_YEARS.map(y => {
+    const row = map[y];
+    return {
+      year: y,
+      vn: Math.round(row.vn),
+      india: Math.round(row.india),
+      total: Math.round(row.vn + row.india),
+      cat1_vn: Math.round(row.cat1_vn),
+      cat1_in: Math.round(row.cat1_in),
+      cat3_vn: Math.round(row.cat3_vn),
+      cat3_in: Math.round(row.cat3_in),
+      cat4_vn: Math.round(row.cat4_vn),
+      cat4_in: Math.round(row.cat4_in),
+    };
+  });
+}
+
 export async function getOpexReportData(): Promise<OpexReportData> {
-  const [factories, emissions, production, scope3Summary] = await Promise.all([
+  const [factories, emissions, production, scope3Summary, scope3Regional] = await Promise.all([
     fetchOpexFactories(),
     fetchOpexEmissions(),
     fetchOpexProduction(),
     getScope3SummaryData(),
+    fetchScope3Regional(),
   ]);
 
   const bucketKeys = ['ALL', ...factories.map(factory => factory.id)];
@@ -1066,12 +1178,13 @@ export async function getOpexReportData(): Promise<OpexReportData> {
     scope1BreakdownByFactory,
     scope3Data,
     originData,
+    scope3Regional,
   };
 }
 
-export interface OverviewEmissionRow extends Pick<RawEmission, 'factory_id' | 'year' | 'month' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'> {}
+export interface OverviewEmissionRow extends Pick<RawEmission, 'factory_id' | 'year' | 'month' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'> { }
 
-export interface OverviewProductionRow extends Pick<RawProduction, 'factory_id' | 'year' | 'month' | 'category' | 'quantity'> {}
+export interface OverviewProductionRow extends Pick<RawProduction, 'factory_id' | 'year' | 'month' | 'category' | 'quantity'> { }
 
 export interface OverviewSourceData {
   factories: Factory[];

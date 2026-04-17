@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import { getOpexReportData } from '@/lib/data-service';
-import type { OpexAnnualData, OpexReportData, OpexScope1BreakYear } from '@/lib/data-service';
+import type { OpexAnnualData, OpexReportData, OpexScope1BreakYear, OpexScope3RegionalRow } from '@/lib/data-service';
 import { downloadSvgAsPng } from '@/lib/chart-exports';
 
 // ── Types ──────────────────────────────────────────────────
@@ -141,14 +141,42 @@ function WaterfallChart({
       {/* SVG chart — overflow visible so callout brackets show above viewBox */}
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ overflow: 'visible' }}>
         <defs>
-          {/*
-            Arrow marker: right-pointing triangle.
-            Unique ID per chart to fix SVG global ID referencing bugs.
-          */}
           <marker id={`arwD-${title.replace(/\s+/g, '')}`} markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
             <polygon points="0,0 8,4 0,8" fill="#555" />
           </marker>
+          {/* Glow filter for bar hover */}
+          <filter id={`glow-${title.replace(/\s+/g, '')}`} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {/* Per-bar animated clipPaths — grow from baseline upward */}
+          {bars.map((b, i) => (
+            <clipPath key={`clip-${i}`} id={`clip-${title.replace(/\s+/g, '')}-${i}`}>
+              <rect
+                x={bx(i) - 2}
+                y={PT}
+                width={bw + 4}
+                height={chartH}
+                style={{
+                  animation: `wfGrow ${Math.min(0.55 + i * 0.04, 0.85)}s cubic-bezier(0.34,1.56,0.64,1) forwards`,
+                  animationDelay: `${i * 60}ms`,
+                  transformOrigin: `${cx(i)}px ${PT + chartH}px`,
+                  transform: 'scaleY(0)',
+                }}
+              />
+            </clipPath>
+          ))}
         </defs>
+        <style>{`
+          @keyframes wfGrow {
+            0%   { transform: scaleY(0); }
+            100% { transform: scaleY(1); }
+          }
+          @keyframes pulse-dot {
+            0%, 100% { r: 5; opacity: 1; }
+            50% { r: 7.5; opacity: 0.6; }
+          }
+        `}</style>
 
         {/* Bottom axis line */}
         <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth="1.5" />
@@ -285,6 +313,7 @@ function WaterfallChart({
                             '#555555'
                       }
                       strokeWidth="1.5" rx="2"
+                      clipPath={`url(#clip-${title.replace(/\s+/g, '')}-${i})`}
                     />
 
                     {/* text delta: short format INSIDE bars, full format OUTSIDE */}
@@ -753,6 +782,7 @@ export default function OpexReportPage() {
   const scope1Breakdown: S1BreakYear[] = reportData.scope1BreakdownByFactory[selectedFac] || reportData.scope1BreakdownByFactory.ALL || [];
   const s3Data = reportData.scope3Data;
   const originData = reportData.originData;
+  const scope3Regional: OpexScope3RegionalRow[] = reportData.scope3Regional || [];
 
   const get = (year: number) => data.find(d => d.year === year) || { year, scope1: 0, scope2: 0, rcn: 0 };
   const b1 = get(2021).scope1;  // Scope 1 baseline
@@ -767,15 +797,9 @@ export default function OpexReportPage() {
   // further below the 50% floor, creating headroom for peer facilities.
   const ultimateTargetYear = 2031;
   const yearsToTarget = ultimateTargetYear - 2025;
-  const s1FinalTarget = s1_2025 <= b1 * 0.5 ? s1_2025 * 0.75 : b1 * 0.5;
 
-  // ── PT Solar impact on Scope 2 target ────────────────────────
-  // From 2027, PT solar offsets ~1,064 tCO₂e/yr from Scope 2 (all-factory or PT-specific view)
-  // isSolarFactory: true ONLY when viewing ALL factories or Phan Thiet specifically
+  // ── PT Solar helper logic ────────────────────────────────────────
   const selectedFactory = factories.find(f => f.id === selectedFac);
-
-  // ── Accent-insensitive PT factory detection ─────────────────────
-  // DB name is "Phan Thiết" (with Vietnamese diacritics); strip accents before compare
   function stripAccents(s: string): string {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
@@ -785,7 +809,6 @@ export default function OpexReportPage() {
     facNameNorm.startsWith('pt') ||
     facNameNorm === 'pt';
 
-  // Total solar savings accumulated from 2027 to a given year
   const cumulativeSolarSavingByYear = (year: number): number => {
     if (!isSolarFactory) return 0;
     let total = 0;
@@ -793,31 +816,58 @@ export default function OpexReportPage() {
     return total;
   };
 
-  // ── Scope 2 target logic ─────────────────────────────────────────
-  // Each factory targets −50% of its own 2021 baseline (equal proportional burden).
-  // Solar savings for PT are then ADDED ON TOP of the linear cut per year (no pre-deduction
-  // from the final target to avoid double-counting in the annual projection).
-  const s2FinalTargetBase = s2_2025 <= b2 * 0.5 ? s2_2025 * 0.75 : b2 * 0.5;
-  // Linear cut needed to reach 50%-baseline by 2031, WITHOUT solar pre-deduction
-  const s1AnnualCut = yearsToTarget > 0 ? (s1_2025 - s1FinalTarget) / yearsToTarget : 0;
-  const s2AnnualCut = yearsToTarget > 0 ? (s2_2025 - s2FinalTargetBase) / yearsToTarget : 0;
-  // Also keep for banner info
-  const solarSavingAtTarget = isSolarFactory ? ptSolarSaving(ultimateTargetYear) : 0;
-  const s2FinalTarget = Math.max(s2FinalTargetBase - solarSavingAtTarget, s2FinalTargetBase * 0.7);
+  // Helper to compute projection curves per factory.
+  // When 'ALL' is selected, summing these up is mathematically correct (whereas curve(Sum(A)) != Sum(curve(A)))
+  const getFacProj = (facId: string) => {
+    const f_data = reportData.annualDataByFactory[facId] || [];
+    const f_get = (y: number) => f_data.find(d => d.year === y) || { year: y, scope1: 0, scope2: 0, rcn: 0 };
 
-  // Scope 2 projection per year:
-  // = (2025 actual) − (linear cut × years) − (solar saving for that year)
-  // Solar kicks in from 2027 only, creating a visible kink in the target line
-  const s2Proj = (year: number): number => {
-    const linearCut = s2_2025 - s2AnnualCut * (year - 2025);
-    const solar = isSolarFactory ? ptSolarSaving(year) : 0;
-    // Floor at −50% of baseline: solar savings cannot push target below the SBTi commitment floor
-    const floor = b2 * 0.5;
-    return Math.round(Math.max(linearCut - solar, floor));
+    const f_b1 = f_get(2021).scope1;
+    const f_b2 = f_get(2021).scope2;
+    const f_s1_2025 = f_get(2025).scope1;
+    const f_s2_2025 = f_get(2025).scope2;
+
+    const f_s1FinalTarget = f_s1_2025 <= f_b1 * 0.5 ? f_s1_2025 * 0.75 : f_b1 * 0.5;
+    const f_s1AnnualCut = yearsToTarget > 0 ? (f_s1_2025 - f_s1FinalTarget) / yearsToTarget : 0;
+
+    const f_s2FinalTargetBase = f_s2_2025 <= f_b2 * 0.5 ? f_s2_2025 * 0.75 : f_b2 * 0.5;
+    const f_s2AnnualCut = yearsToTarget > 0 ? (f_s2_2025 - f_s2FinalTargetBase) / yearsToTarget : 0;
+
+    const f_obj = factories.find(f => f.id === facId);
+    const fname = stripAccents(f_obj?.name || '');
+    const isSolar = fname.includes('phan thiet') || fname.startsWith('pt') || fname === 'pt';
+
+    return {
+      s1AnnualCut: f_s1AnnualCut,
+      s2AnnualCut: f_s2AnnualCut,
+      s1Proj: (year: number) => Math.max(f_s1_2025 - f_s1AnnualCut * (year - 2025), isSolar ? 0 : 0),
+      s2Proj: (year: number) => {
+        const linearCut = f_s2_2025 - f_s2AnnualCut * (year - 2025);
+        const solar = isSolar ? ptSolarSaving(year) : 0;
+        return Math.max(linearCut - solar, f_b2 * 0.5);
+      }
+    };
   };
-  const targetProj = (act2025: number, annualCut: number, year: number) =>
-    act2025 - annualCut * (year - 2025);
-  // Flags for contextual commentary
+
+  const combinedProj = (() => {
+    if (selectedFac === 'ALL') {
+      const allProjs = factories.map(f => getFacProj(f.id));
+      return {
+        s1AnnualCut: allProjs.reduce((sum, p) => sum + p.s1AnnualCut, 0),
+        s2AnnualCut: allProjs.reduce((sum, p) => sum + p.s2AnnualCut, 0),
+        s1Proj: (year: number) => allProjs.reduce((sum, p) => sum + p.s1Proj(year), 0),
+        s2Proj: (year: number) => allProjs.reduce((sum, p) => sum + p.s2Proj(year), 0),
+      };
+    }
+    return getFacProj(selectedFac);
+  })();
+
+  const s1AnnualCut = combinedProj.s1AnnualCut;
+  const s2AnnualCut = combinedProj.s2AnnualCut;
+  const targetProj = (act2025: number, annualCut: number, year: number) => combinedProj.s1Proj(year);
+  const s2Proj = (year: number) => Math.round(combinedProj.s2Proj(year));
+
+  // Flags for contextual commentary (still globally aggregated)
   const s1BeyondTarget = s1_2025 <= b1 * 0.5;
   const s2BeyondTarget = s2_2025 <= b2 * 0.5;
 
@@ -1218,6 +1268,163 @@ export default function OpexReportPage() {
             );
           })()}
 
+          {/* ── Scope 3 Regional Breakdown: VN vs India ── */}
+          {scope3Regional.length > 0 && (() => {
+            const VN_COLOR = '#C8281A';
+            const IN_COLOR = '#9ab0c4';
+            const YEARS_S3 = scope3Regional.filter(r => r.total > 0).map(r => r.year);
+            const maxVal = Math.max(...scope3Regional.map(r => r.total)) * 1.15 || 1;
+            const W = 340, H = 140;
+            const PL = 44, PR = 10, PT = 28, PB = 24;
+            const chartW = W - PL - PR;
+            const chartH = H - PT - PB;
+            const barW = Math.min(34, (chartW / YEARS_S3.length) * 0.62);
+            const colW = chartW / YEARS_S3.length;
+            const py = (v: number) => PT + chartH - (v / maxVal) * chartH;
+
+            const SBT_TARGET = scope3Regional.find(r => r.year === 2021);
+            const target2032 = SBT_TARGET ? Math.round(SBT_TARGET.total * 0.70) : 0;
+
+            // Y axis ticks
+            const tickCount = 4;
+            const tickStep = Math.ceil(maxVal / tickCount / 100000) * 100000;
+            const ticks = Array.from({ length: tickCount + 1 }, (_, i) => i * tickStep).filter(t => t <= maxVal * 1.2);
+
+            return (
+              <div style={{ marginTop: 12, background: '#fafafa', border: '1px solid #e8e8e8', borderRadius: 6, padding: '8px 12px' }}>
+                <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#1a3d5c', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🌍 {lang === 'vi' ? 'Scope 3 — Phân bổ theo quốc gia (VN vs Ấn Độ)' : 'Scope 3 — Regional Split (Vietnam vs India)'}
+                  <span style={{ fontSize: '10px', fontWeight: 400, color: '#888' }}>
+                    {lang === 'vi' ? 'Cat.1 + Cat.3 + Cat.4 (tCO₂e)' : 'Cat.1 + Cat.3 + Cat.4 (tCO₂e)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {/* Stacked bar chart */}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-regional') as unknown as SVGSVGElement, 'Scope3_Regional_Breakdown.png')}
+                      style={{ position: 'absolute', top: 0, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10 }}
+                      title="Download PNG"
+                    >📸 HD</button>
+                    <svg id="svg-s3-regional" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto', display: 'block' }}>
+                      {/* Y-axis ticks */}
+                      {ticks.map(t => (
+                        <g key={t}>
+                          <line x1={PL} y1={py(t)} x2={W - PR} y2={py(t)} stroke="#eee" strokeWidth={1} />
+                          <text x={PL - 4} y={py(t) + 3.5} textAnchor="end" fontSize={8} fill="#999">
+                            {t >= 1000 ? `${Math.round(t / 1000)}K` : t}
+                          </text>
+                        </g>
+                      ))}
+
+                      {/* SBTi 2032 target line */}
+                      {target2032 > 0 && (
+                        <g>
+                          <line x1={PL} x2={W - PR} y1={py(target2032)} y2={py(target2032)}
+                            stroke="#3E7B3E" strokeWidth={1.2} strokeDasharray="4 3" />
+                          <text x={W - PR - 2} y={py(target2032) - 3} textAnchor="end" fontSize={8} fill="#3E7B3E">SBTi 2032</text>
+                        </g>
+                      )}
+
+                      {/* Stacked bars */}
+                      {YEARS_S3.map((yr, i) => {
+                        const row = scope3Regional.find(r => r.year === yr)!;
+                        const cx = PL + i * colW + colW / 2 - barW / 2;
+                        const vnH = (row.vn / maxVal) * chartH;
+                        const inH = (row.india / maxVal) * chartH;
+                        const totalH = vnH + inH;
+                        const isYtd = yr >= 2026;
+                        return (
+                          <g key={yr}>
+                            {/* India (bottom) */}
+                            <rect x={cx} y={PT + chartH - inH} width={barW} height={inH}
+                              fill={IN_COLOR} opacity={isYtd ? 0.7 : 1}
+                              rx={1}>
+                              <title>India {yr}: {row.india.toLocaleString()} tCO₂e</title>
+                            </rect>
+                            {/* Vietnam (top) */}
+                            <rect x={cx} y={PT + chartH - totalH} width={barW} height={vnH}
+                              fill={VN_COLOR} opacity={isYtd ? 0.7 : 1}
+                              rx={1}>
+                              <title>Vietnam {yr}: {row.vn.toLocaleString()} tCO₂e</title>
+                            </rect>
+                            {/* Total label */}
+                            <text x={cx + barW / 2} y={PT + chartH - totalH - 4}
+                              textAnchor="middle" fontSize={8} fontWeight={700} fill="#1a1a1a">
+                              {Math.round(row.total / 1000)}K
+                            </text>
+                            {/* Year label */}
+                            <text x={cx + barW / 2} y={H - PB + 11}
+                              textAnchor="middle" fontSize={8.5} fill={isYtd ? '#E8960E' : '#555'} fontWeight={isYtd ? 700 : 400}>
+                              {isYtd ? `Q1 '${String(yr).slice(-2)}` : yr}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Axis */}
+                      <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth={1.5} />
+                    </svg>
+                  </div>
+
+                  {/* Right column: summary table + key insights */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: '10.5px' }}>
+                    {/* Mini table */}
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                          <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700 }}>Year</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right', color: '#fba4a4' }}>🇻🇳 VN</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right', color: '#c8dce8' }}>🇮🇳 India</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right' }}>Total</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right' }}>VN %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scope3Regional.filter(r => r.total > 0).map((row, ri) => (
+                          <tr key={row.year} style={{ background: ri % 2 === 0 ? '#f9f9f9' : 'white', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '2px 6px', fontWeight: row.year >= 2026 ? 700 : 400, color: row.year >= 2026 ? '#7a4f00' : '#1a1a1a' }}>
+                              {row.year >= 2026 ? `Q1 '26` : row.year}
+                            </td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', color: VN_COLOR, fontWeight: 600 }}>{row.vn.toLocaleString()}</td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', color: '#5580a0', fontWeight: 600 }}>{row.india.toLocaleString()}</td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', fontWeight: 700 }}>{row.total.toLocaleString()}</td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', color: '#555' }}>
+                              {row.total > 0 ? Math.round(row.vn / row.total * 100) + '%' : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Legend */}
+                    <div style={{ display: 'flex', gap: 12, fontSize: '10px', color: '#555', marginTop: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, background: VN_COLOR, display: 'inline-block', borderRadius: 2 }} />🇻🇳 Vietnam (Long An · Phan Thiết · Tây Ninh)</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, background: IN_COLOR, display: 'inline-block', borderRadius: 2 }} />🇮🇳 India (Tuticorin)</div>
+                    </div>
+
+                    {/* Key insight */}
+                    {(() => {
+                      const r2021 = scope3Regional.find(r => r.year === 2021);
+                      const r2025 = scope3Regional.find(r => r.year === 2025);
+                      const inPct2021 = r2021 && r2021.total > 0 ? Math.round(r2021.india / r2021.total * 100) : 0;
+                      const inPct2025 = r2025 && r2025.total > 0 ? Math.round(r2025.india / r2025.total * 100) : 0;
+                      const vnPct2025 = 100 - inPct2025;
+                      return (
+                        <div style={{ padding: '5px 8px', background: '#fff8e1', border: '1px solid #E8960E', borderRadius: 4, fontSize: '10px', color: '#7a4f00', lineHeight: '1.5' }}>
+                          <strong>💡 {lang === 'vi' ? 'Nhận xét:' : 'Key Insight:'}</strong>{' '}
+                          {lang === 'vi'
+                            ? `Khối VN chiếm ${vnPct2025}% Scope 3 năm 2025 (tăng từ ${100 - inPct2021}% năm 2021). Tuticorin (India) từ ${inPct2021}% giảm xuống còn ${inPct2025}% — gánh nặng chuỗi cung ứng đang dồn về Việt Nam. Sử dụng số liệu này để giao KPI giảm phát thải cụ thể cho từng quốc gia.`
+                            : `Vietnam accounts for ${vnPct2025}% of Scope 3 in 2025 (up from ${100 - inPct2021}% in 2021). India (Tuticorin) dropped from ${inPct2021}% to ${inPct2025}% — supply chain carbon burden is shifting toward Vietnam. Use this split to assign country-specific emission reduction KPIs.`}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ── Scope 1 Fuel Breakdown Chart ── */}
           <Scope1BreakdownChart
             years={[2021, 2022, 2023, 2024, 2025, 2026].filter(y => y < 2026 || get(2026).scope1 > 0)}
@@ -1249,9 +1456,10 @@ export default function OpexReportPage() {
                 {/* Contextual header: highlight if already ahead of SBTi 2031 target */}
                 {s1BeyondTarget && (
                   <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#eaf5ea', borderLeft: '3px solid #3E7B3E', borderRadius: '4px', fontSize: '11.5px' }}>
-                    <strong style={{ color: '#2E6B2E' }}>✅ Scope 1 — SBTi 2031 target already achieved!</strong>{' '}
-                    Tuy nhiên, cần tiếp tục giảm để tạo dư địa cho các nhà máy khác trong nhóm 4 nhà máy cùng chung mục tiêu 50%.
-                    Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.
+                    <strong style={{ color: '#2E6B2E' }}>{lang === 'vi' ? '✅ Scope 1 — Đã đạt mục tiêu SBTi 2031!' : '✅ Scope 1 — SBTi 2031 target already achieved!'}</strong>{' '}
+                    {lang === 'vi'
+                      ? 'Tuy nhiên, cần tiếp tục giảm để tạo dư địa cho các nhà máy khác trong nhóm 4 nhà máy cùng chung mục tiêu 50%. Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.'
+                      : 'However, further reductions are needed to create headroom for the other factories in the group of 4 sharing the 50% target. Current trajectory aims for an additional 25% reduction from 2025 levels.'}
                   </p>
                 )}
                 <p style={{ margin: '0 0 5px' }}>
@@ -1391,9 +1599,10 @@ export default function OpexReportPage() {
                 {/* Contextual header: highlight if already ahead of SBTi 2031 target */}
                 {s2BeyondTarget && (
                   <p style={{ margin: '0 0 6px', padding: '6px 10px', background: '#eaf5ea', borderLeft: '3px solid #3E7B3E', borderRadius: '4px', fontSize: '11.5px' }}>
-                    <strong style={{ color: '#2E6B2E' }}>✅ Scope 2 — SBTi 2031 target already achieved!</strong>{' '}
-                    Tuy nhiên, cần tiếp tục giảm để tạo dư địa cho các nhà máy khác trong nhóm 4 nhà máy cùng chung mục tiêu 50%.
-                    Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.
+                    <strong style={{ color: '#2E6B2E' }}>{lang === 'vi' ? '✅ Scope 2 — Đã đạt mục tiêu SBTi 2031!' : '✅ Scope 2 — SBTi 2031 target already achieved!'}</strong>{' '}
+                    {lang === 'vi'
+                      ? 'Tuy nhiên, cần tiếp tục giảm để tạo dư địa cho các nhà máy khác trong nhóm 4 nhà máy cùng chung mục tiêu 50%. Trajectory hiện tại hướng tới giảm thêm 25% từ mức 2025.'
+                      : 'However, further reductions are needed to create headroom for the other factories in the group of 4 sharing the 50% target. Current trajectory aims for an additional 25% reduction from 2025 levels.'}
                   </p>
                 )}
                 {/* PT Solar announcement banner */}
@@ -1661,6 +1870,20 @@ export default function OpexReportPage() {
                   </div>
                 </div>
 
+                {/* ── Overall Scope 3 Commentary ── */}
+                <div style={{ marginTop: 10, fontSize: '11px', lineHeight: '1.55', color: '#333' }}>
+                  <p style={{ margin: '0 0 4px', padding: '6px 10px', background: pctVsBase <= 0 ? '#f0fdf4' : '#fff5f5', borderLeft: `3px solid ${pctVsBase <= 0 ? '#3E7B3E' : '#C8281A'}`, borderRadius: '4px' }}>
+                    <strong style={{ color: pctVsBase <= 0 ? '#3E7B3E' : '#C8281A' }}>
+                      {lang === 'vi' ? '📊 Hiệu suất Tổng thể Scope 3:' : '📊 Scope 3 Overall Performance:'}
+                    </strong>{' '}
+                    {lang === 'vi' ? 'Tổng phát thải chuỗi cung ứng hiện tại ghi nhận ở mức ' : 'Total supply chain footprint currently sits at '}
+                    <strong>{fmt(s3Cur.total)} tCO₂e</strong> ({pctVsBase > 0 ? '+' : ''}{pctVsBase}% {lang === 'vi' ? 'so với năm cơ sở 2021' : 'vs 2021 baseline'}).{' '}
+                    {pctVsBase <= 0
+                      ? (lang === 'vi' ? 'Đang đi đúng hướng so với mục tiêu dài hạn SBTi (2032).' : 'Currently tracking positively against long-term SBTi objectives (2032).')
+                      : (lang === 'vi' ? 'Cần tăng tốc giảm phát thải từ nguồn mua sắm (Cat.1) và vận chuyển (Cat.4) để đưa quỹ đạo về sát mục tiêu FLAG.' : 'Accelerated reductions in procurement (Cat.1) and transport (Cat.4) are required to realign with the FLAG trajectory.')}
+                  </p>
+                </div>
+
                 {/* ── Origin Risk Analysis Panel ── */}
                 {showOrigin && (() => {
                   const selOD = originData.find(d => d.year === selectedOriginYear);
@@ -1758,8 +1981,8 @@ export default function OpexReportPage() {
                               ))}
                               <div style={{ marginTop: 3, fontSize: '9px', color: '#777', fontStyle: 'italic' }}>
                                 {Math.abs(mixEffect) > Math.abs(volumeEffect)
-                                  ? '⚠️ Thay đổi chủ yếu do SOURCING MIX (chuyển sang origin EF cao hơn), không phải do mua nhiều hơn.'
-                                  : '📦 Thay đổi chủ yếu do VOLUME (mua nhiều/ít hơn), không phải do thay đổi nguồn.'}
+                                  ? (lang === 'vi' ? '⚠️ Thay đổi chủ yếu do SOURCING MIX (chuyển sang origin EF cao hơn), không phải do mua nhiều hơn.' : '⚠️ Change primarily driven by SOURCING MIX (shift to higher EF origin), not by volume.')
+                                  : (lang === 'vi' ? '📦 Thay đổi chủ yếu do VOLUME (mua nhiều/ít hơn), không phải do thay đổi nguồn.' : '📦 Change primarily driven by VOLUME (purchasing more/less), not by origin shift.')}
                               </div>
                             </div>
                           );
@@ -1779,7 +2002,7 @@ export default function OpexReportPage() {
                           })}
                         </div>
                         <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#666', fontStyle: 'italic' }}>
-                          ⚠️ Data based on SBTi FLAG EF methodology. Click row để xem phân tích EF-driven vs Volume-driven.
+                          {lang === 'vi' ? '⚠️ Data based on SBTi FLAG EF methodology. Click row để xem phân tích EF-driven vs Volume-driven.' : '⚠️ Data based on SBTi FLAG EF methodology. Click row to view EF-driven vs Volume-driven analysis.'}
                         </p>
                       </div>
                     </div>
@@ -1792,10 +2015,15 @@ export default function OpexReportPage() {
 
                 {/* ── Note banner ── */}
                 <div style={{ padding: '6px 10px', background: '#fffbeb', border: '1px solid #E8960E', borderRadius: 5, fontSize: '10.5px', color: '#7a4f00' }}>
-                  ℹ️ <strong>Scope 3 Overview & EF Analysis</strong> —
-                  Phân tích <em>overview tổng thể</em> vì dữ liệu Scope 3 chưa phân theo nhà máy.
-                  EF (tCO₂e / tRCN) giúp đánh giá hiệu quả phát thải độc lập với quy mô hoạt động.
-                  Cần bổ sung dữ liệu phân bổ Scope 3 theo nhà máy cho báo cáo tiếp theo.
+                  {lang === 'vi' ? (
+                    <>ℹ️ <strong style={{ display: 'inline-flex', alignItems: 'center' }}>Scope 3 Overview & EF Analysis
+                      <span title="Khối phân tích dùng EF (tCO₂e/tấn RCN) làm thước đo chính để bóc tách:&#10;Sự tăng/giảm phát thải năm nay là do quy mô kinh doanh thay đổi (Volume), hay do chuỗi cung ứng đang kém/tốt đi (Sourcing Mix / Mua từ vùng có EF cao)?&#10;Các biểu đồ bên dưới sẽ bóc tách yếu tố Volume, chỉ đánh giá thuần túy hiệu suất Carbon (EF) để đưa ra định hướng Action Plan." style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, background: '#E8960E', color: 'white', borderRadius: '50%', fontSize: '9px', marginLeft: 6, fontWeight: 'bold' }}>?</span>
+                    </strong> — Phân tích <em>overview tổng thể</em> vì dữ liệu Scope 3 chưa phân theo nhà máy. EF (tCO₂e / tRCN) giúp đánh giá hiệu quả phát thải.<br /><span style={{ opacity: 0.85, fontSize: '9.5px' }}>* Rê chuột vào dấu (?) trên tiêu đề để xem nguyên lý phân tích.</span></>
+                  ) : (
+                    <>ℹ️ <strong style={{ display: 'inline-flex', alignItems: 'center' }}>Scope 3 Overview & EF Analysis
+                      <span title="This analysis uses EF (tCO₂e/tonne RCN) to isolate:&#10;Are emission changes due to business scale (Volume) or actual supply chain efficiency (Sourcing Mix)?&#10;The charts below strip away the Volume factor to evaluate pure Carbon efficiency, generating targeted Action Plans." style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, background: '#E8960E', color: 'white', borderRadius: '50%', fontSize: '9px', marginLeft: 6, fontWeight: 'bold' }}>?</span>
+                    </strong> — <em>Aggregated overview</em> logic applied as Scope 3 is not yet allocated per factory. EF (tCO₂e / tRCN) evaluates emissions efficiency.<br /><span style={{ opacity: 0.85, fontSize: '9.5px' }}>* Hover over the (?) icon in the title to view analysis rationale.</span></>
+                  )}
                 </div>
 
                 {/* ── EF Trend — all years ── */}
@@ -1830,7 +2058,7 @@ export default function OpexReportPage() {
                     <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>
-                          📊 EF Scope 3 — tCO₂e per tonne RCN (tất cả các năm)
+                          {lang === 'vi' ? '📊 EF Scope 3 — tCO₂e per tonne RCN (tất cả các năm)' : '📊 Scope 3 EF — tCO₂e per tonne RCN (all years)'}
                         </div>
                         <button
                           onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-ef') as unknown as SVGSVGElement, 'Scope3_EF_Trend.png')}
@@ -1899,7 +2127,7 @@ export default function OpexReportPage() {
                             <span style={{ color: '#555' }}>{c.label}</span>
                           </span>
                         ))}
-                        <span style={{ color: '#888', marginLeft: 4 }}>▲▼ = YoY delta EF</span>
+                        <span style={{ color: '#888', marginLeft: 4 }}>{lang === 'vi' ? '▲▼ = YoY delta EF' : '▲▼ = EF YoY delta'}</span>
                       </div>
                     </div>
                   );
@@ -1923,7 +2151,7 @@ export default function OpexReportPage() {
                     <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>
-                          🥧 Tỷ trọng % Category Scope 3 — qua các năm
+                          {lang === 'vi' ? '🥧 Tỷ trọng % Category Scope 3 — qua các năm' : '🥧 Scope 3 Category Breakdown (%) — YoY'}
                         </div>
                         <button
                           onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-cat') as unknown as SVGSVGElement, 'Scope3_Category_Percentage.png')}
@@ -2009,18 +2237,18 @@ export default function OpexReportPage() {
                   return (
                     <div style={{ fontSize: '11px', lineHeight: '1.65', borderTop: '1px solid #eee', paddingTop: 8 }}>
                       <p style={{ margin: '0 0 4px', fontWeight: 700, color: '#1a3d5c' }}>
-                        ✏️ So sánh EF Scope 3 — Năm qua Năm ({allYrs[0].y}–{allYrs[allYrs.length - 1].y})
+                        {lang === 'vi' ? `✏️ So sánh EF Scope 3 — Năm qua Năm (${allYrs[0].y}–${allYrs[allYrs.length - 1].y})` : `✏️ Scope 3 EF Comparison — Year over Year (${allYrs[0].y}–${allYrs[allYrs.length - 1].y})`}
                       </p>
                       <div style={{ overflowX: 'auto', marginBottom: 8 }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
                           <thead>
                             <tr style={{ background: '#1a3d5c', color: 'white' }}>
-                              <th style={{ padding: '3px 6px', textAlign: 'left' }}>Giai đoạn</th>
-                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>EF trước</th>
-                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>EF hiện tại</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'left' }}>{lang === 'vi' ? 'Giai đoạn' : 'Period'}</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>{lang === 'vi' ? 'EF trước' : 'Prev EF'}</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'right' }}>{lang === 'vi' ? 'EF hiện tại' : 'Cur EF'}</th>
                               <th style={{ padding: '3px 6px', textAlign: 'right' }}>Δ EF</th>
                               <th style={{ padding: '3px 6px', textAlign: 'right' }}>Δ Emission</th>
-                              <th style={{ padding: '3px 6px', textAlign: 'left' }}>Nhận xét</th>
+                              <th style={{ padding: '3px 6px', textAlign: 'left' }}>{lang === 'vi' ? 'Nhận xét' : 'Remarks'}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2028,10 +2256,10 @@ export default function OpexReportPage() {
                               const isUp = r.delta > 0.005;
                               const isDn = r.delta < -0.005;
                               const remark = isUp
-                                ? 'EF tăng → nguồn carbon cao hơn hoặc logistics kém hiệu quả'
+                                ? (lang === 'vi' ? 'EF tăng → nguồn carbon cao hơn hoặc logistics kém hiệu quả' : 'EF increased → higher carbon source or inefficient logistics')
                                 : isDn
-                                  ? 'EF giảm → tối ưu logistics hoặc nguồn carbon thấp hơn'
-                                  : 'EF ổn định';
+                                  ? (lang === 'vi' ? 'EF giảm → tối ưu logistics hoặc nguồn carbon thấp hơn' : 'EF decreased → logistics optimized or lower carbon source')
+                                  : (lang === 'vi' ? 'EF ổn định' : 'Stable EF');
                               return (
                                 <tr key={r.to} style={{ borderBottom: '1px solid #eee', background: isUp ? '#fff5f5' : isDn ? '#f0fdf4' : '#fff' }}>
                                   <td style={{ padding: '3px 6px', fontWeight: 700 }}>{r.from}→{r.to}</td>
@@ -2065,54 +2293,57 @@ export default function OpexReportPage() {
                       </div>
                       {latestRow.delta > 0.005 ? (
                         <div style={{ padding: '7px 10px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 5, marginBottom: 6 }}>
-                          <strong style={{ color: '#C8281A' }}>⬆️ D. Nguyên nhân EF tăng ({latestRow.from}→{latestRow.to}):</strong>
+                          <strong style={{ color: '#C8281A' }}>⬆️ {lang === 'vi' ? `D. Nguyên nhân EF tăng (${latestRow.from}→${latestRow.to}):` : `D. Causes of EF Increase (${latestRow.from}→${latestRow.to}):`}</strong>
                           <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
-                            {latestRow.cat4Pct > 30 && <li>📦 Tăng tỷ trọng <strong>vận chuyển dài/hàng không</strong> — Cat.4 chiếm {latestRow.cat4Pct}% Scope 3</li>}
-                            <li>✈️ Tăng <strong>đi lại nhân sự</strong> và chi phí di chuyển</li>
-                            <li>⛽ Nguồn cung <strong>nhiên liệu carbon cao</strong> tăng</li>
-                            {latestRow.cat1Pct > 60 && <li>🌍 Tăng <strong>mua sắm từ nguồn emission cao</strong> — Cat.1 chiếm {latestRow.cat1Pct}% Scope 3</li>}
+                            {latestRow.cat4Pct > 30 && <li>📦 {lang === 'vi' ? <span>Tăng tỷ trọng <strong>vận chuyển dài/hàng không</strong> — Cat.4 chiếm {latestRow.cat4Pct}% Scope 3</span> : <span>Increased ratio of <strong>long-haul/air freight</strong> — Cat.4 accounts for {latestRow.cat4Pct}% of Scope 3</span>}</li>}
+                            <li>✈️ {lang === 'vi' ? <span>Tăng <strong>đi lại nhân sự</strong> và chi phí di chuyển</span> : <span>Increased <strong>business travel</strong> and commuting</span>}</li>
+                            <li>⛽ {lang === 'vi' ? <span>Nguồn cung <strong>nhiên liệu carbon cao</strong> tăng</span> : <span>Increased supply of <strong>high-carbon fuel</strong></span>}</li>
+                            {latestRow.cat1Pct > 60 && <li>🌍 {lang === 'vi' ? <span>Tăng <strong>mua sắm từ nguồn emission cao</strong> — Cat.1 chiếm {latestRow.cat1Pct}% Scope 3</span> : <span>Increased <strong>procurement from high-emission sources</strong> — Cat.1 accounts for {latestRow.cat1Pct}% of Scope 3</span>}</li>}
                           </ul>
                         </div>
                       ) : latestRow.delta < -0.005 ? (
                         <div style={{ padding: '7px 10px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 5, marginBottom: 6 }}>
-                          <strong style={{ color: '#3E7B3E' }}>⬇️ D. Nguyên nhân EF giảm ({latestRow.from}→{latestRow.to}):</strong>
+                          <strong style={{ color: '#3E7B3E' }}>⬇️ {lang === 'vi' ? `D. Nguyên nhân EF giảm (${latestRow.from}→${latestRow.to}):` : `D. Causes of EF Decrease (${latestRow.from}→${latestRow.to}):`}</strong>
                           <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
-                            <li>🌿 Chuyển <strong>nhà cung cấp carbon thấp hơn</strong> (Nigeria, Benin, Cambodia)</li>
-                            <li>🚢 Tối ưu <strong>lộ trình và phương tiện vận tải</strong></li>
-                            <li>💻 Giảm travel, <strong>tăng họp trực tuyến</strong></li>
-                            <li>📈 Cải thiện <strong>hiệu suất sử dụng nguyên liệu</strong></li>
+                            <li>🌿 {lang === 'vi' ? <span>Chuyển <strong>nhà cung cấp carbon thấp hơn</strong> (Nigeria, Benin, Cambodia)</span> : <span>Shifted to <strong>lower-carbon suppliers</strong> (Nigeria, Benin, Cambodia)</span>}</li>
+                            <li>🚢 {lang === 'vi' ? <span>Tối ưu <strong>lộ trình và phương tiện vận tải</strong></span> : <span>Optimized <strong>routes and transport modes</strong></span>}</li>
+                            <li>💻 {lang === 'vi' ? <span>Giảm travel, <strong>tăng họp trực tuyến</strong></span> : <span>Reduced travel, <strong>increased virtual meetings</strong></span>}</li>
+                            <li>📈 {lang === 'vi' ? <span>Cải thiện <strong>hiệu suất sử dụng nguyên liệu</strong></span> : <span>Improved <strong>material utilization efficiency</strong></span>}</li>
                           </ul>
                         </div>
                       ) : (
                         <div style={{ padding: '6px 10px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: 5, marginBottom: 6, fontSize: '10.5px', color: '#555' }}>
-                          ↔️ EF ổn định trong năm gần nhất — tiếp tục duy trì.
+                          ↔️ {lang === 'vi' ? 'EF ổn định trong năm gần nhất — tiếp tục duy trì.' : 'EF stable in recent year — maintain performance.'}
                         </div>
                       )}
                       <div style={{ padding: '7px 10px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 5 }}>
-                        <strong style={{ color: '#0369a1' }}>🎯 Đề xuất hành động — 2 category ưu tiên:</strong>
+                        <strong style={{ color: '#0369a1', display: 'flex', alignItems: 'center' }}>
+                          🎯 {lang === 'vi' ? 'Đề xuất hành động — 2 category ưu tiên:' : 'Action Plan — 2 priority categories:'}
+                          <span title={lang === 'vi' ? "❗ KẾT LUẬN CHIẾN LƯỢC TỪ DỮ LIỆU:&#10;1. Sinh mệnh nằm ở phòng Thu Mua: Cat.1 (nguyên liệu RCN) chiếm 98% Scope 3. Việc đạt target phụ thuộc hoàn toàn vào quyết định của Purchasing.&#10;2. Lỗi Sourcing mang tính thời vụ: EF nhảy múa (tăng/giảm thất thường) cho thấy chúng ta đang mua theo giá rẻ thay vì vùng có lượng carbon thấp.&#10;3. Công thức thành công (Dựa trên data 2025): Chuyển hướng mua hàng sang Tây Phi (Nigeria, Benin, Cambodia) thay vì vùng thâm canh cao (Indonesia/Việt Nam).&#10;👉 Hành động: Bắt buộc đưa EF của vùng trồng vào ma trận thầu thu mua từ 2026." : "❗ STRATEGIC EXECUTIVE SUMMARY:&#10;1. Survival lies in Procurement: Cat.1 (RCN) accounts for 98% of Scope 3. Target achievement depends almost entirely on Purchasing decisions.&#10;2. Opportunistic Sourcing: The wildly fluctuating EF shows we buy based on price rather than prioritizing low-carbon origin regions.&#10;3. The Blueprint (based on 2025 data): Directing sourcing volumes toward West Africa/Cambodia instead of highly intensified regions natively drops EF.&#10;👉 Action: The Origin Emission Factor MUST be integrated into the procurement bidding KPI matrix starting 2026."} style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, background: '#C8281A', color: 'white', borderRadius: '50%', fontSize: '10px', marginLeft: 8, fontWeight: 'bold', boxShadow: '0 0 4px rgba(200,40,26,0.4)' }}>!</span>
+                        </strong>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
                           <div style={{ background: '#fff', borderRadius: 4, padding: '6px 8px', border: '1px solid #e0f2fe' }}>
-                            <div style={{ fontWeight: 700, color: '#4A9E8C', marginBottom: 3, fontSize: '10.5px' }}>🚢 Vận chuyển (Cat.4)</div>
+                            <div style={{ fontWeight: 700, color: '#4A9E8C', marginBottom: 3, fontSize: '10.5px' }}>🚢 {lang === 'vi' ? 'Vận chuyển' : 'Transport'} (Cat.4)</div>
                             <ul style={{ margin: 0, paddingLeft: 14, fontSize: '10px', color: '#444' }}>
-                              <li>Gom đơn hàng → giảm số chuyến</li>
-                              <li>Vessel thay thế road freight cho hàng xa</li>
-                              <li>Load factor target ≥85%</li>
+                              <li>{lang === 'vi' ? 'Gom đơn hàng → giảm số chuyến' : 'Consolidate orders → reduce trips'}</li>
+                              <li>{lang === 'vi' ? 'Vessel thay thế road freight cho hàng xa' : 'Use vessel over road freight for long hauls'}</li>
+                              <li>{lang === 'vi' ? 'Load factor target ≥85%' : 'Load factor target ≥85%'}</li>
                             </ul>
                           </div>
                           <div style={{ background: '#fff', borderRadius: 4, padding: '6px 8px', border: '1px solid #e0f2fe' }}>
-                            <div style={{ fontWeight: 700, color: '#2F855A', marginBottom: 3, fontSize: '10.5px' }}>🌍 Mua sắm (Cat.1)</div>
+                            <div style={{ fontWeight: 700, color: '#2F855A', marginBottom: 3, fontSize: '10.5px' }}>🌍 {lang === 'vi' ? 'Mua sắm' : 'Procurement'} (Cat.1)</div>
                             <ul style={{ margin: 0, paddingLeft: 14, fontSize: '10px', color: '#444' }}>
-                              <li>Ưu tiên Nigeria/Benin/Cambodia (EF thấp)</li>
-                              <li>Giảm Indonesia/Vietnam (EF cao)</li>
-                              <li>Yêu cầu RA/ASC supplier certification</li>
+                              <li>{lang === 'vi' ? 'Ưu tiên Nigeria/Benin/Cambodia (EF thấp)' : 'Prioritize Nigeria/Benin/Cambodia (low EF)'}</li>
+                              <li>{lang === 'vi' ? 'Giảm Indonesia/Vietnam (EF cao)' : 'Reduce Indonesia/Vietnam (high EF)'}</li>
+                              <li>{lang === 'vi' ? 'Yêu cầu RA/ASC supplier certification' : 'Demand RA/ASC supplier certification'}</li>
                             </ul>
                           </div>
                         </div>
                       </div>
                       <div style={{ marginTop: 8, fontSize: '10.5px', color: '#555', lineHeight: '1.55' }}>
-                        <strong>Lộ trình:</strong> {targetEndYear}: <strong style={{ color: '#3E7B3E' }}>{fmt(planVal(targetEndYear))} tCO₂e</strong> →{' '}
+                        <strong>{lang === 'vi' ? 'Lộ trình:' : 'Roadmap:'}</strong> {targetEndYear}: <strong style={{ color: '#3E7B3E' }}>{fmt(planVal(targetEndYear))} tCO₂e</strong> →{' '}
                         SBTi 2032: <strong style={{ color: '#3E7B3E' }}>{fmt(totalTarget2032)} tCO₂e</strong>{' '}
-                        (run-rate: ~<strong>{fmt(annualCutNeeded)} tCO₂e/năm</strong>).
+                        (run-rate: ~<strong>{fmt(annualCutNeeded)} {lang === 'vi' ? 'tCO₂e/năm' : 'tCO₂e/yr'}</strong>).
                       </div>
                     </div>
                   );
@@ -2130,7 +2361,7 @@ export default function OpexReportPage() {
         const HDR_COLOR = '#1a3d5c';        // navy — factory headers
         const ACCENT = C.actual;            // #C8281A
         // ── RCN line chart ─────────────────────────────────────────
-        function RcnChart({ yrs }: { yrs: { year: number; rcn: number }[] }) {
+        function RcnChart({ yrs, svgId, facId }: { yrs: { year: number; rcn: number }[]; svgId: string; facId: string }) {
           const W = 300, H = 170;
           const PL = 38, PR = 38, PT = 36, PB = 24;
           const n = yrs.length;
@@ -2142,13 +2373,13 @@ export default function OpexReportPage() {
           return (
             <div style={{ position: 'relative' }}>
               <button
-                onClick={() => downloadSvgAsPng(document.getElementById('svg-rcn') as unknown as SVGSVGElement, `RCN_Production_Trend_${selectedFac}.png`)}
+                onClick={() => downloadSvgAsPng(document.getElementById(svgId) as unknown as SVGSVGElement, `RCN_Production_Trend_${facId}.png`)}
                 style={{ position: 'absolute', top: 0, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                 title="Tải ảnh PNG độ phân giải cao"
               >
                 <span>📸</span> HD
               </button>
-              <svg id="svg-rcn" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+              <svg id={svgId} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
                 {/* baseline rule */}
                 <line x1={PL} y1={H - PB} x2={W - PR} y2={H - PB} stroke="#ddd" strokeWidth={1} />
                 <polyline points={pts} fill="none" stroke={S1_COLOR} strokeWidth={2.2} strokeLinejoin="round" />
@@ -2174,7 +2405,7 @@ export default function OpexReportPage() {
         }
 
         // ── Intensity stacked bar chart ─────────────────────────────
-        function IntChart({ yrs }: { yrs: { year: number; s1Int: number; s2Int: number; totalInt: number }[] }) {
+        function IntChart({ yrs, svgId, facId }: { yrs: { year: number; s1Int: number; s2Int: number; totalInt: number }[]; svgId: string; facId: string }) {
           const W = 300, H = 190;
           const PL = 10, PR = 10, PT = 26, PB = 38;
           const n = yrs.length;
@@ -2191,13 +2422,13 @@ export default function OpexReportPage() {
           return (
             <div style={{ position: 'relative' }}>
               <button
-                onClick={() => downloadSvgAsPng(document.getElementById('svg-int') as unknown as SVGSVGElement, `Emission_Intensity_${selectedFac}.png`)}
+                onClick={() => downloadSvgAsPng(document.getElementById(svgId) as unknown as SVGSVGElement, `Emission_Intensity_${facId}.png`)}
                 style={{ position: 'absolute', top: -14, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                 title="Tải ảnh PNG độ phân giải cao"
               >
                 <span>📸</span> HD
               </button>
-              <svg id="svg-int" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+              <svg id={svgId} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
                 {/* horizontal grid */}
                 {[0.25, 0.5, 0.75, 1].map(f => (
                   <line key={f} x1={PL} y1={py(maxV * f / 1.26)} x2={W - PR} y2={py(maxV * f / 1.26)}
@@ -2308,7 +2539,7 @@ export default function OpexReportPage() {
                           <div style={{ fontSize: 9, color: '#666', fontWeight: 600, textAlign: 'center' }}>
                             RCN {lang === 'vi' ? 'Đầu vào (tấn)' : 'Input (t)'}
                           </div>
-                          <RcnChart yrs={col.years} />
+                          <RcnChart yrs={col.years} svgId={`svg-rcn-${col.fac.id}`} facId={col.fac.id} />
                         </div>
 
                         {/* Intensity chart */}
@@ -2316,7 +2547,7 @@ export default function OpexReportPage() {
                           <div style={{ fontSize: 9, color: '#666', fontWeight: 600, textAlign: 'center' }}>
                             CO₂ Intensity (kg CO₂e / t RCN)
                           </div>
-                          <IntChart yrs={col.years} />
+                          <IntChart yrs={col.years} svgId={`svg-int-${col.fac.id}`} facId={col.fac.id} />
                         </div>
                       </div>
                     ))}
@@ -2407,6 +2638,288 @@ export default function OpexReportPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── NEW: 5-Panel Scope 3 Regional Slide ───────────────── */}
+      {(() => {
+        if (!scope3Regional.length) return null;
+
+        // Target calculations
+        const tBase = scope3Regional.find(row => row.year === 2021)?.total || 0;
+        const target2032 = Math.round(tBase * 0.7); // 30% reduction SBTi
+        const v2024 = scope3Regional.find(row => row.year === 2024)?.total || 0;
+        const v2025 = scope3Regional.find(row => row.year === 2025)?.total || 0;
+        const r2024Str = tBase ? `~${Math.round((tBase - v2024) / tBase * 100)}% reduction` : '';
+
+        const maxTot = Math.max(tBase, v2024, v2025, 1) * 1.35;
+
+        // Colors matching slide
+        const CVN = '#9A0000'; // Dark red
+        const CIN = '#8A8A8A'; // Grey
+
+        return (
+          <div style={{ padding: '24px 10px 10px', animation: 'scaleIn 0.3s ease both', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              width: '100%',
+              background: '#F0EFEF', // Light gray background of slide
+              border: `1.5px solid #dcdcdc`,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              overflow: 'hidden',
+              fontFamily: 'Inter, sans-serif'
+            }}>
+              {/* Slide Title */}
+              <div style={{ padding: '16px 20px 10px', borderBottom: '1px solid #ccc' }}>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#111', lineHeight: 1.1 }}>
+                  Total Scope 3 Emissions – Vietnam &amp; India (2021–2025)
+                </div>
+                <div style={{ fontSize: 13, color: '#555', fontWeight: 500, marginTop: 4 }}>
+                  Transportation | Fuel &amp; Energy | Purchase of Goods
+                </div>
+              </div>
+
+              {/* Main Body Grid */}
+              <div style={{ display: 'flex', padding: 12, gap: 12 }}>
+
+                {/* LEFT: Panel 1 (Trend & Target) */}
+                <div style={{ flex: '1.2' }}>
+                  <div style={{
+                    background: '#9A0000', color: 'white', padding: '4px 10px', fontSize: 12, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', borderRadius: '4px 4px 0 0'
+                  }}>
+                    <div style={{
+                      background: 'white', color: '#9A0000', width: 18, height: 18, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, fontSize: 11
+                    }}>1</div>
+                    TOTAL SCOPE 3 TREND &amp; TARGET
+                  </div>
+                  <div style={{ background: 'white', padding: '8px 16px 8px', border: '1px solid #ccc', borderTop: 'none', height: 300, position: 'relative' }}>
+
+                    {/* SVG Stacked Chart -- viewBox expanded upward for annotation room */}
+                    <svg viewBox="0 -65 580 285" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                      <defs>
+                        <marker id="s3-arrow" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
+                          <polygon points="0,0 8,4 0,8" fill="#9A0000" />
+                        </marker>
+                      </defs>
+
+                      {/* Grid lines */}
+                      {[0.25, 0.5, 0.75, 1].map(f => (
+                        <line key={f} x1="0" x2="600" y1={210 - f * 210} y2={210 - f * 210} stroke="#eee" strokeWidth="1" />
+                      ))}
+
+                      {/* Bars — show 2021-2026 YTD, tight spacing */}
+                      {scope3Regional.filter(r => r.year <= 2026).map((r, i) => {
+                        const hIn = (r.india / maxTot) * 210;
+                        const hVn = (r.vn / maxTot) * 210;
+                        const x = 10 + i * 72;
+                        return (
+                          <g key={r.year}>
+                            <rect x={x} y={210 - hIn} width={52} height={hIn} fill={CIN} />
+                            {hIn > 20 && <text x={x + 26} y={210 - hIn / 2 + 4} textAnchor="middle" fill="white" fontSize="10">India</text>}
+                            <rect x={x} y={210 - hIn - hVn} width={52} height={hVn} fill={CVN} />
+                            {hVn > 20 && <text x={x + 26} y={210 - hIn - hVn / 2 + 4} textAnchor="middle" fill="white" fontSize="10">Vietnam</text>}
+                            <text x={x + 26} y={210 - hIn - hVn - 5} textAnchor="middle" fill="#000" fontSize="11" fontWeight="800">
+                              {r.total.toLocaleString()}
+                            </text>
+                            <text x={x + 26} y={226} textAnchor="middle" fill="#000" fontSize="11" fontWeight="600">
+                              {r.year}{r.year === 2026 ? '*' : ''}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* 2032 Target Bar -- placed far right after 2026 */}
+                      <g>
+                        <rect x={448} y={210 - (target2032 * 0.35 / maxTot) * 210} width={52} height={(target2032 * 0.35 / maxTot) * 210} fill={CIN} opacity={0.8} />
+                        <rect x={448} y={210 - (target2032 / maxTot) * 210} width={52} height={(target2032 * 0.65 / maxTot) * 210} fill={CVN} opacity={0.8} />
+                        <text x={474} y={210 - (target2032 / maxTot) * 210 - 5} textAnchor="middle" fill="#000" fontSize="11" fontWeight="800">
+                          {target2032.toLocaleString()}
+                        </text>
+                        <text x={474} y={226} textAnchor="middle" fill="#000" fontSize="10" fontWeight="600">2032 Target</text>
+                        <line x1={435} x2={515} y1={210} y2={210} stroke="#000" strokeWidth="2" strokeDasharray="4,4" />
+                      </g>
+
+                      {/* --- Callout annotations placed ABOVE the chart (y = -65 to 0 zone) --- */}
+                      {/* Callout 1 (2024 reduction) - left top */}
+                      <g>
+                        <rect x={2} y={-62} width={148} height={42} fill="#fff8f8" stroke="#9A0000" strokeWidth="0.8" rx="3" />
+                        <text x={8} y={-48} fontSize="10" fontWeight="700" fill="#9A0000">{r2024Str}</text>
+                        <text x={8} y={-36} fontSize="10" fill="#555">achieved 2024 vs 2021</text>
+                        <text x={8} y={-24} fontSize="10" fill="#555">baseline (Cat.1 mix shift)</text>
+                        {/* Straight arrow pointing down toward 2024 bar (i=3, x=10+3*72=226, center=252) */}
+                        <line x1={76} y1={-20} x2={252} y2={2} stroke="#9A0000" strokeWidth="1" markerEnd="url(#s3-arrow)" />
+                      </g>
+
+                      {/* Callout 2 (2025 note) - right top */}
+                      <g>
+                        <rect x={295} y={-62} width={155} height={42} fill="#fff8f8" stroke="#9A0000" strokeWidth="0.8" rx="3" />
+                        <text x={301} y={-48} fontSize="10" fontWeight="700" fill="#9A0000">2025 rebound ↑</text>
+                        <text x={301} y={-36} fontSize="10" fill="#555">Higher RCN procurement</text>
+                        <text x={301} y={-24} fontSize="10" fill="#555">volume, still ~17% below '21</text>
+                        {/* Straight arrow pointing down toward 2025 bar (i=4, x=10+4*72=298, center=324) */}
+                        <line x1={370} y1={-20} x2={324} y2={2} stroke="#9A0000" strokeWidth="1" markerEnd="url(#s3-arrow)" />
+                      </g>
+
+                      {/* SBTi target label near target bar */}
+                      <g>
+                        <text x={474} y={210 - (target2032 / maxTot) * 210 - 25} textAnchor="middle" fontSize="9" fill="#9A0000" fontWeight="700">SBTi</text>
+                        <text x={474} y={210 - (target2032 / maxTot) * 210 - 15} textAnchor="middle" fontSize="9" fill="#9A0000">-42% by</text>
+                        <text x={474} y={210 - (target2032 / maxTot) * 210 - 5} textAnchor="middle" fontSize="9" fill="#9A0000">2032</text>
+                      </g>
+
+                      {/* Bottom line */}
+                      <line x1="5" x2="510" y1="210" y2="210" stroke="#000" strokeWidth="2" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* RIGHT: Panel 2 (Detailed Breakdown) */}
+                <div style={{ flex: '0.8', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{
+                    background: '#9A0000', color: 'white', padding: '4px 10px', fontSize: 12, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', borderRadius: '4px 4px 0 0'
+                  }}>
+                    <div style={{
+                      background: 'white', color: '#9A0000', width: 18, height: 18, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, fontSize: 11
+                    }}>2</div>
+                    DETAILED BREAKDOWN BY CATEGORY &amp; COUNTRY (2021–2025)
+                  </div>
+                  <div style={{ background: 'transparent', display: 'flex', flexDirection: 'column', gap: 6, flex: 1, padding: '4px 0' }}>
+
+                    {[
+                      { title: 'TRANSPORTATION (tCO₂e)', kIn: 'cat4_in', kVn: 'cat4_vn' },
+                      { title: 'FUEL & ENERGY RELATED ACTIVITIES (tCO₂e)', kIn: 'cat3_in', kVn: 'cat3_vn' },
+                      { title: 'PURCHASE OF GOODS & SERVICES (RCN) (tCO₂e)', kIn: 'cat1_in', kVn: 'cat1_vn' },
+                    ].map((sec, sid) => {
+                      const sectionMax = Math.max(...scope3Regional.map(r => r[sec.kIn as keyof typeof r] as number + (r[sec.kVn as keyof typeof r] as number)), 1) * 1.35;
+                      return (
+                        <div key={sid} style={{ background: 'white', border: '1px solid #ccc', padding: '4px 8px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, textAlign: 'center', color: '#333', background: '#eaeaea', padding: '2px 0', marginBottom: 6 }}>
+                            {sec.title}
+                          </div>
+                          <div style={{ position: 'relative', flex: 1 }}>
+                            {sid === 0 && (
+                              <div style={{ position: 'absolute', top: -16, right: 0, display: 'flex', gap: 8, fontSize: 9, fontWeight: 600 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}><div style={{ width: 8, height: 8, background: CVN }} />Vietnam</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}><div style={{ width: 8, height: 8, background: CIN }} />India</div>
+                              </div>
+                            )}
+                            <svg viewBox="0 0 400 90" width="100%" height="90" style={{ overflow: 'visible' }}>
+                              <line x1="0" x2="400" y1="75" y2="75" stroke="#aaa" strokeWidth="1" />
+                              {scope3Regional.map((r, i) => {
+                                const vI = r[sec.kIn as keyof typeof r] as number;
+                                const vV = r[sec.kVn as keyof typeof r] as number;
+                                const hI = (vI / sectionMax) * 75;
+                                const hV = (vV / sectionMax) * 75;
+                                const x = 20 + i * (380 / 5);
+                                return (
+                                  <g key={r.year}>
+                                    <rect x={x} y={75 - hI} width={36} height={hI} fill={CIN} />
+                                    {hI > 17 && <text x={x + 18} y={75 - hI / 2 + 3} textAnchor="middle" fill="white" fontSize="9" fontWeight="600">{vI.toLocaleString()}</text>}
+
+                                    <rect x={x} y={75 - hI - hV} width={36} height={hV} fill={CVN} />
+                                    {hV > 17 && <text x={x + 18} y={75 - hI - hV / 2 + 3} textAnchor="middle" fill="white" fontSize="9" fontWeight="600">{vV.toLocaleString()}</text>}
+
+                                    <text x={x + 18} y={75 - hI - hV - 4} textAnchor="middle" fill="#000" fontSize="10" fontWeight="800">{(vI + vV).toLocaleString()}</text>
+                                    <text x={x + 18} y={87} textAnchor="middle" fill="#000" fontSize="9">{r.year}</text>
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Bottom Row Grids */}
+              <div style={{ display: 'flex', padding: '0 12px 12px', gap: 12 }}>
+
+                {/* Panel 3: Summary table */}
+                <div style={{ flex: '0.6', border: '1px solid #ccc', background: 'white' }}>
+                  <div style={{ background: '#9A0000', color: 'white', padding: '3px 8px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
+                    <div style={{ background: 'white', color: '#9A0000', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6, fontSize: 9 }}>3</div>
+                    TOTAL SCOPE 3 BY COUNTRY (SUMMARY)
+                  </div>
+                  <div style={{ display: 'flex', padding: '6px 12px', fontSize: 11 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, color: '#333', marginBottom: 4 }}>🇻🇳 Vietnam</div>
+                      {scope3Regional.map(r => (
+                        <div key={r.year} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
+                          <span style={{ color: '#666' }}>• {r.year}:</span>
+                          <span style={{ fontWeight: 600 }}>{r.vn.toLocaleString()} tCO₂e</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, color: '#333', marginBottom: 4 }}>🇮🇳 India</div>
+                      {scope3Regional.map(r => (
+                        <div key={r.year} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
+                          <span style={{ color: '#666' }}>• {r.year}:</span>
+                          <span style={{ fontWeight: 600 }}>{r.india.toLocaleString()} tCO₂e</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Panel 4: Insights */}
+                <div style={{ flex: '1', border: '1px solid #ccc', background: 'white' }}>
+                  <div style={{ background: '#9A0000', color: 'white', padding: '3px 8px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
+                    <div style={{ background: 'white', color: '#9A0000', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6, fontSize: 9 }}>4</div>
+                    KEY INSIGHTS, DRIVERS &amp; NEXT ACTIONS
+                  </div>
+                  <div style={{ padding: '6px 12px', fontSize: 10, lineHeight: 1.4 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Trends &amp; Drivers</div>
+                    <ul style={{ paddingLeft: 14, margin: '0 0 6px 0', color: '#444' }}>
+                      <li>Strong downward trend from 2021 to 2024 driven by reduced RCN volumes and sourcing changes</li>
+                      <li>2025 increase mainly due to higher RCN procurement volume</li>
+                      <li>Emissions in 2025 remain significantly below 2021 baseline (~17% lower)</li>
+                      <li>Changes in RCN sourcing profile (not only volume) play a critical role in overall Scope 3 performance</li>
+                    </ul>
+                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Category Insight</div>
+                    <ul style={{ paddingLeft: 14, margin: 0, color: '#444' }}>
+                      <li>Purchase of Goods &amp; Services (RCN) dominates Scope 3 emissions (&gt;90%)</li>
+                      <li>Emission intensity is influenced by: Agricultural practices, Processing methods, Distance from sourcing origin to factories</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Panel 5: Strategy */}
+                <div style={{ flex: '0.8', border: '1px solid #ccc', background: 'white' }}>
+                  <div style={{ background: '#9A0000', color: 'white', padding: '3px 8px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
+                    <div style={{ background: 'white', color: '#9A0000', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6, fontSize: 9 }}>5</div>
+                    NEXT ACTIONS &amp; LONG-TERM STRATEGY (2032)
+                  </div>
+                  <div style={{ padding: '6px 12px', fontSize: 10, lineHeight: 1.4 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 2 }}>RCN Sourcing Strategy</div>
+                    <ul style={{ paddingLeft: 14, margin: '0 0 6px 0', color: '#444' }}>
+                      <li>Prioritize low-emission-factor (low EF) RCN suppliers</li>
+                      <li>Increase sourcing from geographically closer origins to reduce transport-related emissions</li>
+                      <li>Gradually integrate sustainability criteria into RCN supplier selection</li>
+                    </ul>
+                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Fuel &amp; Energy Strategy</div>
+                    <ul style={{ paddingLeft: 14, margin: '0 0 6px 0', color: '#444' }}>
+                      <li>Evaluate increased use of biomass and alternative fuels with lower emission factors</li>
+                      <li>Continue improving fuel efficiency and monitoring energy-related Scope 3 impacts</li>
+                    </ul>
+                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Overall Focus</div>
+                    <ul style={{ paddingLeft: 14, margin: '0 0 0 0', color: '#444' }}>
+                      <li>Shift Scope 3 reduction approach from volume-driven to supply-chain optimization</li>
+                      <li>Align sourcing, logistics, and fuel strategy to achieve 2032 SBTi-aligned target</li>
+                    </ul>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
           </div>
         );
