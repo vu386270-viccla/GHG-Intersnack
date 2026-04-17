@@ -886,8 +886,8 @@ export default function OpexReportPage() {
     const split2026s2 = y === 2026
       ? { isActualPlanSplit: true, isTotal: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined }
       : {};
-    targetBarsS1.push({ key: y.toString(), label: [y.toString()], target: Math.round(targetProj(s1_2025, s1AnnualCut, y)), ...split2026s1 });
-    targetBarsS2.push({ key: y.toString(), label: [y.toString()], target: s2Proj(y), ...split2026s2 });
+    targetBarsS1.push({ key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: Math.round(targetProj(s1_2025, s1AnnualCut, y)), ...split2026s1 });
+    targetBarsS2.push({ key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: s2Proj(y), ...split2026s2 });
   }
 
   // ── Scope 1 bars ──────────────────────────────────────────
@@ -898,7 +898,7 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
-    { key: 'req_2026', label: ['Required', "Plan '26"], target: req26_s1 },
+    { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
     ...targetBarsS1,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s1, isTotal: true },
   ];
@@ -931,7 +931,7 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
-    { key: 'req_2026', label: ['Required', "Plan '26"], target: req26_s2 },
+    { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
     ...targetBarsS2,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s2, isTotal: true },
   ];
@@ -1740,9 +1740,9 @@ export default function OpexReportPage() {
           { key: '2023', label: ['2023'], actual: s3_2023?.total || 0 },
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
-          { key: 'req_2026', label: ['Required', "Plan '26"], target: planVal(2026) },
+          { key: 'req_2026', label: ['Target', '2026'], target: planVal(2026) },
           ...planYears.map(y => ({
-            key: y.toString(), label: [y.toString()], target: planVal(y),
+            key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: planVal(y),
             ...(y === 2026 ? {
               isActualPlanSplit: true,
               isTotal: true,
