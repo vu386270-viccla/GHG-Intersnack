@@ -447,1028 +447,1026 @@ export default function OverviewPage() {
         </button>
       </div>
 
-      {/* Slide — wrapper sized to visual dimensions so overflow-x clipping doesn't cut the slide */}
-      <div style={{ width: `${slideScale * 1536}px`, height: `${slideScale * 864}px`, flexShrink: 0, position: 'relative' }}>
-        <div className="overview-slide" style={{ transform: `scale(${slideScale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0 }}>
-          <div className="ov-topbar">
-            <div className="ov-logo">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke='var(--ov-surface-low)' strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
-              <span>INTERSNACK GROUP</span>
+      {/* Main content — fills viewport, no scale trick */}
+      <div className="overview-slide">
+        <div className="ov-topbar">
+          <div className="ov-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke='var(--ov-surface-low)' strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
+            <span>INTERSNACK GROUP</span>
+          </div>
+          <div className="ov-topbar-title">
+            GHG Emissions Report — {selectedYear} YTD ({data.monthsWithData} months)
+            {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
+              <span style={{ marginLeft: 8, padding: '1px 8px', background: 'rgba(255,255,255,0.18)', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
+              </span>
+            )}
+            {viewMode === 'COMPARE' && (
+              <span style={{ marginLeft: 8, padding: '1px 8px', background: 'rgba(255,255,255,0.18)', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                {factories.find(f => f.id === factoryA)?.name} vs {factories.find(f => f.id === factoryB)?.name}
+              </span>
+            )}
+          </div>
+          <div className="ov-ef-badge">{useCommonEF ? `EF = ${COMMON_EF}` : 'Country Grid EF'} kg CO₂e/kWh</div>
+        </div>
+
+        <div className="ov-body">
+          {/* LEFT */}
+          <div className="ov-left">
+            <div className="ov-grand-kpi">
+              <div className="ov-grand-label">TOTAL SCOPE 1+2+3 · {selectedYear} YTD</div>
+              <div className="ov-grand-value">{fmt(dispTotal)}</div>
+              <div className="ov-grand-unit">tCO₂e</div>
             </div>
-            <div className="ov-topbar-title">
-              GHG Emissions Report — {selectedYear} YTD ({data.monthsWithData} months)
-              {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
-                <span style={{ marginLeft: 8, padding: '1px 8px', background: 'rgba(255,255,255,0.18)', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
-                  {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
-                </span>
-              )}
-              {viewMode === 'COMPARE' && (
-                <span style={{ marginLeft: 8, padding: '1px 8px', background: 'rgba(255,255,255,0.18)', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
-                  {factories.find(f => f.id === factoryA)?.name} vs {factories.find(f => f.id === factoryB)?.name}
-                </span>
-              )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <div className="ov-scope-card s1">
+                <div className="ov-scope-header"><span className="ov-scope-icon">🔥</span> SCOPE 1</div>
+                <div className="ov-scope-value">{fmt(dispS1)}</div>
+                <div className="ov-scope-sub">{dispTotal > 0 ? fmtPct(dispS1 / dispTotal * 100) : '0'}%</div>
+              </div>
+              <div className="ov-scope-card s2">
+                <div className="ov-scope-header"><span className="ov-scope-icon">⚡</span> SCOPE 2</div>
+                <div className="ov-scope-value">{fmt(dispS2)}</div>
+                <div className="ov-scope-sub">{dispTotal > 0 ? fmtPct(dispS2 / dispTotal * 100) : '0'}%</div>
+              </div>
+              <div className="ov-scope-card" style={{ background: 'rgba(140,185,45,0.04)', borderColor: 'rgba(140,185,45,0.15)' }}>
+                <div className="ov-scope-header"><span className="ov-scope-icon">🌍</span> SCOPE 3</div>
+                <div className="ov-scope-value" style={{ fontSize: 22 }}>{fmt(dispS3)}</div>
+                <div className="ov-scope-sub">{dispTotal > 0 ? fmtPct(dispS3 / dispTotal * 100) : '0'}%</div>
+              </div>
             </div>
-            <div className="ov-ef-badge">{useCommonEF ? `EF = ${COMMON_EF}` : 'Country Grid EF'} kg CO₂e/kWh</div>
+
+            {/* Scope 1 + Scope 2 Donuts — side by side, no overlap */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              {/* Scope 1 */}
+              <div style={{ background: 'rgba(227, 35, 20, 0.05)', border: '1px solid var(--ov-glass-border)', borderRadius: 8, padding: '6px 8px' }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>🔥 Scope 1</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
+                    segments={(() => {
+                      const cats: Record<string, number> = {};
+                      displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
+                      return Object.entries(cats).sort(([, a], [, b]) => b - a).map(([key, val], i) => {
+                        const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+                        return { label: def?.label || key, value: val, color: S1_COLORS[i] };
+                      });
+                    })()} />
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {(() => {
+                      const cats: Record<string, { em: number }> = {};
+                      displayBlocks.forEach(b => b.s1ByCat.forEach(c => {
+                        if (!cats[c.key]) cats[c.key] = { em: 0 };
+                        cats[c.key].em += c.value;
+                      }));
+                      const totalS1 = Object.values(cats).reduce((s, v) => s + v.em, 0);
+                      return Object.entries(cats).sort(([, a], [, b]) => b.em - a.em).slice(0, 4).map(([key, v], i) => {
+                        const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+                        const pct = totalS1 > 0 ? (v.em / totalS1 * 100).toFixed(0) : '0';
+                        return <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 2, background: S1_COLORS[i], flexShrink: 0, display: 'inline-block' }} />
+                          <span style={{ fontWeight: 700, color: S1_COLORS[i], minWidth: 20 }}>{pct}%</span>
+                          <span style={{ color: 'var(--ov-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || key}</span>
+                        </div>;
+                      });
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scope 2 — 100% electricity */}
+              <div style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid var(--ov-glass-border)', borderRadius: 8, padding: '6px 8px' }}>
+                <div style={{ fontSize: 8, fontWeight: 800, color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>⚡ Scope 2</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
+                    segments={[{ label: 'Electricity', value: 1, color: '#F5A623' }]} />
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: 2, background: '#F5A623', flexShrink: 0, display: 'inline-block' }} />
+                      <span style={{ fontWeight: 700, color: '#F5A623' }}>100%</span>
+                      <span style={{ color: 'var(--ov-text-muted)' }}>⚡ Grid Electricity</span>
+                    </div>
+                    <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', paddingLeft: 10 }}>
+                      {(displayBlocks.reduce((s, b) => s + b.kWh, 0) / 1000).toFixed(0)} MWh
+                    </div>
+                    <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', paddingLeft: 10 }}>
+                      EF: {useCommonEF ? COMMON_EF : 'Country'} kg/kWh
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RCN Intensity + Electricity */}
+            <div className="ov-elec-detail">
+              {(() => {
+                const selFactoryIds = displayBlocks.map(b => b.factory.id);
+                const yrProd = prodData.filter(p => p.year === selectedYear && selFactoryIds.includes(p.factory_id));
+                const totalRCN = yrProd.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+                const totalCK = yrProd.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
+                const intensity = totalRCN > 0 ? (dispTotal / totalRCN) : 0;
+                return <>
+                  <div className="ov-elec-item"><span className="ov-elec-label">🥜 RCN Input</span><span className="ov-elec-val">{fmt(totalRCN)} MT</span></div>
+                  <div className="ov-elec-item"><span className="ov-elec-label">📦 CK Output</span><span className="ov-elec-val">{totalCK > 1000 ? `${(totalCK / 1000).toFixed(0)}k` : fmt(totalCK)} MT</span></div>
+                  <div className="ov-elec-item" style={{ borderTop: '1px solid #eee', paddingTop: '4px', marginTop: '2px' }}>
+                    <span className="ov-elec-label" style={{ fontWeight: 700, color: '#E32314' }}>📊 Intensity</span>
+                    <span className="ov-elec-val" style={{ color: '#E32314', fontWeight: 700 }}>{intensity.toFixed(2)} tCO₂e/MT RCN</span>
+                  </div>
+                  <div className="ov-elec-item"><span className="ov-elec-label">⚡ Electricity</span><span className="ov-elec-val">{(displayBlocks.reduce((s, b) => s + b.kWh, 0) / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} MWh</span></div>
+                </>;
+              })()}
+            </div>
           </div>
 
-          <div className="ov-body">
-            {/* LEFT */}
-            <div className="ov-left">
-              <div className="ov-grand-kpi">
-                <div className="ov-grand-label">TOTAL SCOPE 1+2+3 · {selectedYear} YTD</div>
-                <div className="ov-grand-value">{fmt(dispTotal)}</div>
-                <div className="ov-grand-unit">tCO₂e</div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                <div className="ov-scope-card s1">
-                  <div className="ov-scope-header"><span className="ov-scope-icon">🔥</span> SCOPE 1</div>
-                  <div className="ov-scope-value">{fmt(dispS1)}</div>
-                  <div className="ov-scope-sub">{dispTotal > 0 ? fmtPct(dispS1 / dispTotal * 100) : '0'}%</div>
+          {/* RIGHT */}
+          <div className="ov-right">
+            {/* ── SBTi ROADMAP — 2 charts side-by-side ── */}
+            <div className="ov-roadmap-full" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {/* Row header */}
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
+                <div className="ov-chart-title" style={{ margin: 0, flex: 1 }}>
+                  🎯 SBTi Roadmap · 2021 → 2032
+                  {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
+                    <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
+                      {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
+                    </span>
+                  )}
+                  {viewMode === 'COMPARE' && (
+                    <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
+                      {factories.find(f => f.id === factoryA)?.name} + {factories.find(f => f.id === factoryB)?.name}
+                    </span>
+                  )}
                 </div>
-                <div className="ov-scope-card s2">
-                  <div className="ov-scope-header"><span className="ov-scope-icon">⚡</span> SCOPE 2</div>
-                  <div className="ov-scope-value">{fmt(dispS2)}</div>
-                  <div className="ov-scope-sub">{dispTotal > 0 ? fmtPct(dispS2 / dispTotal * 100) : '0'}%</div>
-                </div>
-                <div className="ov-scope-card" style={{ background: 'rgba(140,185,45,0.04)', borderColor: 'rgba(140,185,45,0.15)' }}>
-                  <div className="ov-scope-header"><span className="ov-scope-icon">🌍</span> SCOPE 3</div>
-                  <div className="ov-scope-value" style={{ fontSize: 22 }}>{fmt(dispS3)}</div>
-                  <div className="ov-scope-sub">{dispTotal > 0 ? fmtPct(dispS3 / dispTotal * 100) : '0'}%</div>
-                </div>
+                <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.3)' }}>✓ On track · ✗ Over target</span>
               </div>
 
-              {/* Scope 1 + Scope 2 Donuts — side by side, no overlap */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                {/* Scope 1 */}
-                <div style={{ background: 'rgba(227, 35, 20, 0.05)', border: '1px solid var(--ov-glass-border)', borderRadius: 8, padding: '6px 8px' }}>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>🔥 Scope 1</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS1)} centerSub="tCO₂e"
-                      segments={(() => {
-                        const cats: Record<string, number> = {};
-                        displayBlocks.forEach(b => b.s1ByCat.forEach(c => { cats[c.key] = (cats[c.key] || 0) + c.value; }));
-                        return Object.entries(cats).sort(([, a], [, b]) => b - a).map(([key, val], i) => {
-                          const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-                          return { label: def?.label || key, value: val, color: S1_COLORS[i] };
-                        });
-                      })()} />
-                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {(() => {
-                        const cats: Record<string, { em: number }> = {};
-                        displayBlocks.forEach(b => b.s1ByCat.forEach(c => {
-                          if (!cats[c.key]) cats[c.key] = { em: 0 };
-                          cats[c.key].em += c.value;
-                        }));
-                        const totalS1 = Object.values(cats).reduce((s, v) => s + v.em, 0);
-                        return Object.entries(cats).sort(([, a], [, b]) => b.em - a.em).slice(0, 4).map(([key, v], i) => {
-                          const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-                          const pct = totalS1 > 0 ? (v.em / totalS1 * 100).toFixed(0) : '0';
-                          return <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 2, background: S1_COLORS[i], flexShrink: 0, display: 'inline-block' }} />
-                            <span style={{ fontWeight: 700, color: S1_COLORS[i], minWidth: 20 }}>{pct}%</span>
-                            <span style={{ color: 'var(--ov-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{def?.icon} {def?.label?.replace(/ \(.*\)/, '') || key}</span>
-                          </div>;
-                        });
-                      })()}
-                    </div>
-                  </div>
-                </div>
+              {/* Two charts side by side */}
+              <div style={{ display: 'flex', gap: 8 }}>
 
-                {/* Scope 2 — 100% electricity */}
-                <div style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid var(--ov-glass-border)', borderRadius: 8, padding: '6px 8px' }}>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>⚡ Scope 2</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <MiniDonut size={90} thickness={16} centerLabel={fmt(dispS2)} centerSub="tCO₂e"
-                      segments={[{ label: 'Electricity', value: 1, color: '#F5A623' }]} />
-                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: 2, background: '#F5A623', flexShrink: 0, display: 'inline-block' }} />
-                        <span style={{ fontWeight: 700, color: '#F5A623' }}>100%</span>
-                        <span style={{ color: 'var(--ov-text-muted)' }}>⚡ Grid Electricity</span>
-                      </div>
-                      <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', paddingLeft: 10 }}>
-                        {(displayBlocks.reduce((s, b) => s + b.kWh, 0) / 1000).toFixed(0)} MWh
-                      </div>
-                      <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', paddingLeft: 10 }}>
-                        EF: {useCommonEF ? COMMON_EF : 'Country'} kg/kWh
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* RCN Intensity + Electricity */}
-              <div className="ov-elec-detail">
+                {/* ── CHART A: Scope 1 + 2 (Operations) ── */}
                 {(() => {
-                  const selFactoryIds = displayBlocks.map(b => b.factory.id);
-                  const yrProd = prodData.filter(p => p.year === selectedYear && selFactoryIds.includes(p.factory_id));
-                  const totalRCN = yrProd.filter(p => p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-                  const totalCK = yrProd.filter(p => p.category === 'ck_output').reduce((s, p) => s + Number(p.quantity), 0);
-                  const intensity = totalRCN > 0 ? (dispTotal / totalRCN) : 0;
-                  return <>
-                    <div className="ov-elec-item"><span className="ov-elec-label">🥜 RCN Input</span><span className="ov-elec-val">{fmt(totalRCN)} MT</span></div>
-                    <div className="ov-elec-item"><span className="ov-elec-label">📦 CK Output</span><span className="ov-elec-val">{totalCK > 1000 ? `${(totalCK / 1000).toFixed(0)}k` : fmt(totalCK)} MT</span></div>
-                    <div className="ov-elec-item" style={{ borderTop: '1px solid #eee', paddingTop: '4px', marginTop: '2px' }}>
-                      <span className="ov-elec-label" style={{ fontWeight: 700, color: '#E32314' }}>📊 Intensity</span>
-                      <span className="ov-elec-val" style={{ color: '#E32314', fontWeight: 700 }}>{intensity.toFixed(2)} tCO₂e/MT RCN</span>
+                  const chartData = roadmapS12;
+                  const W = 358, PL = 44, PR = 10;
+                  const BAR_T = 20, BAR_H = 110, BAR_B = 22;
+                  const INT_T = BAR_T + BAR_H + BAR_B + 4;
+                  const INT_H = 38;
+                  const TOTAL_H = INT_T + INT_H + 10;
+                  const n = chartData.length;
+                  const maxVal = Math.max(...chartData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
+                  const plotW = W - PL - PR;
+                  const BAR_W = 20;
+                  const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
+                  const xFuture = xOf(6);
+                  const actualWithRCN = chartData.filter(d => d.actual > 0 && d.rcn > 0);
+                  const maxInt = actualWithRCN.length > 0 ? Math.max(...actualWithRCN.map(d => d.actual / d.rcn)) * 1.3 : 1;
+                  const singleFacTarget12 = viewMode === 'SINGLE' && chartData.length > 0 && chartData[0].baseTotal > 0
+                    ? chartData[0].baseTotal * 0.5 : null;
+
+                  return (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <div style={{ fontSize: 8.5, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                          🔥⚡ Scope 1+2 — Operations
+                        </div>
+                        <div style={{ background: 'rgba(227, 35, 20, 0.05)', color: '#991b1b', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
+                          −50% by 2032
+                        </div>
+                        {/* Annualized toggle — for partial-year reality check */}
+                        <button
+                          onClick={() => setShowAnnualized(v => !v)}
+                          style={{
+                            marginLeft: 'auto', fontSize: 7.5, fontWeight: 700, cursor: 'pointer',
+                            padding: '1px 7px', borderRadius: 3, border: `1px solid ${showAnnualized ? '#7c3aed' : '#d1d5db'}`,
+                            background: showAnnualized ? '#ede9fe' : 'transparent',
+                            color: showAnnualized ? '#6d28d9' : '#9ca3af',
+                            transition: 'all 0.15s', whiteSpace: 'nowrap',
+                          }}
+                          title="Annualized: extrapolate partial-year YTD to full-year run-rate (×12/months)"
+                        >
+                          {showAnnualized ? '📐 Annualized ON' : '📐 Annualized'}
+                        </button>
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
+                        {/* Future bg */}
+                        <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={2} opacity={0.7} />
+                        <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 9} textAnchor="middle" fontSize="7" fill="var(--ov-text-dim)" fontWeight="600">PROJECTED</text>
+
+                        {/* Grid */}
+                        {[0, 0.5, 1].map((p, gi) => (
+                          <g key={gi}>
+                            <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
+                              stroke={p === 0 ? 'var(--ov-text-dim)' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
+                            {p > 0 && <text x={PL - 4} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="7" fill="var(--ov-text-dim)" fontWeight="500">{fmt(maxVal * p)}</text>}
+                          </g>
+                        ))}
+
+                        {/* SBTi pathway */}
+                        <polyline
+                          points={chartData.map((d, i) => `${xOf(i)},${BAR_T + BAR_H * (1 - d.target / maxVal)}`).join(' ')}
+                          fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.9}
+                        />
+                        {/* 2032 target label */}
+                        {(() => {
+                          const last = chartData[n - 1];
+                          const x = xOf(n - 1);
+                          const y = BAR_T + BAR_H * (1 - last.target / maxVal);
+                          return <><circle cx={x} cy={y} r={3} fill="#8CB92D" /><text x={x - 4} y={y - 5} textAnchor="end" fontSize="7" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t</text></>;
+                        })()}
+
+                        {/* Factory target line SINGLE mode */}
+                        {singleFacTarget12 !== null && (() => {
+                          const ty = BAR_T + BAR_H * (1 - singleFacTarget12 / maxVal);
+                          return <><line x1={PL} y1={ty} x2={W - PR} y2={ty} stroke="#E32314" strokeWidth={1.2} strokeDasharray="4,3" opacity={0.7} /><text x={PL + 3} y={ty - 2} fontSize="7.5" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget12)}t</text></>;
+                        })()}
+
+                        {/* Bars */}
+                        {chartData.map((d, i) => {
+                          const x = xOf(i);
+                          const bx = x - BAR_W / 2;
+                          const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
+                          const isCurrent = d.year === selectedYear;
+                          const isPartialYear = isCurrent && d.monthsActive > 0 && d.monthsActive < 12;
+                          const dAnn = d.annualized;
+                          const dMonths = d.monthsActive;
+                          // Which value to use for on-track badge and annualized overlay
+                          const onTrackAnn = d.annualizedOnTrack;
+                          const onTrack = singleFacTarget12 !== null
+                            ? (showAnnualized && isPartialYear ? dAnn <= singleFacTarget12 : d.actual <= singleFacTarget12)
+                            : (showAnnualized && isPartialYear ? onTrackAnn : d.onTrack);
+                          const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
+
+                          return (
+                            <g key={d.year}>
+                              {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
+                              {!isFuture && d.actual > 0 && (() => {
+                                const layers = [
+                                  { val: d.s1, col: viewMode !== 'SINGLE' ? '#E32314' : (onTrack ? '#27AE60' : '#E32314') },
+                                  { val: d.s2, col: viewMode !== 'SINGLE' ? '#F5A623' : (onTrack ? '#5BB974' : '#F26B3B') },
+                                ];
+                                let cumH = 0;
+                                return layers.map((layer, li) => {
+                                  if (layer.val <= 0) return null;
+                                  const h = maxVal > 0 ? (layer.val / maxVal) * BAR_H : 0;
+                                  const y = BAR_T + BAR_H - cumH - h;
+                                  cumH += h;
+                                  return <rect key={li} x={bx} y={y} width={BAR_W} height={Math.max(h, 0.5)} rx={li === 1 ? 2 : 0} fill={layer.col} opacity={isCurrent ? 0.92 : 0.5} stroke={isCurrent ? 'rgba(0,0,0,0.12)' : 'none'} strokeWidth={0.5} />;
+                                });
+                              })()}
+                              {/* Annualized ghost bar — shown only when toggle ON and partial year */}
+                              {showAnnualized && isPartialYear && d.actual > 0 && (() => {
+                                const annH = maxVal > 0 ? (dAnn / maxVal) * BAR_H : 0;
+                                const annY = BAR_T + BAR_H - annH;
+                                return (
+                                  <rect
+                                    x={bx - 1} y={annY} width={BAR_W + 2} height={Math.max(annH, 1)}
+                                    rx={2} fill="none"
+                                    stroke={onTrackAnn ? '#7c3aed' : '#dc2626'}
+                                    strokeWidth={1.5} strokeDasharray="3,2"
+                                    opacity={0.75}
+                                  />
+                                );
+                              })()}
+                              {d.actual > 0 && (() => {
+                                const refVal = showAnnualized && isPartialYear ? dAnn : d.actual;
+                                const totH = maxVal > 0 ? (refVal / maxVal) * BAR_H : 0;
+                                return (
+                                  <>
+                                    <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? (showAnnualized && isPartialYear ? '#7c3aed' : '#E32314') : 'var(--ov-text-muted)'}>
+                                      {fmt(showAnnualized && isPartialYear ? dAnn : d.actual)}
+                                    </text>
+                                    {/* Q1 label below main value when annualized */}
+                                    {showAnnualized && isPartialYear && isCurrent && (
+                                      <text x={x} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0) - 3} textAnchor="middle" fontSize="6.5" fontWeight="700" fill="#9ca3af">
+                                        {fmt(d.actual)} Q{Math.ceil(dMonths / 3)}
+                                      </text>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              {isCurrent && d.actual > 0 && (() => {
+                                const refVal = showAnnualized && isPartialYear ? dAnn : d.actual;
+                                const totH = maxVal > 0 ? (refVal / maxVal) * BAR_H : 0;
+                                const pct = d.baseTotal > 0 ? ((d.baseTotal - refVal) / d.baseTotal * 100) : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
+                              })()}
+                              <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#E32314' : isFuture ? 'var(--ov-text-dim)' : 'var(--ov-text-dim)'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
+                              {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={onTrack ? '#27AE60' : '#E32314'}>{onTrack ? '✓' : '✗'}</text>}
+
+                              {/* Intensity mini track */}
+                              {(() => {
+                                const hasData = d.actual > 0 && d.rcn > 0;
+                                const intensity = hasData ? d.actual / d.rcn : null;
+                                const intBarH = intensity !== null ? Math.max((intensity / maxInt) * (INT_H - 16), 2) : 0;
+                                const intBarTop = INT_T + (INT_H - 16) - intBarH;
+                                return (
+                                  <g>
+                                    {isCurrent && <rect x={bx - 2} y={INT_T} width={BAR_W + 4} height={INT_H} rx={2} fill="#4338ca" opacity={0.06} />}
+                                    {intensity !== null && <rect x={x - 6} y={intBarTop} width={12} height={intBarH} rx={1.5} fill={isCurrent ? '#4f46e5' : '#a5b4fc'} opacity={isCurrent ? 0.9 : 0.6} />}
+                                    <text x={x} y={INT_T + INT_H - 5} textAnchor="middle" fontSize={isCurrent ? 7.5 : 6.5} fontWeight={isCurrent ? 800 : 500} fill={intensity !== null ? (isCurrent ? '#3730a3' : '#818cf8') : 'var(--ov-glass-border)'}>
+                                      {intensity !== null ? intensity.toFixed(2) : '—'}
+                                    </text>
+                                    {d.rcn > 0 && <text x={x} y={INT_T + INT_H + 4} textAnchor="middle" fontSize="5.5" fill={isCurrent ? '#6b7280' : 'var(--ov-text-dim)'} fontWeight={isCurrent ? 600 : 400}>{(d.rcn / 1000).toFixed(0)}k MT</text>}
+                                  </g>
+                                );
+                              })()}
+                            </g>
+                          );
+                        })}
+
+                        {/* Intensity header */}
+                        <text x={PL - 3} y={INT_T + 8} textAnchor="end" fontSize="6" fill="#818cf8" fontWeight="700">t/MT</text>
+                        <line x1={PL} y1={INT_T - 2} x2={W - PR} y2={INT_T - 2} stroke="#e0e7ff" strokeWidth={0.8} />
+                      </svg>
+                      {/* Legend */}
+                      <div style={{ display: 'flex', gap: 8, fontSize: 7.5, color: 'var(--ov-text-dim)', alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+                        <span><span style={{ width: 8, height: 8, background: '#E32314', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />🔥 S1</span>
+                        <span><span style={{ width: 8, height: 8, background: '#F5A623', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />⚡ S2</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −50%</span>
+                        {showAnnualized && <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#7c3aed', fontWeight: 700 }}><span style={{ borderBottom: '1.5px dashed #7c3aed', width: 10, display: 'inline-block', verticalAlign: 'middle' }} />Run-rate (annualized)</span>}
+                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 6, background: '#a5b4fc', borderRadius: 1.5, display: 'inline-block' }} />tCO₂e/MT RCN</span>
+                      </div>
                     </div>
-                    <div className="ov-elec-item"><span className="ov-elec-label">⚡ Electricity</span><span className="ov-elec-val">{(displayBlocks.reduce((s, b) => s + b.kWh, 0) / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} MWh</span></div>
-                  </>;
+                  );
+                })()}
+
+                {/* ── CHART B: Scope 3 (Value Chain) ── */}
+                {(() => {
+                  const chartData = roadmapS3;
+                  const W = 358, PL = 44, PR = 10;
+                  const BAR_T = 20, BAR_H = 110, BAR_B = 22;
+                  const TOTAL_H = BAR_T + BAR_H + BAR_B + 14;
+                  const n = chartData.length;
+                  const maxVal = Math.max(...chartData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
+                  const plotW = W - PL - PR;
+                  const BAR_W = 20;
+                  const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
+                  const xFuture = xOf(6);
+
+                  return (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <div style={{ fontSize: 8.5, fontWeight: 800, color: '#8CB92D', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                          🌍 Scope 3 — Value Chain
+                        </div>
+                        <div style={{ background: 'rgba(39, 174, 96, 0.05)', color: '#166534', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
+                          −42% by 2032
+                        </div>
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
+                        {/* Future bg */}
+                        <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={2} opacity={0.7} />
+                        <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 9} textAnchor="middle" fontSize="7" fill="var(--ov-text-dim)" fontWeight="600">PROJECTED</text>
+
+                        {/* Grid */}
+                        {[0, 0.5, 1].map((p, gi) => (
+                          <g key={gi}>
+                            <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
+                              stroke={p === 0 ? 'var(--ov-text-dim)' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
+                            {p > 0 && <text x={PL - 4} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="7" fill="var(--ov-text-dim)" fontWeight="500">{fmt(maxVal * p)}</text>}
+                          </g>
+                        ))}
+
+                        {/* SBTi pathway −42% */}
+                        <polyline
+                          points={chartData.map((d, i) => `${xOf(i)},${BAR_T + BAR_H * (1 - d.target / maxVal)}`).join(' ')}
+                          fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.9}
+                        />
+                        {/* 2032 target label */}
+                        {(() => {
+                          const last = chartData[n - 1];
+                          const x = xOf(n - 1);
+                          const y = BAR_T + BAR_H * (1 - last.target / maxVal);
+                          return <><circle cx={x} cy={y} r={3} fill="#8CB92D" /><text x={x - 4} y={y - 5} textAnchor="end" fontSize="7" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t</text></>;
+                        })()}
+
+                        {/* Bars */}
+                        {chartData.map((d, i) => {
+                          const x = xOf(i);
+                          const bx = x - BAR_W / 2;
+                          const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
+                          const isCurrent = d.year === selectedYear;
+                          const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
+
+                          return (
+                            <g key={d.year}>
+                              {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
+                              {!isFuture && d.actual > 0 && (
+                                <rect x={bx} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0)} width={BAR_W} height={Math.max((maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0), 0.5)} rx={2}
+                                  fill="#8CB92D" opacity={isCurrent ? 0.88 : 0.45}
+                                  stroke={isCurrent ? 'rgba(0,0,0,0.1)' : 'none'} strokeWidth={0.5}
+                                />
+                              )}
+                              {d.actual > 0 && (() => {
+                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? '#4A6E12' : 'var(--ov-text-muted)'}>{fmt(d.actual)}</text>;
+                              })()}
+                              {isCurrent && d.actual > 0 && (() => {
+                                const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
+                                const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
+                                return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
+                              })()}
+                              <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#4A6E12' : isFuture ? 'var(--ov-text-dim)' : 'var(--ov-text-dim)'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
+                              {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{d.onTrack ? '✓' : '✗'}</text>}
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      {/* Legend */}
+                      <div style={{ display: 'flex', gap: 8, fontSize: 7.5, color: 'var(--ov-text-dim)', alignItems: 'center', marginTop: 2 }}>
+                        <span><span style={{ width: 8, height: 8, background: '#8CB92D', borderRadius: 2, display: 'inline-block', marginRight: 3, opacity: 0.8 }} />🌍 Scope 3 (Cat.1 + Cat.3 + Cat.4)</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −42%</span>
+                      </div>
+                    </div>
+                  );
                 })()}
               </div>
             </div>
 
-            {/* RIGHT */}
-            <div className="ov-right">
-              {/* ── SBTi ROADMAP — 2 charts side-by-side ── */}
-              <div className="ov-roadmap-full" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {/* Row header */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
-                  <div className="ov-chart-title" style={{ margin: 0, flex: 1 }}>
-                    🎯 SBTi Roadmap · 2021 → 2032
-                    {viewMode === 'SINGLE' && factories.find(f => f.id === factoryA) && (
-                      <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
-                        {factories.find(f => f.id === factoryA)!.country === 'India' ? '🇮🇳' : '🇻🇳'} {factories.find(f => f.id === factoryA)!.name}
-                      </span>
-                    )}
-                    {viewMode === 'COMPARE' && (
-                      <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 7px', background: '#E3231412', color: '#E32314', borderRadius: 4, border: '1px solid #E3231422' }}>
-                        {factories.find(f => f.id === factoryA)?.name} + {factories.find(f => f.id === factoryB)?.name}
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.3)' }}>✓ On track · ✗ Over target</span>
-                </div>
-
-                {/* Two charts side by side */}
-                <div style={{ display: 'flex', gap: 8 }}>
-
-                  {/* ── CHART A: Scope 1 + 2 (Operations) ── */}
-                  {(() => {
-                    const chartData = roadmapS12;
-                    const W = 358, PL = 44, PR = 10;
-                    const BAR_T = 20, BAR_H = 110, BAR_B = 22;
-                    const INT_T = BAR_T + BAR_H + BAR_B + 4;
-                    const INT_H = 38;
-                    const TOTAL_H = INT_T + INT_H + 10;
-                    const n = chartData.length;
-                    const maxVal = Math.max(...chartData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
-                    const plotW = W - PL - PR;
-                    const BAR_W = 20;
-                    const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
-                    const xFuture = xOf(6);
-                    const actualWithRCN = chartData.filter(d => d.actual > 0 && d.rcn > 0);
-                    const maxInt = actualWithRCN.length > 0 ? Math.max(...actualWithRCN.map(d => d.actual / d.rcn)) * 1.3 : 1;
-                    const singleFacTarget12 = viewMode === 'SINGLE' && chartData.length > 0 && chartData[0].baseTotal > 0
-                      ? chartData[0].baseTotal * 0.5 : null;
-
-                    return (
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                          <div style={{ fontSize: 8.5, fontWeight: 800, color: '#E32314', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                            🔥⚡ Scope 1+2 — Operations
-                          </div>
-                          <div style={{ background: 'rgba(227, 35, 20, 0.05)', color: '#991b1b', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
-                            −50% by 2032
-                          </div>
-                          {/* Annualized toggle — for partial-year reality check */}
-                          <button
-                            onClick={() => setShowAnnualized(v => !v)}
-                            style={{
-                              marginLeft: 'auto', fontSize: 7.5, fontWeight: 700, cursor: 'pointer',
-                              padding: '1px 7px', borderRadius: 3, border: `1px solid ${showAnnualized ? '#7c3aed' : '#d1d5db'}`,
-                              background: showAnnualized ? '#ede9fe' : 'transparent',
-                              color: showAnnualized ? '#6d28d9' : '#9ca3af',
-                              transition: 'all 0.15s', whiteSpace: 'nowrap',
-                            }}
-                            title="Annualized: extrapolate partial-year YTD to full-year run-rate (×12/months)"
-                          >
-                            {showAnnualized ? '📐 Annualized ON' : '📐 Annualized'}
-                          </button>
-                        </div>
-                        <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
-                          {/* Future bg */}
-                          <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={2} opacity={0.7} />
-                          <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 9} textAnchor="middle" fontSize="7" fill="var(--ov-text-dim)" fontWeight="600">PROJECTED</text>
-
-                          {/* Grid */}
-                          {[0, 0.5, 1].map((p, gi) => (
-                            <g key={gi}>
-                              <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
-                                stroke={p === 0 ? 'var(--ov-text-dim)' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
-                              {p > 0 && <text x={PL - 4} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="7" fill="var(--ov-text-dim)" fontWeight="500">{fmt(maxVal * p)}</text>}
-                            </g>
-                          ))}
-
-                          {/* SBTi pathway */}
-                          <polyline
-                            points={chartData.map((d, i) => `${xOf(i)},${BAR_T + BAR_H * (1 - d.target / maxVal)}`).join(' ')}
-                            fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.9}
-                          />
-                          {/* 2032 target label */}
-                          {(() => {
-                            const last = chartData[n - 1];
-                            const x = xOf(n - 1);
-                            const y = BAR_T + BAR_H * (1 - last.target / maxVal);
-                            return <><circle cx={x} cy={y} r={3} fill="#8CB92D" /><text x={x - 4} y={y - 5} textAnchor="end" fontSize="7" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t</text></>;
-                          })()}
-
-                          {/* Factory target line SINGLE mode */}
-                          {singleFacTarget12 !== null && (() => {
-                            const ty = BAR_T + BAR_H * (1 - singleFacTarget12 / maxVal);
-                            return <><line x1={PL} y1={ty} x2={W - PR} y2={ty} stroke="#E32314" strokeWidth={1.2} strokeDasharray="4,3" opacity={0.7} /><text x={PL + 3} y={ty - 2} fontSize="7.5" fill="#E32314" fontWeight="800">🎯 {Math.round(singleFacTarget12)}t</text></>;
-                          })()}
-
-                          {/* Bars */}
-                          {chartData.map((d, i) => {
-                            const x = xOf(i);
-                            const bx = x - BAR_W / 2;
-                            const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
-                            const isCurrent = d.year === selectedYear;
-                            const isPartialYear = isCurrent && d.monthsActive > 0 && d.monthsActive < 12;
-                            const dAnn = d.annualized;
-                            const dMonths = d.monthsActive;
-                            // Which value to use for on-track badge and annualized overlay
-                            const onTrackAnn = d.annualizedOnTrack;
-                            const onTrack = singleFacTarget12 !== null
-                              ? (showAnnualized && isPartialYear ? dAnn <= singleFacTarget12 : d.actual <= singleFacTarget12)
-                              : (showAnnualized && isPartialYear ? onTrackAnn : d.onTrack);
-                            const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
-
-                            return (
-                              <g key={d.year}>
-                                {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
-                                {!isFuture && d.actual > 0 && (() => {
-                                  const layers = [
-                                    { val: d.s1, col: viewMode !== 'SINGLE' ? '#E32314' : (onTrack ? '#27AE60' : '#E32314') },
-                                    { val: d.s2, col: viewMode !== 'SINGLE' ? '#F5A623' : (onTrack ? '#5BB974' : '#F26B3B') },
-                                  ];
-                                  let cumH = 0;
-                                  return layers.map((layer, li) => {
-                                    if (layer.val <= 0) return null;
-                                    const h = maxVal > 0 ? (layer.val / maxVal) * BAR_H : 0;
-                                    const y = BAR_T + BAR_H - cumH - h;
-                                    cumH += h;
-                                    return <rect key={li} x={bx} y={y} width={BAR_W} height={Math.max(h, 0.5)} rx={li === 1 ? 2 : 0} fill={layer.col} opacity={isCurrent ? 0.92 : 0.5} stroke={isCurrent ? 'rgba(0,0,0,0.12)' : 'none'} strokeWidth={0.5} />;
-                                  });
-                                })()}
-                                {/* Annualized ghost bar — shown only when toggle ON and partial year */}
-                                {showAnnualized && isPartialYear && d.actual > 0 && (() => {
-                                  const annH = maxVal > 0 ? (dAnn / maxVal) * BAR_H : 0;
-                                  const annY = BAR_T + BAR_H - annH;
-                                  return (
-                                    <rect
-                                      x={bx - 1} y={annY} width={BAR_W + 2} height={Math.max(annH, 1)}
-                                      rx={2} fill="none"
-                                      stroke={onTrackAnn ? '#7c3aed' : '#dc2626'}
-                                      strokeWidth={1.5} strokeDasharray="3,2"
-                                      opacity={0.75}
-                                    />
-                                  );
-                                })()}
-                                {d.actual > 0 && (() => {
-                                  const refVal = showAnnualized && isPartialYear ? dAnn : d.actual;
-                                  const totH = maxVal > 0 ? (refVal / maxVal) * BAR_H : 0;
-                                  return (
-                                    <>
-                                      <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? (showAnnualized && isPartialYear ? '#7c3aed' : '#E32314') : 'var(--ov-text-muted)'}>
-                                        {fmt(showAnnualized && isPartialYear ? dAnn : d.actual)}
-                                      </text>
-                                      {/* Q1 label below main value when annualized */}
-                                      {showAnnualized && isPartialYear && isCurrent && (
-                                        <text x={x} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0) - 3} textAnchor="middle" fontSize="6.5" fontWeight="700" fill="#9ca3af">
-                                          {fmt(d.actual)} Q{Math.ceil(dMonths / 3)}
-                                        </text>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                                {isCurrent && d.actual > 0 && (() => {
-                                  const refVal = showAnnualized && isPartialYear ? dAnn : d.actual;
-                                  const totH = maxVal > 0 ? (refVal / maxVal) * BAR_H : 0;
-                                  const pct = d.baseTotal > 0 ? ((d.baseTotal - refVal) / d.baseTotal * 100) : 0;
-                                  return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
-                                })()}
-                                <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#E32314' : isFuture ? 'var(--ov-text-dim)' : 'var(--ov-text-dim)'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
-                                {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={onTrack ? '#27AE60' : '#E32314'}>{onTrack ? '✓' : '✗'}</text>}
-
-                                {/* Intensity mini track */}
-                                {(() => {
-                                  const hasData = d.actual > 0 && d.rcn > 0;
-                                  const intensity = hasData ? d.actual / d.rcn : null;
-                                  const intBarH = intensity !== null ? Math.max((intensity / maxInt) * (INT_H - 16), 2) : 0;
-                                  const intBarTop = INT_T + (INT_H - 16) - intBarH;
-                                  return (
-                                    <g>
-                                      {isCurrent && <rect x={bx - 2} y={INT_T} width={BAR_W + 4} height={INT_H} rx={2} fill="#4338ca" opacity={0.06} />}
-                                      {intensity !== null && <rect x={x - 6} y={intBarTop} width={12} height={intBarH} rx={1.5} fill={isCurrent ? '#4f46e5' : '#a5b4fc'} opacity={isCurrent ? 0.9 : 0.6} />}
-                                      <text x={x} y={INT_T + INT_H - 5} textAnchor="middle" fontSize={isCurrent ? 7.5 : 6.5} fontWeight={isCurrent ? 800 : 500} fill={intensity !== null ? (isCurrent ? '#3730a3' : '#818cf8') : 'var(--ov-glass-border)'}>
-                                        {intensity !== null ? intensity.toFixed(2) : '—'}
-                                      </text>
-                                      {d.rcn > 0 && <text x={x} y={INT_T + INT_H + 4} textAnchor="middle" fontSize="5.5" fill={isCurrent ? '#6b7280' : 'var(--ov-text-dim)'} fontWeight={isCurrent ? 600 : 400}>{(d.rcn / 1000).toFixed(0)}k MT</text>}
-                                    </g>
-                                  );
-                                })()}
-                              </g>
-                            );
-                          })}
-
-                          {/* Intensity header */}
-                          <text x={PL - 3} y={INT_T + 8} textAnchor="end" fontSize="6" fill="#818cf8" fontWeight="700">t/MT</text>
-                          <line x1={PL} y1={INT_T - 2} x2={W - PR} y2={INT_T - 2} stroke="#e0e7ff" strokeWidth={0.8} />
-                        </svg>
-                        {/* Legend */}
-                        <div style={{ display: 'flex', gap: 8, fontSize: 7.5, color: 'var(--ov-text-dim)', alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
-                          <span><span style={{ width: 8, height: 8, background: '#E32314', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />🔥 S1</span>
-                          <span><span style={{ width: 8, height: 8, background: '#F5A623', borderRadius: 2, display: 'inline-block', marginRight: 3 }} />⚡ S2</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −50%</span>
-                          {showAnnualized && <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#7c3aed', fontWeight: 700 }}><span style={{ borderBottom: '1.5px dashed #7c3aed', width: 10, display: 'inline-block', verticalAlign: 'middle' }} />Run-rate (annualized)</span>}
-                          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 6, background: '#a5b4fc', borderRadius: 1.5, display: 'inline-block' }} />tCO₂e/MT RCN</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* ── CHART B: Scope 3 (Value Chain) ── */}
-                  {(() => {
-                    const chartData = roadmapS3;
-                    const W = 358, PL = 44, PR = 10;
-                    const BAR_T = 20, BAR_H = 110, BAR_B = 22;
-                    const TOTAL_H = BAR_T + BAR_H + BAR_B + 14;
-                    const n = chartData.length;
-                    const maxVal = Math.max(...chartData.map(d => Math.max(d.actual, d.target, d.baseTotal)), 1) * 1.15;
-                    const plotW = W - PL - PR;
-                    const BAR_W = 20;
-                    const xOf = (i: number) => PL + (i / (n - 1)) * plotW;
-                    const xFuture = xOf(6);
-
-                    return (
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                          <div style={{ fontSize: 8.5, fontWeight: 800, color: '#8CB92D', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                            🌍 Scope 3 — Value Chain
-                          </div>
-                          <div style={{ background: 'rgba(39, 174, 96, 0.05)', color: '#166534', fontSize: 7.5, fontWeight: 700, padding: '1px 6px', borderRadius: 3 }}>
-                            −42% by 2032
-                          </div>
-                        </div>
-                        <svg viewBox={`0 0 ${W} ${TOTAL_H}`} width="100%" height={TOTAL_H} style={{ overflow: 'visible', display: 'block' }}>
-                          {/* Future bg */}
-                          <rect x={xFuture} y={BAR_T} width={W - PR - xFuture} height={BAR_H} fill="#f5f5f0" rx={2} opacity={0.7} />
-                          <text x={xFuture + (W - PR - xFuture) / 2} y={BAR_T + 9} textAnchor="middle" fontSize="7" fill="var(--ov-text-dim)" fontWeight="600">PROJECTED</text>
-
-                          {/* Grid */}
-                          {[0, 0.5, 1].map((p, gi) => (
-                            <g key={gi}>
-                              <line x1={PL} y1={BAR_T + BAR_H * (1 - p)} x2={W - PR} y2={BAR_T + BAR_H * (1 - p)}
-                                stroke={p === 0 ? 'var(--ov-text-dim)' : '#efefef'} strokeWidth={p === 0 ? 1 : 0.7} />
-                              {p > 0 && <text x={PL - 4} y={BAR_T + BAR_H * (1 - p) + 3} textAnchor="end" fontSize="7" fill="var(--ov-text-dim)" fontWeight="500">{fmt(maxVal * p)}</text>}
-                            </g>
-                          ))}
-
-                          {/* SBTi pathway −42% */}
-                          <polyline
-                            points={chartData.map((d, i) => `${xOf(i)},${BAR_T + BAR_H * (1 - d.target / maxVal)}`).join(' ')}
-                            fill="none" stroke="#8CB92D" strokeWidth={1.8} strokeDasharray="5,3" opacity={0.9}
-                          />
-                          {/* 2032 target label */}
-                          {(() => {
-                            const last = chartData[n - 1];
-                            const x = xOf(n - 1);
-                            const y = BAR_T + BAR_H * (1 - last.target / maxVal);
-                            return <><circle cx={x} cy={y} r={3} fill="#8CB92D" /><text x={x - 4} y={y - 5} textAnchor="end" fontSize="7" fill="#4A6E12" fontWeight="800">{fmt(last.target)}t</text></>;
-                          })()}
-
-                          {/* Bars */}
-                          {chartData.map((d, i) => {
-                            const x = xOf(i);
-                            const bx = x - BAR_W / 2;
-                            const isFuture = d.actual === 0 && d.year > new Date().getFullYear();
-                            const isCurrent = d.year === selectedYear;
-                            const targetY = BAR_T + BAR_H * (1 - d.target / maxVal);
-
-                            return (
-                              <g key={d.year}>
-                                {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
-                                {!isFuture && d.actual > 0 && (
-                                  <rect x={bx} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0)} width={BAR_W} height={Math.max((maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0), 0.5)} rx={2}
-                                    fill="#8CB92D" opacity={isCurrent ? 0.88 : 0.45}
-                                    stroke={isCurrent ? 'rgba(0,0,0,0.1)' : 'none'} strokeWidth={0.5}
-                                  />
-                                )}
-                                {d.actual > 0 && (() => {
-                                  const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
-                                  return <text x={x} y={BAR_T + BAR_H - totH - 3} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7} fontWeight={isCurrent ? 900 : 500} fill={isCurrent ? '#4A6E12' : 'var(--ov-text-muted)'}>{fmt(d.actual)}</text>;
-                                })()}
-                                {isCurrent && d.actual > 0 && (() => {
-                                  const totH = maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0;
-                                  const pct = d.baseTotal > 0 ? ((d.baseTotal - d.actual) / d.baseTotal * 100) : 0;
-                                  return <text x={x} y={BAR_T + BAR_H - totH - 13} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{pct >= 0 ? '↓' : '↑'}{Math.abs(pct).toFixed(1)}%</text>;
-                                })()}
-                                <text x={x} y={BAR_T + BAR_H + BAR_B - 10} textAnchor="middle" fontSize={isCurrent ? 8.5 : 7.5} fill={isCurrent ? '#4A6E12' : isFuture ? 'var(--ov-text-dim)' : 'var(--ov-text-dim)'} fontWeight={isCurrent ? 800 : 400}>{d.year}</text>
-                                {d.actual > 0 && <text x={x} y={BAR_T + BAR_H + BAR_B - 1} textAnchor="middle" fontSize="7" fontWeight="800" fill={d.onTrack ? '#27AE60' : '#E32314'}>{d.onTrack ? '✓' : '✗'}</text>}
-                              </g>
-                            );
-                          })}
-                        </svg>
-                        {/* Legend */}
-                        <div style={{ display: 'flex', gap: 8, fontSize: 7.5, color: 'var(--ov-text-dim)', alignItems: 'center', marginTop: 2 }}>
-                          <span><span style={{ width: 8, height: 8, background: '#8CB92D', borderRadius: 2, display: 'inline-block', marginRight: 3, opacity: 0.8 }} />🌍 Scope 3 (Cat.1 + Cat.3 + Cat.4)</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}><span style={{ borderBottom: '2px dashed #8CB92D', width: 12, display: 'inline-block', verticalAlign: 'middle' }} /> SBTi −42%</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* ── Monthly Emissions Split: Scope 1 & Scope 2 by Factory ── */}
-              {viewMode !== 'SINGLE' && (() => {
-                // Per-scope max values
-                const maxS1 = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.s1)), 1);
-                const maxS2 = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.s2)), 1);
+            {/* ── Monthly Emissions Split: Scope 1 & Scope 2 by Factory ── */}
+            {viewMode !== 'SINGLE' && (() => {
+              // Per-scope max values
+              const maxS1 = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.s1)), 1);
+              const maxS2 = Math.max(...displayBlocks.flatMap(b => b.monthly.map(m => m.s2)), 1);
 
 
 
-                const renderScopeChart = (
-                  scopeKey: 's1' | 's2',
-                  maxVal: number,
-                  title: string,
-                  scopeColor: string,
-                  bgColor: string,
-                ) => {
-                  const bW = 36, gap = (525 - 12 * bW) / 13;
-                  return (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <div className="ov-chart-title" style={{ color: scopeColor, marginTop: 6 }}>{title}</div>
-                      <div className="ov-chart" style={{ background: bgColor, borderRadius: 6, paddingTop: 4, flex: 1 }}>
-                        <svg viewBox="0 0 560 130" width="100%" height="130">
-                          {[0, 0.5, 1].map((pct, gi) => (
-                            <g key={`g${gi}`}>
-                              <line x1={30} y1={105 - pct * 80} x2={555} y2={105 - pct * 80} stroke="var(--ov-glass-border)" strokeWidth={0.5} />
-                              <text x={28} y={108 - pct * 80} textAnchor="end" fontSize="8" fill="var(--ov-text-dim)">{Math.round(maxVal * pct)}</text>
-                            </g>
-                          ))}
-                          {Array.from({ length: 12 }, (_, mi) => {
-                            const x0 = 32 + gap + mi * (bW + gap);
-                            const barW = displayBlocks.length > 1 ? bW / displayBlocks.length - 1 : bW - 4;
-                            return (
-                              <g key={mi}>
-                                {displayBlocks.map((fb, fi) => {
-                                  const val = fb.monthly[mi][scopeKey];
-                                  const h = maxVal > 0 ? (val / maxVal) * 80 : 0;
-                                  const bx = x0 + fi * (barW + 1);
-                                  const fIdx = factories.findIndex(f => f.id === fb.factory.id);
-                                  const colorIdx = fIdx >= 0 ? fIdx : fi;
-                                  const color = scopeKey === 's1' ? FAC_COLORS[colorIdx % FAC_COLORS.length] : FAC_COLORS_LIGHT[colorIdx % FAC_COLORS_LIGHT.length];
-                                  const centerX = bx + barW / 2;
-                                  return (
-                                    <g key={fi}>
-                                      <rect x={bx} y={105 - h} width={barW} height={Math.max(h, 0.5)} rx={1}
-                                        fill={color} opacity={scopeKey === 's2' ? 0.8 : 0.9} />
-                                      {/* Value label */}
-                                      {val > 0 && (
-                                        <text x={centerX} y={105 - h - 3} textAnchor="middle" fontSize="7.5"
-                                          fontWeight="800" fill={color}>
-                                          {Math.round(val)}
-                                        </text>
-                                      )}
-                                    </g>
-                                  );
-                                })}
-                                <text x={x0 + bW / 2} y={118} textAnchor="middle" fontSize="8.5" fill="var(--ov-text-dim)" fontWeight="500">{MONTHS_VI[mi]}</text>
-                              </g>
-                            );
-                          })}
-                        </svg>
-
-                      </div>
-                    </div>
-                  );
-                };
-
+              const renderScopeChart = (
+                scopeKey: 's1' | 's2',
+                maxVal: number,
+                title: string,
+                scopeColor: string,
+                bgColor: string,
+              ) => {
+                const bW = 36, gap = (525 - 12 * bW) / 13;
                 return (
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    {renderScopeChart('s1', maxS1, `🔥 Scope 1 — Phát thải trực tiếp ${selectedYear} (tCO₂e)`, '#E32314', 'rgba(227, 35, 20, 0.05)')}
-                    {renderScopeChart('s2', maxS2, `⚡ Scope 2 — Điện lưới ${selectedYear} (tCO₂e)`, '#F5A623', 'rgba(245, 166, 35, 0.05)')}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div className="ov-chart-title" style={{ color: scopeColor, marginTop: 6 }}>{title}</div>
+                    <div className="ov-chart" style={{ background: bgColor, borderRadius: 6, paddingTop: 4, flex: 1 }}>
+                      <svg viewBox="0 0 560 130" width="100%" height="130">
+                        {[0, 0.5, 1].map((pct, gi) => (
+                          <g key={`g${gi}`}>
+                            <line x1={30} y1={105 - pct * 80} x2={555} y2={105 - pct * 80} stroke="var(--ov-glass-border)" strokeWidth={0.5} />
+                            <text x={28} y={108 - pct * 80} textAnchor="end" fontSize="8" fill="var(--ov-text-dim)">{Math.round(maxVal * pct)}</text>
+                          </g>
+                        ))}
+                        {Array.from({ length: 12 }, (_, mi) => {
+                          const x0 = 32 + gap + mi * (bW + gap);
+                          const barW = displayBlocks.length > 1 ? bW / displayBlocks.length - 1 : bW - 4;
+                          return (
+                            <g key={mi}>
+                              {displayBlocks.map((fb, fi) => {
+                                const val = fb.monthly[mi][scopeKey];
+                                const h = maxVal > 0 ? (val / maxVal) * 80 : 0;
+                                const bx = x0 + fi * (barW + 1);
+                                const fIdx = factories.findIndex(f => f.id === fb.factory.id);
+                                const colorIdx = fIdx >= 0 ? fIdx : fi;
+                                const color = scopeKey === 's1' ? FAC_COLORS[colorIdx % FAC_COLORS.length] : FAC_COLORS_LIGHT[colorIdx % FAC_COLORS_LIGHT.length];
+                                const centerX = bx + barW / 2;
+                                return (
+                                  <g key={fi}>
+                                    <rect x={bx} y={105 - h} width={barW} height={Math.max(h, 0.5)} rx={1}
+                                      fill={color} opacity={scopeKey === 's2' ? 0.8 : 0.9} />
+                                    {/* Value label */}
+                                    {val > 0 && (
+                                      <text x={centerX} y={105 - h - 3} textAnchor="middle" fontSize="7.5"
+                                        fontWeight="800" fill={color}>
+                                        {Math.round(val)}
+                                      </text>
+                                    )}
+                                  </g>
+                                );
+                              })}
+                              <text x={x0 + bW / 2} y={118} textAnchor="middle" fontSize="8.5" fill="var(--ov-text-dim)" fontWeight="500">{MONTHS_VI[mi]}</text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+
+                    </div>
                   </div>
                 );
-              })()}
+              };
+
+              return (
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {renderScopeChart('s1', maxS1, `🔥 Scope 1 — Phát thải trực tiếp ${selectedYear} (tCO₂e)`, '#E32314', 'rgba(227, 35, 20, 0.05)')}
+                  {renderScopeChart('s2', maxS2, `⚡ Scope 2 — Điện lưới ${selectedYear} (tCO₂e)`, '#F5A623', 'rgba(245, 166, 35, 0.05)')}
+                </div>
+              );
+            })()}
 
 
 
-              {/* Factory table (when ALL or COMPARE) */}
-              {displayBlocks.length > 1 && (() => {
-                // Pre-compute RCN per factory for the table
-                const tableRCN = displayBlocks.map(fb => ({
-                  id: fb.factory.id,
-                  rcn: prodData.filter(p => p.year === selectedYear && p.factory_id === fb.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0),
-                }));
-                return (
-                  <div className="ov-factory-table compact">
-                    <div className="ov-table-title">Factory — {selectedYear} YTD</div>
-                    <table>
-                      <thead><tr><th>Plant</th><th style={{ textAlign: 'right' }}>S1</th><th style={{ textAlign: 'right' }}>S2</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'right' }}>MWh</th><th style={{ textAlign: 'right', color: '#6366F1' }}>RCN (MT)</th><th style={{ textAlign: 'right', color: '#6366F1' }}>CO₂e/RCN</th><th style={{ width: '60px' }}>Share</th></tr></thead>
-                      <tbody>
-                        {displayBlocks.map((fb, i) => {
-                          const rcnMT = tableRCN.find(r => r.id === fb.factory.id)?.rcn ?? 0;
-                          const intensity = rcnMT > 0 ? (fb.total / rcnMT) : null;
+            {/* Factory table (when ALL or COMPARE) */}
+            {displayBlocks.length > 1 && (() => {
+              // Pre-compute RCN per factory for the table
+              const tableRCN = displayBlocks.map(fb => ({
+                id: fb.factory.id,
+                rcn: prodData.filter(p => p.year === selectedYear && p.factory_id === fb.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0),
+              }));
+              return (
+                <div className="ov-factory-table compact">
+                  <div className="ov-table-title">Factory — {selectedYear} YTD</div>
+                  <table>
+                    <thead><tr><th>Plant</th><th style={{ textAlign: 'right' }}>S1</th><th style={{ textAlign: 'right' }}>S2</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'right' }}>MWh</th><th style={{ textAlign: 'right', color: '#6366F1' }}>RCN (MT)</th><th style={{ textAlign: 'right', color: '#6366F1' }}>CO₂e/RCN</th><th style={{ width: '60px' }}>Share</th></tr></thead>
+                    <tbody>
+                      {displayBlocks.map((fb, i) => {
+                        const rcnMT = tableRCN.find(r => r.id === fb.factory.id)?.rcn ?? 0;
+                        const intensity = rcnMT > 0 ? (fb.total / rcnMT) : null;
+                        return (
+                          <tr key={fb.factory.id}>
+                            <td><span style={{ color: FAC_COLORS[factories.findIndex(f => f.id === fb.factory.id) % FAC_COLORS.length], fontWeight: 700, marginRight: 3 }}>●</span>{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(fb.s1)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(fb.s2)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(fb.total)}</td>
+                            <td style={{ textAlign: 'right', color: 'var(--ov-text-dim)' }}>{(fb.kWh / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+                            <td style={{ textAlign: 'right', color: '#6366F1', fontWeight: 700 }}>{rcnMT > 0 ? fmt(rcnMT) : '—'}</td>
+                            <td style={{ textAlign: 'right', color: '#6366F1', fontWeight: 700 }}>{intensity !== null ? intensity.toFixed(3) : '—'}</td>
+                            <td><div className="ov-share-bar"><div style={{ width: `${dispTotal > 0 ? (fb.total / dispTotal * 100) : 0}%`, background: FAC_COLORS[factories.findIndex(f => f.id === fb.factory.id) % FAC_COLORS.length] }} /></div></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+
+            {/* ── SINGLE MODE: Monthly Analysis + Scope Breakdown ── */}
+            {viewMode === 'SINGLE' && singleInsight && (() => {
+              const si = singleInsight;
+              const { pct } = si;
+              const facObj = factories.find(f => f.id === factoryA)!;
+
+              // Build per-month rows
+              const monthRows = Array.from({ length: 12 }, (_, mi) => {
+                const mn = mi + 1;
+                const cur = allEmissions.filter(e => e.year === selectedYear && e.factory_id === factoryA && e.month === mn);
+                const s1 = calcS1(cur);
+                const s2 = calcS2(cur, selectedYear, facObj);
+                const rcn = prodData.filter(p => p.year === selectedYear && p.factory_id === factoryA && p.month === mn && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+                const total = s1 + s2;
+                return { mn, s1, s2, total, rcn, int: rcn > 0 ? (total / rcn) : 0, hasData: total > 0 };
+              });
+
+              const latestMn = Math.max(...monthRows.filter(m => m.hasData).map(m => m.mn), 0);
+
+              // Gauge Metrics
+              const actGauge = si.latestTotal;
+              const tgtGauge = si.kpiTotalPerMonth; // Prev year avg
+              const prvGauge = si.avgTotalPrevMnthsCur; // Prev months avg
+              const vsTgt = tgtGauge > 0 ? (actGauge - tgtGauge) / tgtGauge * 100 : 0;
+              const vsPrv = prvGauge ? (actGauge - prvGauge) / prvGauge * 100 : 0;
+
+              const dColor = (v: number) => v > 0 ? '#E32314' : v < 0 ? '#27AE60' : 'var(--ov-text-dim)';
+              const dSign = (v: number) => v > 0 ? '+' : '';
+              const MN = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+              const maxMonthVal = Math.max(...monthRows.filter(m => m.hasData).map(m => m.total), tgtGauge * 1.5, 1);
+              const maxIntVal = Math.max(...monthRows.filter(m => m.hasData).map(m => m.int), 0) * 1.5 || 1;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+
+                  {/* TOP ROW: Monthly Chart & KPI Gauge */}
+                  <div style={{ display: 'flex', gap: 10 }}>
+
+                    {/* LEFT: Monthly Chart */}
+                    <div className="ov-compare-block" style={{ flex: 1.5, marginBottom: 0, position: 'relative' }}>
+                      <div className="ov-table-title">📅 Monthly Emissions & Intensity {selectedYear}</div>
+                      <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 8, display: 'flex', gap: 10, color: 'var(--ov-text-muted)' }}>
+                        <span><span style={{ color: '#27AE60' }}>■</span> Below KPI</span>
+                        <span><span style={{ color: '#E32314' }}>■</span> Over KPI</span>
+                        <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1, width: 10, display: 'inline-block' }}>&nbsp;</span> tCO₂e/MT RCN</span>
+                      </div>
+                      <svg viewBox="0 0 520 85" width="100%" height="85">
+                        {[0, 0.5, 1].map((p, gi) => (
+                          <g key={gi}>
+                            <line x1={28} y1={12 + 58 * (1 - p)} x2={516} y2={12 + 58 * (1 - p)} stroke="var(--ov-glass-border)" strokeWidth={0.6} />
+                            <text x={26} y={12 + 58 * (1 - p) + 2} textAnchor="end" fontSize="7" fill="var(--ov-text-dim)">{Math.round(maxMonthVal * p)}</text>
+                            <text x={518} y={12 + 58 * (1 - p) + 2} textAnchor="start" fontSize="7" fill="var(--ov-blue)">{(maxIntVal * p).toFixed(2)}</text>
+                          </g>
+                        ))}
+                        {/* Target Line */}
+                        {tgtGauge > 0 && (() => {
+                          const ty = 12 + 58 * (1 - tgtGauge / maxMonthVal);
                           return (
-                            <tr key={fb.factory.id}>
-                              <td><span style={{ color: FAC_COLORS[factories.findIndex(f => f.id === fb.factory.id) % FAC_COLORS.length], fontWeight: 700, marginRight: 3 }}>●</span>{fb.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {fb.factory.name}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(fb.s1)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(fb.s2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(fb.total)}</td>
-                              <td style={{ textAlign: 'right', color: 'var(--ov-text-dim)' }}>{(fb.kWh / 1000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
-                              <td style={{ textAlign: 'right', color: '#6366F1', fontWeight: 700 }}>{rcnMT > 0 ? fmt(rcnMT) : '—'}</td>
-                              <td style={{ textAlign: 'right', color: '#6366F1', fontWeight: 700 }}>{intensity !== null ? intensity.toFixed(3) : '—'}</td>
-                              <td><div className="ov-share-bar"><div style={{ width: `${dispTotal > 0 ? (fb.total / dispTotal * 100) : 0}%`, background: FAC_COLORS[factories.findIndex(f => f.id === fb.factory.id) % FAC_COLORS.length] }} /></div></td>
+                            <g>
+                              <line x1={28} y1={ty} x2={516} y2={ty} stroke="#E32314" strokeWidth="1" strokeDasharray="3,2" opacity={0.6} />
+                              <rect x={495} y={ty - 9} width={18} height={9} fill="#E32314" rx={1} opacity={0.15} />
+                              <text x={504} y={ty - 2} fontSize="7" fill="#E32314" fontWeight="800" textAnchor="middle">KPI</text>
+                            </g>
+                          );
+                        })()}
+                        {/* Bars */}
+                        {monthRows.map((m, idx) => {
+                          const bW = 28, gap = (486 - 12 * bW) / 13;
+                          const bx = 30 + gap + idx * (bW + gap);
+                          const isLatest = m.mn === latestMn;
+                          if (!m.hasData) return <text key={`lbl-${idx}`} x={bx + bW / 2} y={82} textAnchor="middle" fontSize="7.5" fill="var(--ov-text-dim)">{MN[idx]}</text>;
+                          const totH = maxMonthVal > 0 ? (m.total / maxMonthVal) * 58 : 0;
+                          const s1H = maxMonthVal > 0 ? (m.s1 / maxMonthVal) * 58 : 0;
+                          const s2H = totH - s1H;
+                          const isOver = m.total > tgtGauge;
+                          const fillS2 = isOver ? '#FF8A80' : '#A8D5BA';
+                          const fillS1 = isOver ? '#E32314' : '#27AE60';
+                          return (
+                            <g key={`bar-${idx}`}>
+                              <rect x={bx + 2} y={70 - totH + s1H} width={bW - 4} height={Math.max(s2H, 0)} rx={1} fill={fillS2} opacity={0.85} />
+                              <rect x={bx + 2} y={70 - s1H} width={bW - 4} height={Math.max(s1H, 0)} rx={s2H < 0.5 ? 1 : 0} fill={fillS1} opacity={0.9} />
+                              <text x={bx + bW / 2} y={70 - totH - 3} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={isOver ? '#E32314' : '#27AE60'}>{fmt(m.total)}</text>
+                              <text x={bx + bW / 2} y={82} textAnchor="middle" fontSize="8" fill={isLatest ? 'var(--ov-text)' : 'var(--ov-text-muted)'} fontWeight={isLatest ? 800 : 500}>{MN[idx]}</text>
+                            </g>
+                          );
+                        })}
+                        {/* Intensity Line Overlay */}
+                        {(() => {
+                          const pts: string[] = [];
+                          const dotPoints: { x: number, y: number, val: number }[] = [];
+                          monthRows.forEach((m, idx) => {
+                            if (m.hasData && m.int > 0) {
+                              const bW = 28, gap = (486 - 12 * bW) / 13;
+                              const bx = 30 + gap + idx * (bW + gap) + bW / 2;
+                              const cy = 12 + 58 * (1 - m.int / maxIntVal);
+                              pts.push(`${bx},${cy}`);
+                              dotPoints.push({ x: bx, y: cy, val: m.int });
+                            }
+                          });
+                          return (
+                            <g>
+                              <polyline points={pts.join(' ')} fill="none" stroke="var(--ov-blue)" strokeWidth="1.5" strokeDasharray="2,2" />
+                              {dotPoints.map((d, i) => (
+                                <g key={`dot-${i}`}>
+                                  <circle cx={d.x} cy={d.y} r="2.5" fill='var(--ov-surface-low)' stroke="#6366F1" strokeWidth="1.2" />
+                                  <rect x={d.x - 10} y={d.y - 12} width={20} height={8} fill="#e0e7ff" rx="2" opacity="0.8" />
+                                  <text x={d.x} y={d.y - 6} textAnchor="middle" fontSize="6.5" fill="#4338ca" fontWeight="800">{d.val.toFixed(3)}</text>
+                                </g>
+                              ))}
+                            </g>
+                          );
+                        })()}
+                      </svg>
+                    </div>
+
+                    {/* RIGHT: KPI Gauge & Commentary */}
+                    <div className="ov-compare-block" style={{ flex: 1, marginBottom: 0, background: 'var(--ov-surface-low)', border: '1px solid var(--ov-outline-ghost)' }}>
+                      <div className="ov-table-title" style={{ color: 'var(--ov-text)' }}>🎯 Latest Month vs Top-Down KPI (M{latestMn})</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 10, color: 'var(--ov-text-muted)', fontWeight: 600 }}>Total S1+S2</span>
+                          <span style={{ fontSize: 13, color: actGauge <= tgtGauge ? '#27AE60' : '#E32314', fontWeight: 800 }}>{fmt(actGauge)} <span style={{ fontSize: 9, fontWeight: 500 }}>tCO₂e</span></span>
+                        </div>
+                        {/* Horizontal Bar Gauge */}
+                        <div style={{ position: 'relative', height: 16, background: 'var(--ov-surface-high)', borderRadius: 4, overflow: 'hidden' }}>
+                          {tgtGauge > 0 && (() => {
+                            const maxG = Math.max(actGauge, tgtGauge) * 1.3;
+                            const tPct = (tgtGauge / maxG) * 100;
+                            const aPct = (actGauge / maxG) * 100;
+                            return (
+                              <>
+                                <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${aPct}%`, background: actGauge <= tgtGauge ? '#27AE60' : '#E32314', opacity: 0.85, transition: 'width 0.5s' }} />
+                                <div style={{ position: 'absolute', top: 0, left: `${tPct}%`, height: '100%', borderLeft: '2px dashed #333', zIndex: 2 }} />
+                                <div style={{ position: 'absolute', top: 0, left: `calc(${tPct}% + 4px)`, fontSize: 8, fontWeight: 800, color: 'var(--ov-text)', lineHeight: '16px', zIndex: 2 }}>KPI</div>
+                              </>
+                            )
+                          })()}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                          <div style={{ flex: 1.2, background: 'var(--ov-surface)', border: '1px solid var(--ov-outline-ghost)', borderRadius: 4, padding: '6px 8px' }}>
+                            <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', textTransform: 'uppercase' }}>VS Absolute KPI</div>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: dColor(vsTgt), marginTop: 2 }}>
+                              {vsTgt > 0 ? '▲' : '▼'} {Math.abs(vsTgt).toFixed(1)}% <div style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500, display: 'inline-block' }}>({dSign(actGauge - tgtGauge)}{fmt(actGauge - tgtGauge)}t)</div>
+                            </div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: actGauge <= tgtGauge ? '#27AE60' : '#E32314', marginTop: 3 }}>
+                              {actGauge <= tgtGauge ? '✓ BELOW KPI' : '✗ OVER BUDGET'}
+                            </div>
+                          </div>
+                          <div style={{ flex: 1.5, background: 'var(--ov-surface)', border: '1px solid var(--ov-outline-ghost)', borderRadius: 4, padding: '6px 8px' }}>
+                            <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', textTransform: 'uppercase' }}>Intensity (M{latestMn})</div>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#6366F1', marginTop: 2 }}>
+                              {si.latestIntTot.toFixed(3)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e/MT</span>
+                            </div>
+                            <div style={{ fontSize: 9, color: 'var(--ov-text-muted)', marginTop: 3 }}>
+                              RCN Processed: <b style={{ color: 'var(--ov-text)' }}>{fmt(si.latestRCN)} MT</b>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BOTTOM ROW: S1 Drivers & S2 Stats */}
+                  <div style={{ display: 'flex', gap: 10, minHeight: 180 }}>
+
+                    {/* SCOPE 1 */}
+                    <div className="ov-compare-block" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div className="ov-table-title" style={{ color: '#E32314', marginBottom: 4 }}>🔥 Scope 1 Overview (YTD)</div>
+                      <div style={{ overflowY: 'auto', flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 6, marginBottom: 4, borderBottom: '1px solid var(--ov-glass-border)' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ov-text)' }}>Total YTD</span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: '#E32314' }}>{fmt(si.s1TotalCur)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e</span></span>
+                        </div>
+                        {si.s1Drivers.filter(d => d.ytdAvg > 0 || d.cur > 0).slice(0, 5).map((d, di) => {
+                          const def = SCOPE_1_CATEGORIES.find(c => c.key === d.key);
+                          const s1TotCurYd = d.ytdAvg * si.nMonthsCur;
+                          const pctS1 = si.s1TotalCur > 0 ? (s1TotCurYd / si.s1TotalCur * 100) : 0;
+                          return (
+                            <div key={d.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--ov-outline-ghost)' }}>
+                              <div style={{ fontSize: 14 }}>{def?.icon || '📊'}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ov-text)' }}>{def?.label?.replace(/ \(.*\)/, '') || d.key}</div>
+                              </div>
+                              <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ov-text)', width: 40, textAlign: 'right' }}>{fmt(s1TotCurYd)}</div>
+                                <div style={{ width: 40, height: 4, background: 'var(--ov-outline-ghost)', borderRadius: 2, overflow: 'hidden', display: 'inline-block' }}>
+                                  <div style={{ width: `${pctS1}%`, height: '100%', background: '#E32314', opacity: 0.7 }} />
+                                </div>
+                                <div style={{ fontSize: 9, color: 'var(--ov-text-dim)', width: 22, textAlign: 'right', fontWeight: 600 }}>{pctS1.toFixed(0)}%</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* SCOPE 2 & INTENSITY */}
+                    <div className="ov-compare-block" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div className="ov-table-title" style={{ color: '#F5A623', marginBottom: 10 }}>⚡ Scope 2 & Production (YTD)</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                        <div style={{ flex: '1 1 45%', background: 'rgba(245, 158, 11, 0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-glass-border)' }}>
+                          <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#F5A623', fontWeight: 800, marginBottom: 4 }}>Electricity Consumed</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ov-text)' }}>{si.kWhCur >= 1000000 ? (si.kWhCur / 1000000).toFixed(2) : (si.kWhCur / 1000).toFixed(0)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>{si.kWhCur >= 1000000 ? 'GWh' : 'MWh'}</span></div>
+                        </div>
+                        <div style={{ flex: '1 1 45%', background: 'rgba(227, 6, 19, 0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-glass-border)' }}>
+                          <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#E32314', fontWeight: 800, marginBottom: 4 }}>Scope 2 Emissions</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(si.s2EmCur)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e</span></div>
+                        </div>
+                        <div style={{ flex: '1 1 45%', background: 'rgba(59, 130, 246, 0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-glass-border)' }}>
+                          <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#6366F1', fontWeight: 800, marginBottom: 4 }}>RCN Processed</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ov-text)' }}>{si.rcnCur > 0 ? fmt(si.rcnCur) : '—'} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>{si.rcnCur > 0 ? 'MT' : ''}</span></div>
+                        </div>
+                        <div style={{ flex: '1 1 45%', background: 'var(--ov-surface-low)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-outline-ghost)' }}>
+                          <div style={{ fontSize: 9, textTransform: 'uppercase', color: 'var(--ov-text-dim)', fontWeight: 800, marginBottom: 4 }}>Overall Intensity</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: '#E32314' }}>{si.rcnCur > 0 ? si.intTotCur.toFixed(3) : '—'} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>{si.rcnCur > 0 ? 'tCO₂e/MT' : ''}</span></div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── COMPARE MODE: Quick KPI Summary ── */}
+            {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
+              const [blkQA, blkQB] = displayBlocks;
+              const colorQA = FAC_COLORS[factories.findIndex(f => f.id === blkQA.factory.id) % FAC_COLORS.length] || FAC_COLORS[0];
+              const colorQB = FAC_COLORS[factories.findIndex(f => f.id === blkQB.factory.id) % FAC_COLORS.length] || FAC_COLORS[1];
+              const rcnQA = prodData.filter(p => p.year === selectedYear && p.factory_id === blkQA.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+              const rcnQB = prodData.filter(p => p.year === selectedYear && p.factory_id === blkQB.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+              const intQA = rcnQA > 0 ? blkQA.total / rcnQA : null;
+              const intQB = rcnQB > 0 ? blkQB.total / rcnQB : null;
+              const better = intQA !== null && intQB !== null ? (intQA < intQB ? 'A' : intQA > intQB ? 'B' : 'equal') : null;
+              return (
+                <div className="ov-compare-block" style={{ marginBottom: 6, background: 'var(--ov-surface)', border: '1px solid var(--ov-glass-border)' }}>
+                  <div className="ov-table-title" style={{ color: '#6366F1', marginBottom: 8 }}>📊 Comparison Summary — {selectedYear} YTD</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'center' }}>
+                    {/* Factory A */}
+                    <div style={{ background: 'var(--ov-surface)', borderRadius: 6, padding: '8px 10px', border: `1.5px solid ${colorQA}22` }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: colorQA, marginBottom: 4, textTransform: 'uppercase' }}>{blkQA.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {blkQA.factory.name}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                        <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
+                          <div style={{ fontSize: 7, color: '#E32314', fontWeight: 700, textTransform: 'uppercase' }}>Scope 1</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQA.s1)}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
+                        </div>
+                        <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
+                          <div style={{ fontSize: 7, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase' }}>Scope 2</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQA.s2)}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
+                        </div>
+                        <div style={{ background: 'rgba(99, 102, 241, 0.05)', borderRadius: 4, padding: '4px 6px' }}>
+                          <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>🥜 RCN</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>{rcnQA > 0 ? fmt(rcnQA) : '—'}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>MT</div>
+                        </div>
+                        <div style={{ background: better === 'A' ? 'rgba(39, 174, 96, 0.05)' : better === 'B' ? 'rgba(227, 35, 20, 0.05)' : 'var(--ov-glass)', borderRadius: 4, padding: '4px 6px', border: better === 'A' ? '1px solid #86efac' : better === 'B' ? '1px solid #fca5a5' : 'none' }}>
+                          <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>CO₂e/RCN</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: better === 'A' ? 'var(--ov-target)' : better === 'B' ? '#E32314' : '#6366F1' }}>{intQA !== null ? intQA.toFixed(3) : '—'}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e/MT {better === 'A' ? '✓' : better === 'B' ? '✗' : ''}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* VS Badge */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ov-text-dim)', padding: '4px 8px', background: 'var(--ov-glass-border)', borderRadius: 20 }}>VS</div>
+                      {better && better !== 'equal' && (
+                        <div style={{ fontSize: 8, color: 'var(--ov-text-muted)', textAlign: 'center', maxWidth: 50, lineHeight: 1.4 }}>
+                          {better === 'A' ? blkQA.factory.name : blkQB.factory.name}<br />more<br />efficient
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Factory B */}
+                    <div style={{ background: 'var(--ov-surface)', borderRadius: 6, padding: '8px 10px', border: `1.5px solid ${colorQB}22` }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: colorQB, marginBottom: 4, textTransform: 'uppercase' }}>{blkQB.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {blkQB.factory.name}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                        <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
+                          <div style={{ fontSize: 7, color: '#E32314', fontWeight: 700, textTransform: 'uppercase' }}>Scope 1</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQB.s1)}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
+                        </div>
+                        <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
+                          <div style={{ fontSize: 7, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase' }}>Scope 2</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQB.s2)}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
+                        </div>
+                        <div style={{ background: 'rgba(99, 102, 241, 0.05)', borderRadius: 4, padding: '4px 6px' }}>
+                          <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>🥜 RCN</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>{rcnQB > 0 ? fmt(rcnQB) : '—'}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>MT</div>
+                        </div>
+                        <div style={{ background: better === 'B' ? 'rgba(39, 174, 96, 0.05)' : better === 'A' ? 'rgba(227, 35, 20, 0.05)' : 'var(--ov-glass)', borderRadius: 4, padding: '4px 6px', border: better === 'B' ? '1px solid #86efac' : better === 'A' ? '1px solid #fca5a5' : 'none' }}>
+                          <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>CO₂e/RCN</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: better === 'B' ? 'var(--ov-target)' : better === 'A' ? '#E32314' : '#6366F1' }}>{intQB !== null ? intQB.toFixed(3) : '—'}</div>
+                          <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e/MT {better === 'B' ? '✓' : better === 'A' ? '✗' : ''}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Δ row */}
+                  {intQA !== null && intQB !== null && (
+                    <div style={{ marginTop: 6, padding: '5px 8px', background: 'var(--ov-surface)', borderRadius: 5, border: '1px solid var(--ov-outline-ghost)', fontSize: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--ov-text-dim)', fontWeight: 600 }}>Δ CO₂e/RCN</span>
+                      <span style={{ fontWeight: 800, color: Math.abs(intQA - intQB) < 0.001 ? 'var(--ov-text-dim)' : '#6366F1' }}>
+                        {intQA > intQB ? `+${(intQA - intQB).toFixed(3)} (${((intQA - intQB) / intQB * 100).toFixed(1)}%)` : `-${(intQB - intQA).toFixed(3)} (${((intQB - intQA) / intQA * 100).toFixed(1)}%)`}
+                        {' '}<span style={{ color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e/MT RCN — {blkQA.factory.name} vs {blkQB.factory.name}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── COMPARE MODE: Scope 1 Breakdown + RCN Intensity ── */}
+            {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
+              const [blkA, blkB] = displayBlocks;
+              const colorA = FAC_COLORS[factories.findIndex(f => f.id === blkA.factory.id) % FAC_COLORS.length] || FAC_COLORS[0];
+              const colorB = FAC_COLORS[factories.findIndex(f => f.id === blkB.factory.id) % FAC_COLORS.length] || FAC_COLORS[1];
+
+              // Collect all S1 categories from both
+              const allCatKeys = Array.from(new Set([
+                ...blkA.s1ByCat.map(c => c.key),
+                ...blkB.s1ByCat.map(c => c.key),
+              ]));
+              const getVal = (blk: typeof blkA, key: string) => blk.s1ByCat.find(c => c.key === key)?.value || 0;
+              const getAct = (blk: typeof blkA, key: string) => blk.s1ByCat.find(c => c.key === key)?.activity || 0;
+              const maxS1Cat = Math.max(...allCatKeys.map(k => Math.max(getVal(blkA, k), getVal(blkB, k))), 1);
+
+              // RCN + intensity per factory
+              const rcnA = prodData.filter(p => p.year === selectedYear && p.factory_id === blkA.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+              const rcnB = prodData.filter(p => p.year === selectedYear && p.factory_id === blkB.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
+              const intA = rcnA > 0 ? blkA.total / rcnA : 0;
+              const intB = rcnB > 0 ? blkB.total / rcnB : 0;
+              const intS1A = rcnA > 0 ? blkA.s1 / rcnA : 0;
+              const intS1B = rcnB > 0 ? blkB.s1 / rcnB : 0;
+              const maxInt = Math.max(intA, intB, 0.001);
+              const maxIntS1 = Math.max(intS1A, intS1B, 0.001);
+
+              return (
+                <>
+                  {/* Scope 1 Breakdown Side-by-Side — COMPARE mode */}
+                  <div className="ov-compare-block">
+                    <div className="ov-table-title" style={{ color: '#E32314' }}>🔥 Scope 1 Breakdown — Comparison</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--ov-glass-border)' }}>
+                          <th style={{ textAlign: 'left', padding: '3px 4px', color: 'var(--ov-text-dim)', fontWeight: 600 }}>Source</th>
+                          <th style={{ textAlign: 'right', padding: '3px 4px', color: colorA, fontWeight: 700 }}>{blkA.factory.name}</th>
+                          <th style={{ textAlign: 'right', padding: '3px 4px', color: colorB, fontWeight: 700 }}>{blkB.factory.name}</th>
+                          <th style={{ textAlign: 'right', padding: '3px 4px', color: 'var(--ov-text-dim)', fontWeight: 600, fontSize: '9px' }}>Δ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allCatKeys.map((key, ci) => {
+                          const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
+                          const vA = getVal(blkA, key), vB = getVal(blkB, key);
+                          const aA = getAct(blkA, key), aB = getAct(blkB, key);
+                          const barA = maxS1Cat > 0 ? (vA / maxS1Cat * 100) : 0;
+                          const barB = maxS1Cat > 0 ? (vB / maxS1Cat * 100) : 0;
+                          const delta = vA - vB;
+                          if (vA === 0 && vB === 0) return null;
+                          return (
+                            <tr key={key} style={{ borderBottom: '1px solid var(--ov-glass-border)' }}>
+                              <td style={{ padding: '3px 4px' }}>
+                                <span style={{ marginRight: 3 }}>{def?.icon || '📊'}</span>
+                                <span style={{ color: 'var(--ov-text-muted)' }}>{def?.label?.replace(/ \(.*\)/, '') || key}</span>
+                                {/* Activity data hint */}
+                                {(aA > 0 || aB > 0) && (
+                                  <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '1px' }}>
+                                    {aA > 0 ? `A: ${aA >= 1000 ? (aA / 1000).toFixed(1) + 'k' : aA.toFixed(0)} ${def?.unit || ''}` : '—'}
+                                    {' vs '}
+                                    {aB > 0 ? `B: ${aB >= 1000 ? (aB / 1000).toFixed(1) + 'k' : aB.toFixed(0)} ${def?.unit || ''}` : '—'}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                  <span style={{ fontWeight: 700, color: colorA }}>{vA > 0 ? fmt(vA) : '—'}</span>
+                                  {vA > 0 && <div style={{ width: `${barA}%`, minWidth: barA > 0 ? 2 : 0, height: 3, background: colorA, opacity: 0.6, borderRadius: 2, maxWidth: 50 }} />}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                  <span style={{ fontWeight: 700, color: colorB }}>{vB > 0 ? fmt(vB) : '—'}</span>
+                                  {vB > 0 && <div style={{ width: `${barB}%`, minWidth: barB > 0 ? 2 : 0, height: 3, background: colorB, opacity: 0.6, borderRadius: 2, maxWidth: 50 }} />}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600, fontSize: '9px', color: delta > 0 ? '#E32314' : delta < 0 ? '#27AE60' : 'var(--ov-text-muted)' }}>
+                                {delta !== 0 ? (delta > 0 ? '+' : '') + fmt(delta) : '='}
+                              </td>
                             </tr>
                           );
                         })}
+                        {/* Total row */}
+                        <tr style={{ borderTop: '1px solid var(--ov-glass-border)', background: 'var(--ov-surface-low)' }}>
+                          <td style={{ padding: '4px', fontWeight: 700, fontSize: '11px' }}>🔥 S1 Total</td>
+                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 800, color: colorA, fontSize: '11px' }}>{fmt(blkA.s1)}</td>
+                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 800, color: colorB, fontSize: '11px' }}>{fmt(blkB.s1)}</td>
+                          <td style={{ textAlign: 'right', padding: '4px', fontWeight: 700, fontSize: '9px', color: blkA.s1 - blkB.s1 > 0 ? '#E32314' : '#27AE60' }}>
+                            {blkA.s1 !== blkB.s1 ? (blkA.s1 > blkB.s1 ? '+' : '') + fmt(blkA.s1 - blkB.s1) : '='}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
-                );
-              })()}
 
-              {/* ── SINGLE MODE: Monthly Analysis + Scope Breakdown ── */}
-              {viewMode === 'SINGLE' && singleInsight && (() => {
-                const si = singleInsight;
-                const { pct } = si;
-                const facObj = factories.find(f => f.id === factoryA)!;
-
-                // Build per-month rows
-                const monthRows = Array.from({ length: 12 }, (_, mi) => {
-                  const mn = mi + 1;
-                  const cur = allEmissions.filter(e => e.year === selectedYear && e.factory_id === factoryA && e.month === mn);
-                  const s1 = calcS1(cur);
-                  const s2 = calcS2(cur, selectedYear, facObj);
-                  const rcn = prodData.filter(p => p.year === selectedYear && p.factory_id === factoryA && p.month === mn && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-                  const total = s1 + s2;
-                  return { mn, s1, s2, total, rcn, int: rcn > 0 ? (total / rcn) : 0, hasData: total > 0 };
-                });
-
-                const latestMn = Math.max(...monthRows.filter(m => m.hasData).map(m => m.mn), 0);
-
-                // Gauge Metrics
-                const actGauge = si.latestTotal;
-                const tgtGauge = si.kpiTotalPerMonth; // Prev year avg
-                const prvGauge = si.avgTotalPrevMnthsCur; // Prev months avg
-                const vsTgt = tgtGauge > 0 ? (actGauge - tgtGauge) / tgtGauge * 100 : 0;
-                const vsPrv = prvGauge ? (actGauge - prvGauge) / prvGauge * 100 : 0;
-
-                const dColor = (v: number) => v > 0 ? '#E32314' : v < 0 ? '#27AE60' : 'var(--ov-text-dim)';
-                const dSign = (v: number) => v > 0 ? '+' : '';
-                const MN = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
-                const maxMonthVal = Math.max(...monthRows.filter(m => m.hasData).map(m => m.total), tgtGauge * 1.5, 1);
-                const maxIntVal = Math.max(...monthRows.filter(m => m.hasData).map(m => m.int), 0) * 1.5 || 1;
-
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-
-                    {/* TOP ROW: Monthly Chart & KPI Gauge */}
-                    <div style={{ display: 'flex', gap: 10 }}>
-
-                      {/* LEFT: Monthly Chart */}
-                      <div className="ov-compare-block" style={{ flex: 1.5, marginBottom: 0, position: 'relative' }}>
-                        <div className="ov-table-title">📅 Monthly Emissions & Intensity {selectedYear}</div>
-                        <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 8, display: 'flex', gap: 10, color: 'var(--ov-text-muted)' }}>
-                          <span><span style={{ color: '#27AE60' }}>■</span> Below KPI</span>
-                          <span><span style={{ color: '#E32314' }}>■</span> Over KPI</span>
-                          <span><span style={{ borderBottom: '1.5px dotted #6366F1', paddingBottom: 1, width: 10, display: 'inline-block' }}>&nbsp;</span> tCO₂e/MT RCN</span>
-                        </div>
-                        <svg viewBox="0 0 520 85" width="100%" height="85">
-                          {[0, 0.5, 1].map((p, gi) => (
-                            <g key={gi}>
-                              <line x1={28} y1={12 + 58 * (1 - p)} x2={516} y2={12 + 58 * (1 - p)} stroke="var(--ov-glass-border)" strokeWidth={0.6} />
-                              <text x={26} y={12 + 58 * (1 - p) + 2} textAnchor="end" fontSize="7" fill="var(--ov-text-dim)">{Math.round(maxMonthVal * p)}</text>
-                              <text x={518} y={12 + 58 * (1 - p) + 2} textAnchor="start" fontSize="7" fill="var(--ov-blue)">{(maxIntVal * p).toFixed(2)}</text>
-                            </g>
-                          ))}
-                          {/* Target Line */}
-                          {tgtGauge > 0 && (() => {
-                            const ty = 12 + 58 * (1 - tgtGauge / maxMonthVal);
-                            return (
-                              <g>
-                                <line x1={28} y1={ty} x2={516} y2={ty} stroke="#E32314" strokeWidth="1" strokeDasharray="3,2" opacity={0.6} />
-                                <rect x={495} y={ty - 9} width={18} height={9} fill="#E32314" rx={1} opacity={0.15} />
-                                <text x={504} y={ty - 2} fontSize="7" fill="#E32314" fontWeight="800" textAnchor="middle">KPI</text>
-                              </g>
-                            );
-                          })()}
-                          {/* Bars */}
-                          {monthRows.map((m, idx) => {
-                            const bW = 28, gap = (486 - 12 * bW) / 13;
-                            const bx = 30 + gap + idx * (bW + gap);
-                            const isLatest = m.mn === latestMn;
-                            if (!m.hasData) return <text key={`lbl-${idx}`} x={bx + bW / 2} y={82} textAnchor="middle" fontSize="7.5" fill="var(--ov-text-dim)">{MN[idx]}</text>;
-                            const totH = maxMonthVal > 0 ? (m.total / maxMonthVal) * 58 : 0;
-                            const s1H = maxMonthVal > 0 ? (m.s1 / maxMonthVal) * 58 : 0;
-                            const s2H = totH - s1H;
-                            const isOver = m.total > tgtGauge;
-                            const fillS2 = isOver ? '#FF8A80' : '#A8D5BA';
-                            const fillS1 = isOver ? '#E32314' : '#27AE60';
-                            return (
-                              <g key={`bar-${idx}`}>
-                                <rect x={bx + 2} y={70 - totH + s1H} width={bW - 4} height={Math.max(s2H, 0)} rx={1} fill={fillS2} opacity={0.85} />
-                                <rect x={bx + 2} y={70 - s1H} width={bW - 4} height={Math.max(s1H, 0)} rx={s2H < 0.5 ? 1 : 0} fill={fillS1} opacity={0.9} />
-                                <text x={bx + bW / 2} y={70 - totH - 3} textAnchor="middle" fontSize="7.5" fontWeight="800" fill={isOver ? '#E32314' : '#27AE60'}>{fmt(m.total)}</text>
-                                <text x={bx + bW / 2} y={82} textAnchor="middle" fontSize="8" fill={isLatest ? 'var(--ov-text)' : 'var(--ov-text-muted)'} fontWeight={isLatest ? 800 : 500}>{MN[idx]}</text>
-                              </g>
-                            );
-                          })}
-                          {/* Intensity Line Overlay */}
-                          {(() => {
-                            const pts: string[] = [];
-                            const dotPoints: { x: number, y: number, val: number }[] = [];
-                            monthRows.forEach((m, idx) => {
-                              if (m.hasData && m.int > 0) {
-                                const bW = 28, gap = (486 - 12 * bW) / 13;
-                                const bx = 30 + gap + idx * (bW + gap) + bW / 2;
-                                const cy = 12 + 58 * (1 - m.int / maxIntVal);
-                                pts.push(`${bx},${cy}`);
-                                dotPoints.push({ x: bx, y: cy, val: m.int });
-                              }
-                            });
-                            return (
-                              <g>
-                                <polyline points={pts.join(' ')} fill="none" stroke="var(--ov-blue)" strokeWidth="1.5" strokeDasharray="2,2" />
-                                {dotPoints.map((d, i) => (
-                                  <g key={`dot-${i}`}>
-                                    <circle cx={d.x} cy={d.y} r="2.5" fill='var(--ov-surface-low)' stroke="#6366F1" strokeWidth="1.2" />
-                                    <rect x={d.x - 10} y={d.y - 12} width={20} height={8} fill="#e0e7ff" rx="2" opacity="0.8" />
-                                    <text x={d.x} y={d.y - 6} textAnchor="middle" fontSize="6.5" fill="#4338ca" fontWeight="800">{d.val.toFixed(3)}</text>
-                                  </g>
-                                ))}
-                              </g>
-                            );
-                          })()}
-                        </svg>
-                      </div>
-
-                      {/* RIGHT: KPI Gauge & Commentary */}
-                      <div className="ov-compare-block" style={{ flex: 1, marginBottom: 0, background: 'var(--ov-surface-low)', border: '1px solid var(--ov-outline-ghost)' }}>
-                        <div className="ov-table-title" style={{ color: 'var(--ov-text)' }}>🎯 Latest Month vs Top-Down KPI (M{latestMn})</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 10, color: 'var(--ov-text-muted)', fontWeight: 600 }}>Total S1+S2</span>
-                            <span style={{ fontSize: 13, color: actGauge <= tgtGauge ? '#27AE60' : '#E32314', fontWeight: 800 }}>{fmt(actGauge)} <span style={{ fontSize: 9, fontWeight: 500 }}>tCO₂e</span></span>
-                          </div>
-                          {/* Horizontal Bar Gauge */}
-                          <div style={{ position: 'relative', height: 16, background: 'var(--ov-surface-high)', borderRadius: 4, overflow: 'hidden' }}>
-                            {tgtGauge > 0 && (() => {
-                              const maxG = Math.max(actGauge, tgtGauge) * 1.3;
-                              const tPct = (tgtGauge / maxG) * 100;
-                              const aPct = (actGauge / maxG) * 100;
-                              return (
-                                <>
-                                  <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${aPct}%`, background: actGauge <= tgtGauge ? '#27AE60' : '#E32314', opacity: 0.85, transition: 'width 0.5s' }} />
-                                  <div style={{ position: 'absolute', top: 0, left: `${tPct}%`, height: '100%', borderLeft: '2px dashed #333', zIndex: 2 }} />
-                                  <div style={{ position: 'absolute', top: 0, left: `calc(${tPct}% + 4px)`, fontSize: 8, fontWeight: 800, color: 'var(--ov-text)', lineHeight: '16px', zIndex: 2 }}>KPI</div>
-                                </>
-                              )
-                            })()}
-                          </div>
-
-                          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                            <div style={{ flex: 1.2, background: 'var(--ov-surface)', border: '1px solid var(--ov-outline-ghost)', borderRadius: 4, padding: '6px 8px' }}>
-                              <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', textTransform: 'uppercase' }}>VS Absolute KPI</div>
-                              <div style={{ fontSize: 12, fontWeight: 800, color: dColor(vsTgt), marginTop: 2 }}>
-                                {vsTgt > 0 ? '▲' : '▼'} {Math.abs(vsTgt).toFixed(1)}% <div style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500, display: 'inline-block' }}>({dSign(actGauge - tgtGauge)}{fmt(actGauge - tgtGauge)}t)</div>
-                              </div>
-                              <div style={{ fontSize: 9, fontWeight: 700, color: actGauge <= tgtGauge ? '#27AE60' : '#E32314', marginTop: 3 }}>
-                                {actGauge <= tgtGauge ? '✓ BELOW KPI' : '✗ OVER BUDGET'}
-                              </div>
+                  {/* RCN Intensity Comparison — COMPARE mode */}
+                  <div className="ov-compare-block" style={{ marginTop: 6 }}>
+                    <div className="ov-table-title" style={{ color: '#6366F1' }}>🥜 Intensity — tCO₂e / MT RCN</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                      {/* Total S1+S2 intensity */}
+                      <div style={{ background: 'var(--ov-surface)', borderRadius: 6, padding: '6px 8px' }}>
+                        <div style={{ fontSize: '9px', color: 'var(--ov-text-dim)', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' }}>Total S1+S2 / MT RCN</div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '9px', color: colorA, fontWeight: 700, marginBottom: 2 }}>{blkA.factory.name}</div>
+                            <div style={{ height: 12, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ width: `${maxInt > 0 ? (intA / maxInt * 100) : 0}%`, height: '100%', background: colorA, opacity: 0.8, transition: 'width 0.4s' }} />
                             </div>
-                            <div style={{ flex: 1.5, background: 'var(--ov-surface)', border: '1px solid var(--ov-outline-ghost)', borderRadius: 4, padding: '6px 8px' }}>
-                              <div style={{ fontSize: 8, color: 'var(--ov-text-dim)', textTransform: 'uppercase' }}>Intensity (M{latestMn})</div>
-                              <div style={{ fontSize: 12, fontWeight: 800, color: '#6366F1', marginTop: 2 }}>
-                                {si.latestIntTot.toFixed(3)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e/MT</span>
-                              </div>
-                              <div style={{ fontSize: 9, color: 'var(--ov-text-muted)', marginTop: 3 }}>
-                                RCN Processed: <b style={{ color: 'var(--ov-text)' }}>{fmt(si.latestRCN)} MT</b>
-                              </div>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: colorA, marginTop: 2 }}>{rcnA > 0 ? intA.toFixed(3) : 'N/A'}</div>
+                            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)' }}>RCN: {fmt(rcnA)} MT</div>
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, paddingBottom: 14 }}>vs</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '9px', color: colorB, fontWeight: 700, marginBottom: 2 }}>{blkB.factory.name}</div>
+                            <div style={{ height: 12, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ width: `${maxInt > 0 ? (intB / maxInt * 100) : 0}%`, height: '100%', background: colorB, opacity: 0.8, transition: 'width 0.4s' }} />
                             </div>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: colorB, marginTop: 2 }}>{rcnB > 0 ? intB.toFixed(3) : 'N/A'}</div>
+                            <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)' }}>RCN: {fmt(rcnB)} MT</div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* BOTTOM ROW: S1 Drivers & S2 Stats */}
-                    <div style={{ display: 'flex', gap: 10, minHeight: 180 }}>
-
-                      {/* SCOPE 1 */}
-                      <div className="ov-compare-block" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <div className="ov-table-title" style={{ color: '#E32314', marginBottom: 4 }}>🔥 Scope 1 Overview (YTD)</div>
-                        <div style={{ overflowY: 'auto', flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 6, marginBottom: 4, borderBottom: '1px solid var(--ov-glass-border)' }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ov-text)' }}>Total YTD</span>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: '#E32314' }}>{fmt(si.s1TotalCur)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e</span></span>
-                          </div>
-                          {si.s1Drivers.filter(d => d.ytdAvg > 0 || d.cur > 0).slice(0, 5).map((d, di) => {
-                            const def = SCOPE_1_CATEGORIES.find(c => c.key === d.key);
-                            const s1TotCurYd = d.ytdAvg * si.nMonthsCur;
-                            const pctS1 = si.s1TotalCur > 0 ? (s1TotCurYd / si.s1TotalCur * 100) : 0;
-                            return (
-                              <div key={d.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--ov-outline-ghost)' }}>
-                                <div style={{ fontSize: 14 }}>{def?.icon || '📊'}</div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ov-text)' }}>{def?.label?.replace(/ \(.*\)/, '') || d.key}</div>
-                                </div>
-                                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ov-text)', width: 40, textAlign: 'right' }}>{fmt(s1TotCurYd)}</div>
-                                  <div style={{ width: 40, height: 4, background: 'var(--ov-outline-ghost)', borderRadius: 2, overflow: 'hidden', display: 'inline-block' }}>
-                                    <div style={{ width: `${pctS1}%`, height: '100%', background: '#E32314', opacity: 0.7 }} />
-                                  </div>
-                                  <div style={{ fontSize: 9, color: 'var(--ov-text-dim)', width: 22, textAlign: 'right', fontWeight: 600 }}>{pctS1.toFixed(0)}%</div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* SCOPE 2 & INTENSITY */}
-                      <div className="ov-compare-block" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <div className="ov-table-title" style={{ color: '#F5A623', marginBottom: 10 }}>⚡ Scope 2 & Production (YTD)</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                          <div style={{ flex: '1 1 45%', background: 'rgba(245, 158, 11, 0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-glass-border)' }}>
-                            <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#F5A623', fontWeight: 800, marginBottom: 4 }}>Electricity Consumed</div>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ov-text)' }}>{si.kWhCur >= 1000000 ? (si.kWhCur / 1000000).toFixed(2) : (si.kWhCur / 1000).toFixed(0)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>{si.kWhCur >= 1000000 ? 'GWh' : 'MWh'}</span></div>
-                          </div>
-                          <div style={{ flex: '1 1 45%', background: 'rgba(227, 6, 19, 0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-glass-border)' }}>
-                            <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#E32314', fontWeight: 800, marginBottom: 4 }}>Scope 2 Emissions</div>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(si.s2EmCur)} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e</span></div>
-                          </div>
-                          <div style={{ flex: '1 1 45%', background: 'rgba(59, 130, 246, 0.05)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-glass-border)' }}>
-                            <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#6366F1', fontWeight: 800, marginBottom: 4 }}>RCN Processed</div>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ov-text)' }}>{si.rcnCur > 0 ? fmt(si.rcnCur) : '—'} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>{si.rcnCur > 0 ? 'MT' : ''}</span></div>
-                          </div>
-                          <div style={{ flex: '1 1 45%', background: 'var(--ov-surface-low)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--ov-outline-ghost)' }}>
-                            <div style={{ fontSize: 9, textTransform: 'uppercase', color: 'var(--ov-text-dim)', fontWeight: 800, marginBottom: 4 }}>Overall Intensity</div>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: '#E32314' }}>{si.rcnCur > 0 ? si.intTotCur.toFixed(3) : '—'} <span style={{ fontSize: 9, color: 'var(--ov-text-dim)', fontWeight: 500 }}>{si.rcnCur > 0 ? 'tCO₂e/MT' : ''}</span></div>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── COMPARE MODE: Quick KPI Summary ── */}
-              {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
-                const [blkQA, blkQB] = displayBlocks;
-                const colorQA = FAC_COLORS[factories.findIndex(f => f.id === blkQA.factory.id) % FAC_COLORS.length] || FAC_COLORS[0];
-                const colorQB = FAC_COLORS[factories.findIndex(f => f.id === blkQB.factory.id) % FAC_COLORS.length] || FAC_COLORS[1];
-                const rcnQA = prodData.filter(p => p.year === selectedYear && p.factory_id === blkQA.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-                const rcnQB = prodData.filter(p => p.year === selectedYear && p.factory_id === blkQB.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-                const intQA = rcnQA > 0 ? blkQA.total / rcnQA : null;
-                const intQB = rcnQB > 0 ? blkQB.total / rcnQB : null;
-                const better = intQA !== null && intQB !== null ? (intQA < intQB ? 'A' : intQA > intQB ? 'B' : 'equal') : null;
-                return (
-                  <div className="ov-compare-block" style={{ marginBottom: 6, background: 'var(--ov-surface)', border: '1px solid var(--ov-glass-border)' }}>
-                    <div className="ov-table-title" style={{ color: '#6366F1', marginBottom: 8 }}>📊 Comparison Summary — {selectedYear} YTD</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'center' }}>
-                      {/* Factory A */}
-                      <div style={{ background: 'var(--ov-surface)', borderRadius: 6, padding: '8px 10px', border: `1.5px solid ${colorQA}22` }}>
-                        <div style={{ fontSize: 9, fontWeight: 800, color: colorQA, marginBottom: 4, textTransform: 'uppercase' }}>{blkQA.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {blkQA.factory.name}</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                          <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
-                            <div style={{ fontSize: 7, color: '#E32314', fontWeight: 700, textTransform: 'uppercase' }}>Scope 1</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQA.s1)}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
-                          </div>
-                          <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
-                            <div style={{ fontSize: 7, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase' }}>Scope 2</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQA.s2)}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
-                          </div>
-                          <div style={{ background: 'rgba(99, 102, 241, 0.05)', borderRadius: 4, padding: '4px 6px' }}>
-                            <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>🥜 RCN</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>{rcnQA > 0 ? fmt(rcnQA) : '—'}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>MT</div>
-                          </div>
-                          <div style={{ background: better === 'A' ? 'rgba(39, 174, 96, 0.05)' : better === 'B' ? 'rgba(227, 35, 20, 0.05)' : 'var(--ov-glass)', borderRadius: 4, padding: '4px 6px', border: better === 'A' ? '1px solid #86efac' : better === 'B' ? '1px solid #fca5a5' : 'none' }}>
-                            <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>CO₂e/RCN</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: better === 'A' ? 'var(--ov-target)' : better === 'B' ? '#E32314' : '#6366F1' }}>{intQA !== null ? intQA.toFixed(3) : '—'}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e/MT {better === 'A' ? '✓' : better === 'B' ? '✗' : ''}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* VS Badge */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ov-text-dim)', padding: '4px 8px', background: 'var(--ov-glass-border)', borderRadius: 20 }}>VS</div>
-                        {better && better !== 'equal' && (
-                          <div style={{ fontSize: 8, color: 'var(--ov-text-muted)', textAlign: 'center', maxWidth: 50, lineHeight: 1.4 }}>
-                            {better === 'A' ? blkQA.factory.name : blkQB.factory.name}<br />more<br />efficient
+                        {rcnA > 0 && rcnB > 0 && (
+                          <div style={{ marginTop: 4, fontSize: '9px', borderTop: '1px dashed #ddd', paddingTop: 4, color: intA < intB ? '#27AE60' : '#E32314', fontWeight: 700 }}>
+                            {blkA.factory.name} {intA < intB ? '✓ more efficient' : '✗ higher emissions'} by {Math.abs(((intA - intB) / intB) * 100).toFixed(1)}% vs {blkB.factory.name}
                           </div>
                         )}
                       </div>
 
-                      {/* Factory B */}
-                      <div style={{ background: 'var(--ov-surface)', borderRadius: 6, padding: '8px 10px', border: `1.5px solid ${colorQB}22` }}>
-                        <div style={{ fontSize: 9, fontWeight: 800, color: colorQB, marginBottom: 4, textTransform: 'uppercase' }}>{blkQB.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} {blkQB.factory.name}</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                          <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
-                            <div style={{ fontSize: 7, color: '#E32314', fontWeight: 700, textTransform: 'uppercase' }}>Scope 1</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQB.s1)}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
+                      {/* Scope 1 only intensity */}
+                      <div style={{ background: 'rgba(227, 6, 19, 0.05)', borderRadius: 6, padding: '6px 8px', border: '1px solid var(--ov-glass-border)' }}>
+                        <div style={{ fontSize: '9px', color: '#E32314', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' }}>🔥 Scope 1 Only / MT RCN</div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ height: 8, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ width: `${maxIntS1 > 0 ? (intS1A / maxIntS1 * 100) : 0}%`, height: '100%', background: '#E32314', opacity: 0.7, transition: 'width 0.4s' }} />
+                            </div>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: '#E32314', marginTop: 2 }}>{rcnA > 0 ? intS1A.toFixed(3) : 'N/A'}</div>
+                            <div style={{ fontSize: '8px', color: colorA, fontWeight: 700 }}>{blkA.factory.name}</div>
                           </div>
-                          <div style={{ background: 'var(--ov-surface)', borderRadius: 4, padding: '4px 6px' }}>
-                            <div style={{ fontSize: 7, color: '#F5A623', fontWeight: 700, textTransform: 'uppercase' }}>Scope 2</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ov-text)' }}>{fmt(blkQB.s2)}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e</div>
-                          </div>
-                          <div style={{ background: 'rgba(99, 102, 241, 0.05)', borderRadius: 4, padding: '4px 6px' }}>
-                            <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>🥜 RCN</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>{rcnQB > 0 ? fmt(rcnQB) : '—'}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>MT</div>
-                          </div>
-                          <div style={{ background: better === 'B' ? 'rgba(39, 174, 96, 0.05)' : better === 'A' ? 'rgba(227, 35, 20, 0.05)' : 'var(--ov-glass)', borderRadius: 4, padding: '4px 6px', border: better === 'B' ? '1px solid #86efac' : better === 'A' ? '1px solid #fca5a5' : 'none' }}>
-                            <div style={{ fontSize: 7, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase' }}>CO₂e/RCN</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: better === 'B' ? 'var(--ov-target)' : better === 'A' ? '#E32314' : '#6366F1' }}>{intQB !== null ? intQB.toFixed(3) : '—'}</div>
-                            <div style={{ fontSize: 7, color: 'var(--ov-text-dim)' }}>tCO₂e/MT {better === 'B' ? '✓' : better === 'A' ? '✗' : ''}</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, paddingBottom: 18 }}>vs</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ height: 8, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ width: `${maxIntS1 > 0 ? (intS1B / maxIntS1 * 100) : 0}%`, height: '100%', background: '#E32314', opacity: 0.5, transition: 'width 0.4s' }} />
+                            </div>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: '#E32314', marginTop: 2 }}>{rcnB > 0 ? intS1B.toFixed(3) : 'N/A'}</div>
+                            <div style={{ fontSize: '8px', color: colorB, fontWeight: 700 }}>{blkB.factory.name}</div>
                           </div>
                         </div>
                       </div>
                     </div>
-                    {/* Δ row */}
-                    {intQA !== null && intQB !== null && (
-                      <div style={{ marginTop: 6, padding: '5px 8px', background: 'var(--ov-surface)', borderRadius: 5, border: '1px solid var(--ov-outline-ghost)', fontSize: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--ov-text-dim)', fontWeight: 600 }}>Δ CO₂e/RCN</span>
-                        <span style={{ fontWeight: 800, color: Math.abs(intQA - intQB) < 0.001 ? 'var(--ov-text-dim)' : '#6366F1' }}>
-                          {intQA > intQB ? `+${(intQA - intQB).toFixed(3)} (${((intQA - intQB) / intQB * 100).toFixed(1)}%)` : `-${(intQB - intQA).toFixed(3)} (${((intQB - intQA) / intQA * 100).toFixed(1)}%)`}
-                          {' '}<span style={{ color: 'var(--ov-text-dim)', fontWeight: 500 }}>tCO₂e/MT RCN — {blkQA.factory.name} vs {blkQB.factory.name}</span>
-                        </span>
-                      </div>
-                    )}
                   </div>
-                );
-              })()}
-
-              {/* ── COMPARE MODE: Scope 1 Breakdown + RCN Intensity ── */}
-              {viewMode === 'COMPARE' && displayBlocks.length === 2 && (() => {
-                const [blkA, blkB] = displayBlocks;
-                const colorA = FAC_COLORS[factories.findIndex(f => f.id === blkA.factory.id) % FAC_COLORS.length] || FAC_COLORS[0];
-                const colorB = FAC_COLORS[factories.findIndex(f => f.id === blkB.factory.id) % FAC_COLORS.length] || FAC_COLORS[1];
-
-                // Collect all S1 categories from both
-                const allCatKeys = Array.from(new Set([
-                  ...blkA.s1ByCat.map(c => c.key),
-                  ...blkB.s1ByCat.map(c => c.key),
-                ]));
-                const getVal = (blk: typeof blkA, key: string) => blk.s1ByCat.find(c => c.key === key)?.value || 0;
-                const getAct = (blk: typeof blkA, key: string) => blk.s1ByCat.find(c => c.key === key)?.activity || 0;
-                const maxS1Cat = Math.max(...allCatKeys.map(k => Math.max(getVal(blkA, k), getVal(blkB, k))), 1);
-
-                // RCN + intensity per factory
-                const rcnA = prodData.filter(p => p.year === selectedYear && p.factory_id === blkA.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-                const rcnB = prodData.filter(p => p.year === selectedYear && p.factory_id === blkB.factory.id && p.category === 'rcn_input').reduce((s, p) => s + Number(p.quantity), 0);
-                const intA = rcnA > 0 ? blkA.total / rcnA : 0;
-                const intB = rcnB > 0 ? blkB.total / rcnB : 0;
-                const intS1A = rcnA > 0 ? blkA.s1 / rcnA : 0;
-                const intS1B = rcnB > 0 ? blkB.s1 / rcnB : 0;
-                const maxInt = Math.max(intA, intB, 0.001);
-                const maxIntS1 = Math.max(intS1A, intS1B, 0.001);
-
-                return (
-                  <>
-                    {/* Scope 1 Breakdown Side-by-Side — COMPARE mode */}
-                    <div className="ov-compare-block">
-                      <div className="ov-table-title" style={{ color: '#E32314' }}>🔥 Scope 1 Breakdown — Comparison</div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--ov-glass-border)' }}>
-                            <th style={{ textAlign: 'left', padding: '3px 4px', color: 'var(--ov-text-dim)', fontWeight: 600 }}>Source</th>
-                            <th style={{ textAlign: 'right', padding: '3px 4px', color: colorA, fontWeight: 700 }}>{blkA.factory.name}</th>
-                            <th style={{ textAlign: 'right', padding: '3px 4px', color: colorB, fontWeight: 700 }}>{blkB.factory.name}</th>
-                            <th style={{ textAlign: 'right', padding: '3px 4px', color: 'var(--ov-text-dim)', fontWeight: 600, fontSize: '9px' }}>Δ</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allCatKeys.map((key, ci) => {
-                            const def = SCOPE_1_CATEGORIES.find(c => c.key === key);
-                            const vA = getVal(blkA, key), vB = getVal(blkB, key);
-                            const aA = getAct(blkA, key), aB = getAct(blkB, key);
-                            const barA = maxS1Cat > 0 ? (vA / maxS1Cat * 100) : 0;
-                            const barB = maxS1Cat > 0 ? (vB / maxS1Cat * 100) : 0;
-                            const delta = vA - vB;
-                            if (vA === 0 && vB === 0) return null;
-                            return (
-                              <tr key={key} style={{ borderBottom: '1px solid var(--ov-glass-border)' }}>
-                                <td style={{ padding: '3px 4px' }}>
-                                  <span style={{ marginRight: 3 }}>{def?.icon || '📊'}</span>
-                                  <span style={{ color: 'var(--ov-text-muted)' }}>{def?.label?.replace(/ \(.*\)/, '') || key}</span>
-                                  {/* Activity data hint */}
-                                  {(aA > 0 || aB > 0) && (
-                                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginTop: '1px' }}>
-                                      {aA > 0 ? `A: ${aA >= 1000 ? (aA / 1000).toFixed(1) + 'k' : aA.toFixed(0)} ${def?.unit || ''}` : '—'}
-                                      {' vs '}
-                                      {aB > 0 ? `B: ${aB >= 1000 ? (aB / 1000).toFixed(1) + 'k' : aB.toFixed(0)} ${def?.unit || ''}` : '—'}
-                                    </div>
-                                  )}
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '3px 4px' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                    <span style={{ fontWeight: 700, color: colorA }}>{vA > 0 ? fmt(vA) : '—'}</span>
-                                    {vA > 0 && <div style={{ width: `${barA}%`, minWidth: barA > 0 ? 2 : 0, height: 3, background: colorA, opacity: 0.6, borderRadius: 2, maxWidth: 50 }} />}
-                                  </div>
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '3px 4px' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                    <span style={{ fontWeight: 700, color: colorB }}>{vB > 0 ? fmt(vB) : '—'}</span>
-                                    {vB > 0 && <div style={{ width: `${barB}%`, minWidth: barB > 0 ? 2 : 0, height: 3, background: colorB, opacity: 0.6, borderRadius: 2, maxWidth: 50 }} />}
-                                  </div>
-                                </td>
-                                <td style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600, fontSize: '9px', color: delta > 0 ? '#E32314' : delta < 0 ? '#27AE60' : 'var(--ov-text-muted)' }}>
-                                  {delta !== 0 ? (delta > 0 ? '+' : '') + fmt(delta) : '='}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {/* Total row */}
-                          <tr style={{ borderTop: '1px solid var(--ov-glass-border)', background: 'var(--ov-surface-low)' }}>
-                            <td style={{ padding: '4px', fontWeight: 700, fontSize: '11px' }}>🔥 S1 Total</td>
-                            <td style={{ textAlign: 'right', padding: '4px', fontWeight: 800, color: colorA, fontSize: '11px' }}>{fmt(blkA.s1)}</td>
-                            <td style={{ textAlign: 'right', padding: '4px', fontWeight: 800, color: colorB, fontSize: '11px' }}>{fmt(blkB.s1)}</td>
-                            <td style={{ textAlign: 'right', padding: '4px', fontWeight: 700, fontSize: '9px', color: blkA.s1 - blkB.s1 > 0 ? '#E32314' : '#27AE60' }}>
-                              {blkA.s1 !== blkB.s1 ? (blkA.s1 > blkB.s1 ? '+' : '') + fmt(blkA.s1 - blkB.s1) : '='}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* RCN Intensity Comparison — COMPARE mode */}
-                    <div className="ov-compare-block" style={{ marginTop: 6 }}>
-                      <div className="ov-table-title" style={{ color: '#6366F1' }}>🥜 Intensity — tCO₂e / MT RCN</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                        {/* Total S1+S2 intensity */}
-                        <div style={{ background: 'var(--ov-surface)', borderRadius: 6, padding: '6px 8px' }}>
-                          <div style={{ fontSize: '9px', color: 'var(--ov-text-dim)', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' }}>Total S1+S2 / MT RCN</div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '9px', color: colorA, fontWeight: 700, marginBottom: 2 }}>{blkA.factory.name}</div>
-                              <div style={{ height: 12, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
-                                <div style={{ width: `${maxInt > 0 ? (intA / maxInt * 100) : 0}%`, height: '100%', background: colorA, opacity: 0.8, transition: 'width 0.4s' }} />
-                              </div>
-                              <div style={{ fontSize: '11px', fontWeight: 800, color: colorA, marginTop: 2 }}>{rcnA > 0 ? intA.toFixed(3) : 'N/A'}</div>
-                              <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)' }}>RCN: {fmt(rcnA)} MT</div>
-                            </div>
-                            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, paddingBottom: 14 }}>vs</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '9px', color: colorB, fontWeight: 700, marginBottom: 2 }}>{blkB.factory.name}</div>
-                              <div style={{ height: 12, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
-                                <div style={{ width: `${maxInt > 0 ? (intB / maxInt * 100) : 0}%`, height: '100%', background: colorB, opacity: 0.8, transition: 'width 0.4s' }} />
-                              </div>
-                              <div style={{ fontSize: '11px', fontWeight: 800, color: colorB, marginTop: 2 }}>{rcnB > 0 ? intB.toFixed(3) : 'N/A'}</div>
-                              <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)' }}>RCN: {fmt(rcnB)} MT</div>
-                            </div>
-                          </div>
-                          {rcnA > 0 && rcnB > 0 && (
-                            <div style={{ marginTop: 4, fontSize: '9px', borderTop: '1px dashed #ddd', paddingTop: 4, color: intA < intB ? '#27AE60' : '#E32314', fontWeight: 700 }}>
-                              {blkA.factory.name} {intA < intB ? '✓ more efficient' : '✗ higher emissions'} by {Math.abs(((intA - intB) / intB) * 100).toFixed(1)}% vs {blkB.factory.name}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Scope 1 only intensity */}
-                        <div style={{ background: 'rgba(227, 6, 19, 0.05)', borderRadius: 6, padding: '6px 8px', border: '1px solid var(--ov-glass-border)' }}>
-                          <div style={{ fontSize: '9px', color: '#E32314', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' }}>🔥 Scope 1 Only / MT RCN</div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ height: 8, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
-                                <div style={{ width: `${maxIntS1 > 0 ? (intS1A / maxIntS1 * 100) : 0}%`, height: '100%', background: '#E32314', opacity: 0.7, transition: 'width 0.4s' }} />
-                              </div>
-                              <div style={{ fontSize: '11px', fontWeight: 800, color: '#E32314', marginTop: 2 }}>{rcnA > 0 ? intS1A.toFixed(3) : 'N/A'}</div>
-                              <div style={{ fontSize: '8px', color: colorA, fontWeight: 700 }}>{blkA.factory.name}</div>
-                            </div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 700, paddingBottom: 18 }}>vs</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ height: 8, background: 'var(--ov-outline-ghost)', borderRadius: 3, overflow: 'hidden' }}>
-                                <div style={{ width: `${maxIntS1 > 0 ? (intS1B / maxIntS1 * 100) : 0}%`, height: '100%', background: '#E32314', opacity: 0.5, transition: 'width 0.4s' }} />
-                              </div>
-                              <div style={{ fontSize: '11px', fontWeight: 800, color: '#E32314', marginTop: 2 }}>{rcnB > 0 ? intS1B.toFixed(3) : 'N/A'}</div>
-                              <div style={{ fontSize: '8px', color: colorB, fontWeight: 700 }}>{blkB.factory.name}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+                </>
+              );
+            })()}
           </div>
+        </div>
 
-          <div className="ov-footer">
-            <span>© {selectedYear} Intersnack Group — GHG Tracker</span>
-            <span>SBTi Near-term · Base 2021: {fmt(data.baseS1S2)} tCO₂e · Target 2032: {fmt(data.targetS1S2)} tCO₂e (-50%)</span>
-            <span>EF: {useCommonEF ? `${COMMON_EF}` : 'Country'} kg CO₂e/kWh</span>
-          </div>
+        <div className="ov-footer">
+          <span>© {selectedYear} Intersnack Group — GHG Tracker</span>
+          <span>SBTi Near-term · Base 2021: {fmt(data.baseS1S2)} tCO₂e · Target 2032: {fmt(data.targetS1S2)} tCO₂e (-50%)</span>
+          <span>EF: {useCommonEF ? `${COMMON_EF}` : 'Country'} kg CO₂e/kWh</span>
         </div>
       </div>
     </div>

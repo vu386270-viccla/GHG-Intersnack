@@ -1188,12 +1188,908 @@ button {
   background: var(--ov-base);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
   font-family: 'Inter', -apple-system, sans-serif;
-  overflow: auto;
+  overflow: hidden;
+  color: var(--ov-text);
+}
+
+/* ── Controls Bar (top strip) ── */
+.overview-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--ov-surface-low);
+  border-bottom: 1px solid var(--ov-glass-border);
+  flex-shrink: 0;
+  height: 46px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.ov-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #E30613, #8E1E19);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px var(--ov-s1-glow);
+  white-space: nowrap;
+}
+
+.ov-home-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.ov-home-btn svg {
+  flex-shrink: 0;
+}
+
+.ov-controls-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--ov-glass-border);
+  flex-shrink: 0;
+}
+
+.ov-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ov-select-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--ov-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-left: 2px;
+}
+
+.ov-vs-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ov-s2);
+  background: rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 1px;
+}
+
+.overview-select {
+  padding: 4px 8px;
+  background: var(--ov-surface-high);
+  border: 1px solid var(--ov-glass-border);
+  border-radius: 5px;
+  color: var(--ov-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.overview-select:hover {
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+.overview-select option {
+  background: var(--ov-surface-low);
+  color: var(--ov-text);
+}
+
+.overview-ef-toggle {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.overview-ef-toggle.common {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: var(--ov-s2);
+}
+
+.overview-ef-toggle.individual {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--ov-blue);
+}
+
+.overview-ef-toggle:hover {
+  opacity: 0.85;
+}
+
+/* ── Mode Tabs ── */
+.ov-mode-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--ov-surface-highest);
+  border-radius: 7px;
+  border: 1px solid var(--ov-outline-ghost);
+}
+
+.ov-mode-tab {
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ov-text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.ov-mode-tab.active {
+  background: var(--ov-surface-low);
+  color: var(--ov-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ov-mode-tab:hover:not(.active) {
+  color: var(--ov-text-muted);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MAIN CONTENT — replaces old 1536x864 slide approach
+   Full-viewport flex layout — no scale(), no fixed px
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Old slide classes — kept for compat, now just pass-through */
+.overview-slide {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ov-base);
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--ov-text);
+}
+
+/* ── Top Bar ── */
+.ov-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 38px;
+  background: var(--ov-surface-low);
+  border-bottom: 1px solid var(--ov-glass-border);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ov-logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  color: var(--ov-text);
+  text-transform: uppercase;
+}
+
+.ov-logo svg {
+  stroke: var(--ov-s1);
+  width: 18px;
+  height: 18px;
+}
+
+.ov-topbar-title {
+  font-weight: 500;
+  color: var(--ov-text-muted);
+  font-size: 12px;
+}
+
+.ov-ef-badge {
+  padding: 3px 10px;
+  background: var(--ov-surface-highest);
+  border: 1px solid var(--ov-glass-border);
+  border-radius: 5px;
+  font-weight: 600;
+  font-size: 10.5px;
+  color: var(--ov-text-muted);
+}
+
+/* ── Body Layout — 2-col: narrow left KPI panel + main content ── */
+.ov-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Left Panel ── */
+.ov-left {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--ov-surface-low);
+  border-right: 1px solid var(--ov-glass-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Grand KPI Hero */
+.ov-grand-kpi {
+  background: linear-gradient(135deg, rgba(227, 6, 19, 0.07) 0%, rgba(245, 158, 11, 0.04) 100%);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  border: 1px solid rgba(227, 6, 19, 0.13);
+}
+
+.ov-grand-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--ov-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.ov-grand-value {
+  font-size: 40px;
+  font-weight: 900;
+  color: var(--ov-s1);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.ov-grand-unit {
+  font-size: 11px;
+  color: var(--ov-text-muted);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+/* Scope Cards Row */
+.ov-scope-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ov-scope-card {
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--ov-glass);
+  border: 1px solid var(--ov-outline-ghost);
+  position: relative;
+  overflow: hidden;
+}
+
+.ov-scope-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 7px 0 0 7px;
+}
+
+.ov-scope-card.s1 {
+  background: rgba(227, 6, 19, 0.05);
+}
+
+.ov-scope-card.s1::before {
+  background: var(--ov-s1);
+}
+
+.ov-scope-card.s2 {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.ov-scope-card.s2::before {
+  background: var(--ov-s2);
+}
+
+.ov-scope-card.s3 {
+  background: rgba(140, 185, 45, 0.05);
+}
+
+.ov-scope-card.s3::before {
+  background: var(--ov-s3);
+}
+
+.ov-scope-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ov-text-dim);
+}
+
+.ov-scope-icon {
+  font-size: 11px;
+}
+
+.ov-scope-value {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ov-text);
+  line-height: 1.05;
+  margin-top: 3px;
+  letter-spacing: -0.015em;
+}
+
+.ov-scope-sub {
+  font-size: 9px;
+  color: var(--ov-text-muted);
+  font-weight: 500;
+}
+
+.ov-scope-bar {
+  height: 2px;
+  background: var(--ov-outline-ghost);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.ov-scope-bar>div {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s;
+}
+
+/* Elec details */
+.ov-elec-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 9px;
+  background: var(--ov-glass);
+  border-radius: 6px;
+  border: 1px solid var(--ov-outline-ghost);
+}
+
+.ov-elec-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+}
+
+.ov-elec-label {
+  color: var(--ov-text-dim);
+}
+
+.ov-elec-val {
+  font-weight: 700;
+  color: var(--ov-text-muted);
+}
+
+/* ── Right Panel ── */
+.ov-right {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--ov-base);
+}
+
+.ov-chart-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--ov-text-dim);
+  margin-bottom: 2px;
+}
+
+.ov-chart {
+  flex-shrink: 0;
+}
+
+.ov-chart-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 3px;
+  font-size: 9px;
+  color: var(--ov-text-dim);
+}
+
+.ov-legend-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* Factory table */
+.ov-factory-table {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ov-table-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--ov-text-dim);
+  margin-bottom: 5px;
+}
+
+.ov-factory-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.ov-factory-table th {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--ov-text-dim);
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--ov-outline-ghost);
+  text-align: left;
+}
+
+.ov-factory-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--ov-outline-ghost);
+  color: var(--ov-text);
+}
+
+.ov-factory-table tbody tr:hover td {
+  background: var(--ov-surface-highest);
+}
+
+.ov-flag {
+  margin-right: 3px;
+}
+
+.ov-share-bar {
+  height: 4px;
+  background: var(--ov-outline-ghost);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ov-share-bar>div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ov-s1), var(--ov-s2));
+  border-radius: 2px;
+}
+
+/* ── Footer ── */
+.ov-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px;
+  background: var(--ov-surface-low);
+  border-top: 1px solid var(--ov-glass-border);
+  font-size: 8.5px;
+  color: var(--ov-text-dim);
+  flex-shrink: 0;
+}
+
+/* SBTi box */
+.ov-sbti-box {
+  padding: 8px 10px;
+  background: rgba(140, 185, 45, 0.05);
+  border: 1px solid rgba(140, 185, 45, 0.14);
+  border-radius: 7px;
+}
+
+.ov-sbti-title {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--ov-s3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.ov-sbti-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.ov-sbti-item {
+  flex: 1;
+  text-align: center;
+  padding: 4px 5px;
+  background: var(--ov-glass);
+  border-radius: 5px;
+  border: 1px solid var(--ov-outline-ghost);
+}
+
+.ov-sbti-item.current {
+  border-color: rgba(227, 6, 19, 0.2);
+  background: rgba(227, 6, 19, 0.05);
+}
+
+.ov-sbti-item.target {
+  border-color: rgba(140, 185, 45, 0.2);
+  background: rgba(140, 185, 45, 0.05);
+}
+
+.ov-sbti-label {
+  font-size: 7.5px;
+  font-weight: 600;
+  color: var(--ov-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ov-sbti-val {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--ov-text);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.ov-sbti-item.current .ov-sbti-val {
+  color: var(--ov-s1);
+}
+
+.ov-sbti-item.target .ov-sbti-val {
+  color: var(--ov-s3);
+}
+
+.ov-sbti-arrow {
+  color: var(--ov-text-dim);
+  font-size: 12px;
+  font-weight: 300;
+}
+
+.ov-sbti-bar-wrap {
+  margin-top: 2px;
+}
+
+.ov-sbti-bar-bg {
+  height: 4px;
+  background: var(--ov-outline-ghost);
+  border-radius: 2px;
+  position: relative;
+  overflow: visible;
+}
+
+.ov-sbti-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ov-target), var(--ov-s3));
+  border-radius: 2px;
+  transition: width 0.5s;
+}
+
+.ov-sbti-bar-expected {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  background: var(--ov-s2);
+  border-radius: 1px;
+}
+
+.ov-sbti-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7.5px;
+  color: var(--ov-text-dim);
+  margin-top: 2px;
+}
+
+/* Scope 1 Breakdown */
+.ov-s1-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ov-s1-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.ov-s1-label {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--ov-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ov-s1-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ov-s1-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ov-s1-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--ov-outline-ghost);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ov-s1-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s;
+  min-width: 2px;
+}
+
+.ov-s1-bar-val {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--ov-text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Donut layout helpers */
+.ov-donut-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ov-donut-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ov-text-dim);
+  align-self: flex-start;
+}
+
+.ov-donut-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.ov-donut-legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ov-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 8.5px;
+}
+
+.ov-legend-text {
+  flex: 1;
+  color: var(--ov-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ov-legend-val {
+  font-weight: 700;
+  color: var(--ov-text);
+  white-space: nowrap;
+}
+
+/* Roadmap */
+.ov-roadmap-full {
+  flex: 1;
+  min-height: 0;
+}
+
+.ov-roadmap-legend {
+  display: flex;
+  gap: 10px;
+  font-size: 8.5px;
+  color: var(--ov-text-dim);
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+/* Compare Blocks */
+.ov-compare-block {
+  background: var(--ov-surface-low);
+  border: 1px solid var(--ov-outline-ghost);
+  border-radius: 7px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+  color: var(--ov-text);
+}
+
+.ov-compare-block table thead tr th {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--ov-outline-ghost);
+  color: var(--ov-text-dim);
+}
+
+.ov-compare-block table tbody tr td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--ov-outline-ghost);
+  font-size: 10px;
+  color: var(--ov-text);
+}
+
+.ov-compare-block table tbody tr:hover td {
+  background: var(--ov-surface-highest);
+}
+
+/* ── Bottom Section ── */
+.ov-bottom-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ov-bottom-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ov-factory-table.compact table {
+  font-size: 9.5px;
+}
+
+.ov-factory-table.compact th {
+  font-size: 8px;
+  padding: 2px 5px;
+}
+
+.ov-factory-table.compact td {
+  padding: 3px 5px;
+}
+
+/* misc */
+.ov-donut-inline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 0;
+}
+
+.ov-donut-legend-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ov-dls-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 8.5px;
+  color: var(--ov-text-muted);
+  font-weight: 600;
+}
+
+/* Roadmap old classes — compat */
+.ov-roadmap {
+  padding: 6px;
+}
+
+.ov-roadmap-track {
+  position: relative;
+  height: 90px;
+  margin: 8px 16px 0;
+}
+
+.ov-roadmap-line {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ov-outline-ghost) 0%, var(--ov-s3) 100%);
+  border-radius: 2px;
+}
+
+.ov-roadmap-node {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  top: 0;
+}
+
+.ov-roadmap-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin: 15px auto 3px;
+  border: 2px solid var(--ov-surface-low);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ov-roadmap-node.current .ov-roadmap-dot {
+  width: 13px;
+  height: 13px;
+  margin-top: 13px;
+}
+
+.ov-roadmap-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--ov-text-muted);
+  margin-top: 2px;
+}
+
+.ov-roadmap-desc {
+  font-size: 7px;
+  color: var(--ov-text-dim);
+  white-space: nowrap;
+}
+
+.ov-roadmap-val {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.ov-roadmap-node.current .ov-roadmap-label {
+  color: var(--ov-s1);
+  font-size: 9px;
+}
+
+.ov-roadmap-footer {
+  text-align: center;
+  font-size: 7.5px;
+  color: var(--ov-text-dim);
+  margin-top: 4px;
 }
 
 /* ── Controls Bar ── */
