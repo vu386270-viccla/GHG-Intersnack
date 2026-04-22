@@ -1154,30 +1154,30 @@ button {
 
 /* ══════════════════════════════════════════════
    Overview PPT Slide — Vanguard ESG Intelligence
-   Dark Glassmorphism · Space Grotesk · Deep Navy
+   Clean Light Mode · Inter · Professional White
    ══════════════════════════════════════════════ */
 
 /* ── Color Tokens ── */
 :root {
-  --ov-base: #0B1326;
-  --ov-surface-low: #131B2E;
-  --ov-surface: #1A2440;
-  --ov-surface-high: #222D4A;
-  --ov-surface-highest: #2D3A58;
-  --ov-glass: rgba(255, 255, 255, 0.07);
-  --ov-glass-border: rgba(255, 255, 255, 0.10);
-  --ov-text: #DAE2FD;
-  --ov-text-muted: #94A3B8;
-  --ov-text-dim: #64748B;
+  --ov-base: #F0F2F5;
+  --ov-surface-low: #FFFFFF;
+  --ov-surface: #FFFFFF;
+  --ov-surface-high: #F8F9FB;
+  --ov-surface-highest: #EEF0F4;
+  --ov-glass: rgba(0, 0, 0, 0.03);
+  --ov-glass-border: rgba(0, 0, 0, 0.09);
+  --ov-text: #1A202C;
+  --ov-text-muted: #4A5568;
+  --ov-text-dim: #718096;
   --ov-s1: #E30613;
-  --ov-s1-glow: rgba(227, 6, 19, 0.25);
+  --ov-s1-glow: rgba(227, 6, 19, 0.12);
   --ov-s2: #F59E0B;
-  --ov-s2-glow: rgba(245, 158, 11, 0.2);
+  --ov-s2-glow: rgba(245, 158, 11, 0.12);
   --ov-s3: #8CB92D;
-  --ov-s3-glow: rgba(140, 185, 45, 0.2);
-  --ov-target: #22C55E;
-  --ov-blue: #3B82F6;
-  --ov-outline-ghost: rgba(255, 255, 255, 0.08);
+  --ov-s3-glow: rgba(140, 185, 45, 0.12);
+  --ov-target: #16A34A;
+  --ov-blue: #2563EB;
+  --ov-outline-ghost: rgba(0, 0, 0, 0.06);
 }
 
 /* ── Wrapper ── */
@@ -1332,7 +1332,7 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--ov-glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--ov-glass-border);
   font-size: 14px;
   color: var(--ov-text);
 }
