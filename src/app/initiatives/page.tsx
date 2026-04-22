@@ -1,4 +1,5 @@
 'use client';
+import SkeletonDashboard from '@/components/layout/SkeletonDashboard';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -131,13 +132,7 @@ export default function InitiativesPage() {
   const totalCost = initiatives.filter(i => i.status !== 'cancelled').reduce((s, i) => s + Number(i.estimated_cost_vnd), 0);
   const active = initiatives.filter(i => i.status === 'in_progress').length;
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12 }}>
-      <div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>Đang tải...</span>
-    </div>
-  );
-
-  return (
+  if (loading) return <SkeletonDashboard />;return (
     <div className="page-enter">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
         <div>

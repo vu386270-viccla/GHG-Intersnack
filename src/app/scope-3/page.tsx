@@ -1,4 +1,5 @@
 'use client';
+import SkeletonDashboard from '@/components/layout/SkeletonDashboard';
 
 import { useEffect, useState, useMemo } from 'react';
 import { getScope3SummaryData } from '@/lib/data-service';
@@ -209,14 +210,7 @@ export default function Scope3Page() {
     { label: t('s3_cat3_wtt_label'), value: selected?.cat3_wtt ?? 0, color: '#90BE6D', note: t('s3_cat3_wtt_note') },
   ], [selected, lang, t]);
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
-      <div className="loading-spinner" />
-      <span style={{ color: 'var(--color-text-muted)' }}>{t('s3_loading')}</span>
-    </div>
-  );
-
-  if (error) return (
+  if (loading) return <SkeletonDashboard />;if (error) return (
     <div style={{ color: GREEN, background: `${GREEN}15`, padding: 16, borderRadius: 8, margin: 16 }}>⚠️ {error}</div>
   );
 

@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.101.1",
     "dotenv": "^17.4.2",
     "next": "16.2.2",
+    "next-nprogress-bar": "^2.4.7",
     "puppeteer": "^24.40.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"

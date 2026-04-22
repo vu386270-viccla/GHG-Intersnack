@@ -11,6 +11,7 @@ import FactoryBarChart from '@/components/charts/FactoryBarChart';
 import DualAxisChart from '@/components/charts/DualAxisChart';
 import BarChart from '@/components/charts/BarChart';
 import { useI18n } from '@/lib/i18n';
+import SkeletonDashboard from '@/components/layout/SkeletonDashboard';
 
 // Palette for source categories
 const CAT_COLORS = [
@@ -152,11 +153,7 @@ export default function Scope1Page() {
   const totalMetric = scopeData ? (useUSD ? (scopeData.totalCost || 0) : scopeData.totalEmissions) : 0;
   const intensity = totalRCN > 0 && totalMetric > 0 ? (totalMetric / totalRCN) : 0;
 
-  if (loading || !scopeData) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
-      <div className="loading-spinner" /><span style={{ color: 'var(--color-text-muted)' }}>{t('loading_text')}</span>
-    </div>
-  );
+  if (loading || !scopeData) return <SkeletonDashboard />;
   if (error) return (
     <div style={{ color: scopeColor, padding: 16, background: '#FFF0EF', borderRadius: 8, margin: 16 }}>⚠️ {error}</div>
   );
@@ -625,8 +622,8 @@ export default function Scope1Page() {
                 height={280}
               />
             ) : (
-              <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 13 }}>
-                <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />{t('loading_multi_year')}
+              <div style={{ textAlign: 'center', padding: 32 }}>
+                <SkeletonDashboard />
               </div>
             )}
           </div>

@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import ChatBot from '@/components/layout/ChatBot';
 import { AuthProvider } from '@/lib/auth-context';
+import AppProgressBar from '@/components/layout/AppProgressBar';
 import { I18nProvider } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +35,8 @@ export default function RootLayout({
               <main className="main-content">
                 {children}
               </main>
+              <ChatBot />
+              <AppProgressBar />
             </div>
           </AuthProvider>
         </I18nProvider>

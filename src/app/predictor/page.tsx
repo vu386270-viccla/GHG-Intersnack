@@ -1,4 +1,5 @@
 'use client';
+import SkeletonDashboard from '@/components/layout/SkeletonDashboard';
 
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -258,13 +259,38 @@ export default function PredictorPage() {
     electricity: pts.some(p => p.electricity > 0),
   }), [pts]);
 
-  const rcn = parseFloat(rcnInput) || 0;
+  // Historical RCN range — used for extrapolation warning
+  const rcnRange = useMemo(() => {
+    const xs = pts.map(p => p.rcn).filter(v => v > 0);
+    return xs.length > 0
+      ? { min: Math.min(...xs), max: Math.max(...xs) }
+      : { min: 0, max: 0 };
+  }, [pts]);
 
+  // Min observed monthly activity per utility — physical baseline floor
+  // (factory still has idle load: lighting, HVAC, offices, refrigeration)
+  const utilityMin = useMemo((): Record<Utility, number> => {
+    const minOf = (k: Utility) => {
+      const vals = pts.map(p => p[k]).filter(v => v > 0);
+      return vals.length > 0 ? Math.min(...vals) : 0;
+    };
+    return {
+      firewood:    minOf('firewood'),
+      diesel:      minOf('diesel'),
+      electricity: minOf('electricity'),
+    };
+  }, [pts]);
+
+  const rcn = parseFloat(rcnInput) || 0;
+  const outsideRange = rcn > 0 && rcnRange.max > 0 && (rcn < rcnRange.min || rcn > rcnRange.max);
+
+  // Clamp regression output at historical monthly minimum so low-RCN
+  // extrapolation doesn't yield unphysical near-zero utility values.
   const predicted = useMemo((): Record<Utility, number> => ({
-    firewood:    rcn > 0 ? regs.firewood.predict(rcn)    : 0,
-    diesel:      rcn > 0 ? regs.diesel.predict(rcn)      : 0,
-    electricity: rcn > 0 ? regs.electricity.predict(rcn) : 0,
-  }), [rcn, regs]);
+    firewood:    rcn > 0 ? Math.max(regs.firewood.predict(rcn),    utilityMin.firewood)    : 0,
+    diesel:      rcn > 0 ? Math.max(regs.diesel.predict(rcn),      utilityMin.diesel)      : 0,
+    electricity: rcn > 0 ? Math.max(regs.electricity.predict(rcn), utilityMin.electricity) : 0,
+  }), [rcn, regs, utilityMin]);
 
   // Empirical EF from dataset (tCO₂e per unit activity)
   const emRatio = useMemo(() => {
@@ -336,14 +362,7 @@ export default function PredictorPage() {
 
   const UTILITIES: Utility[] = ['firewood', 'diesel', 'electricity'];
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12 }}>
-      <div className="loading-spinner" />
-      <span style={{ color: 'var(--color-text-muted)' }}>Loading predictor data...</span>
-    </div>
-  );
-
-  return (
+  if (loading) return <SkeletonDashboard />;return (
     <div className="page-enter" style={{ maxWidth: 1140, margin: '0 auto' }}>
 
       {/* ── Page header ── */}
@@ -358,6 +377,31 @@ export default function PredictorPage() {
           Enter RCN → model predicts electricity / firewood / diesel and shows gap vs KPI & SBTi · Outliers auto-removed (2σ)
         </div>
       </div>
+
+      {/* ── Hướng dẫn đọc ── */}
+      <details style={{
+        marginBottom: 12, borderRadius: 10,
+        background: '#6366F108', border: '1.5px solid #6366F125',
+      }}>
+        <summary style={{
+          padding: '8px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+          color: '#6366F1', userSelect: 'none',
+        }}>
+          ℹ️ Hướng dẫn đọc số liệu & giới hạn mô hình
+        </summary>
+        <div style={{
+          padding: '4px 14px 12px 14px', fontSize: 11.5,
+          color: 'var(--color-text-secondary)', lineHeight: 1.55,
+        }}>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            <li><b>Mô hình:</b> hồi quy tuyến tính <code>y = m·RCN + b</code>, huấn luyện trên dữ liệu tháng {fromYear}–{thisYear} (outlier 2σ đã loại).</li>
+            <li><b>Nhập trong dải lịch sử</b> → prediction đáng tin cậy; xem <code>R²</code> ở từng card để đánh giá độ khớp.</li>
+            <li><b>Nhập ngoài dải</b> → viền input chuyển cam + banner cảnh báo. Đây là extrapolation, không nên dùng để ra quyết định.</li>
+            <li><b>Floor baseline:</b> prediction không thấp hơn mức tháng thấp nhất từng quan sát. Đại diện cho tải nền cố định (chiếu sáng, lạnh, văn phòng) không phụ thuộc RCN. Vì vậy với RCN rất nhỏ, kết quả sẽ bằng mức tối thiểu lịch sử chứ không gần 0.</li>
+            <li><b>Gap vs KPI / SBTi:</b> so sánh tổng Scope 1+2 dự đoán với mục tiêu quản lý (KPI) hoặc đường cong SBTi tuyến tính −50% tới {TARGET_YEAR}.</li>
+          </ul>
+        </div>
+      </details>
 
       {/* ── Controls ── */}
       <div className="card" style={{ padding: '10px 14px', marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-end' }}>
@@ -467,11 +511,25 @@ export default function PredictorPage() {
               placeholder="Enter MT RCN..."
               style={{
                 width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid',
-                borderColor: rcn > 0 ? '#6366F1' : 'var(--color-border)',
+                borderColor: outsideRange ? '#F59E0B' : rcn > 0 ? '#6366F1' : 'var(--color-border)',
                 background: 'var(--color-bg-secondary)', color: 'var(--color-text)',
                 fontSize: 20, fontWeight: 700, outline: 'none', boxSizing: 'border-box',
               }}
             />
+            {rcnRange.max > 0 && (
+              <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 5 }}>
+                Dải lịch sử: <b style={{ color: 'var(--color-text-secondary)' }}>{fmtNum(rcnRange.min, 0)} – {fmtNum(rcnRange.max, 0)} MT/tháng</b>
+              </div>
+            )}
+            {outsideRange && (
+              <div style={{
+                marginTop: 6, padding: '7px 10px', borderRadius: 8,
+                background: '#F59E0B15', border: '1.5px solid #F59E0B40',
+                fontSize: 10.5, color: '#F59E0B', fontWeight: 600, lineHeight: 1.45,
+              }}>
+                ⚠️ Ngoài dải dữ liệu huấn luyện — extrapolation, độ tin cậy thấp. Số đã được floor tại mức tháng thấp nhất từng quan sát để tránh giá trị phi thực tế.
+              </div>
+            )}
           </div>
 
           {rcn > 0 ? (
