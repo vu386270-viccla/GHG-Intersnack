@@ -1045,6 +1045,57 @@ export default function OpexReportPage() {
   const s2delta = fcS2 - req26_s2;
   const s3delta = fcS3Total - req26_s3;
 
+  // ── Executive layer metrics ───────────────────────────────
+  const executiveRisks = [
+    { scope: 'Scope 1', delta: s1delta, fc: fcS1, target: req26_s1, color: '#C8281A' },
+    { scope: 'Scope 2', delta: s2delta, fc: fcS2, target: req26_s2, color: '#4472C4' },
+    { scope: 'Scope 3', delta: s3delta, fc: fcS3Total, target: req26_s3, color: '#3E7B3E' },
+  ].sort((a, b) => b.delta - a.delta);
+  const topRisk = executiveRisks[0];
+  const totalTarget26 = req26_s1 + req26_s2 + req26_s3;
+  const totalGap26 = fcTotal - totalTarget26;
+
+  const scope1ResidualRanking = factories.map(f => {
+    const proj = getFacProj(f.id);
+    const residual = Math.round(proj.s1Proj(2026));
+    const base = (reportData.annualDataByFactory[f.id] || []).find(d => d.year === 2021)?.scope1 || 0;
+    const status = base > 0 && residual <= base * 0.5 ? 'Ahead of 50%' : 'Watch';
+    return { name: f.name, residual, base, share: fcS1 > 0 ? residual / fcS1 * 100 : 0, status };
+  }).filter(r => r.residual > 0).sort((a, b) => b.residual - a.residual);
+  const topResidualFactory = scope1ResidualRanking[0];
+
+  const rcn2025 = get(2025).rcn || 0;
+  const full26rcnForOps = ytd26rcn + facMtcQty;
+  const s2Intensity2025 = rcn2025 > 0 ? s2_2025 / rcn2025 : 0;
+  const productionMovementS2 = Math.round((full26rcnForOps - rcn2025) * s2Intensity2025);
+  const solarReductionS2 = Math.round(cumulativeSolarSavingByYear(2026) || (isSolarFactory ? ptSolarSaving(2026) : 0));
+  const residualGridS2 = Math.max(fcS2, 0);
+  const withoutSolarS2 = Math.max(fcS2 + solarReductionS2, 0);
+
+  const s3_2025_total = s3_2025_data?.total || 0;
+  const s3_2025_rcn = get(2025).rcn || 0;
+  const s3FcRcn = (get(2026).rcn || 0) + MTC_2026_TOTAL_QTY;
+  const s3Ef2025 = s3_2025_rcn > 0 ? s3_2025_total / s3_2025_rcn : 0;
+  const s3EfFc2026 = s3FcRcn > 0 ? fcS3Total / s3FcRcn : 0;
+  const s3VolumeEffect26 = Math.round((s3FcRcn - s3_2025_rcn) * s3Ef2025);
+  const s3MixEffect26 = Math.round((s3EfFc2026 - s3Ef2025) * s3FcRcn);
+  const s3DriverLabel = Math.abs(s3MixEffect26) > Math.abs(s3VolumeEffect26) ? 'EF / Origin Mix' : 'Volume / MTC';
+
+  const actionRows = [
+    {
+      priority: 'High', scope: 'Scope 3', issue: 'High EF origin mix / Cat.1 sourcing risk',
+      action: 'Add origin EF into procurement bidding matrix; prioritize lower-EF origins.', owner: 'Procurement', impact: 'Very High', timing: '2026 buying cycle'
+    },
+    {
+      priority: s2delta > 0 ? 'High' : 'Medium', scope: 'Scope 2', issue: 'Residual grid dependency after solar impact',
+      action: 'Accelerate solar PPA / rooftop rollout and lock renewable electricity procurement.', owner: 'Engineering / Energy', impact: 'High', timing: 'Q2–Q4 2026'
+    },
+    {
+      priority: 'Medium', scope: 'Scope 1', issue: `${topResidualFactory?.name || 'Top factory'} residual direct emissions`,
+      action: 'Keep biomass / boiler efficiency trajectory and target highest residual factories first.', owner: 'Factory Ops', impact: 'Medium', timing: 'Monthly review'
+    },
+  ];
+
   // ── Scope 1 bars ──────────────────────────────────────
   const s1Bars: BarPoint[] = [
     { key: 'base', label: ['Baseline', '2021'], actual: b1, isTotal: true },
@@ -1349,6 +1400,61 @@ export default function OpexReportPage() {
         </div>
 
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
+      </div>
+
+      {/* ── Executive Summary & Action Priority ───────────────────────── */}
+      <div style={{ margin: '0 12px 8px', display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 10 }}>
+        <div style={{ border: '1px solid #dbe3ea', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 4px 14px rgba(15,23,42,0.05)' }}>
+          <div style={{ padding: '7px 12px', background: 'linear-gradient(135deg,#0f172a,#1a3d5c)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: 12.5 }}>🏛️ Executive Summary — FC 2026</strong>
+            <span style={{ fontSize: 10, opacity: 0.85 }}>Target vs forecast management view</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 0 }}>
+            {[
+              { label: 'Total FC 2026', value: `${fmt(fcTotal)} tCO₂e`, sub: `Target gap ${totalGap26 > 0 ? '+' : ''}${fmt(totalGap26)}`, color: totalGap26 > 0 ? '#C8281A' : '#3E7B3E' },
+              { label: 'Main risk', value: topRisk.scope, sub: `${topRisk.delta > 0 ? '+' : ''}${fmt(topRisk.delta)} vs target`, color: topRisk.delta > 0 ? '#C8281A' : '#3E7B3E' },
+              { label: 'Key driver', value: s3DriverLabel, sub: `S3 mix ${s3MixEffect26 > 0 ? '+' : ''}${fmt(s3MixEffect26)} tCO₂e`, color: Math.abs(s3MixEffect26) > Math.abs(s3VolumeEffect26) ? '#C8281A' : '#E8960E' },
+              { label: 'Best lever', value: 'Procurement EF', sub: 'Origin mix + supplier criteria', color: '#1a3d5c' },
+            ].map(card => (
+              <div key={card.label} style={{ padding: '10px 12px', borderRight: '1px solid #edf2f7' }}>
+                <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>{card.label}</div>
+                <div style={{ marginTop: 3, fontSize: 17, fontWeight: 900, color: card.color, lineHeight: 1.05 }}>{card.value}</div>
+                <div style={{ marginTop: 4, fontSize: 10.5, color: '#475569' }}>{card.sub}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '7px 12px', background: '#f8fafc', borderTop: '1px solid #edf2f7', fontSize: 11, color: '#334155', lineHeight: 1.45 }}>
+            <strong>Board message:</strong> {lang === 'vi'
+              ? `FC 2026 cho thấy rủi ro lớn nhất nằm ở ${topRisk.scope}; để khóa quỹ đạo giảm phát thải, ưu tiên cao nhất là đưa EF vùng mua hàng vào quyết định procurement và kiểm soát điện lưới còn lại.`
+              : `FC 2026 shows the largest delivery risk in ${topRisk.scope}; protecting the decarbonization trajectory requires embedding origin EF into procurement decisions and controlling residual grid electricity.`}
+          </div>
+        </div>
+
+        <div style={{ border: '1px solid #dbe3ea', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 4px 14px rgba(15,23,42,0.05)' }}>
+          <div style={{ padding: '7px 10px', background: '#fff7ed', borderBottom: '1px solid #fed7aa', color: '#9a3412', fontWeight: 900, fontSize: 12 }}>
+            🎯 Action Priority Matrix
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.2 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', color: '#475569' }}>
+                <th style={{ padding: '5px 6px', textAlign: 'left' }}>Priority</th>
+                <th style={{ padding: '5px 6px', textAlign: 'left' }}>Scope</th>
+                <th style={{ padding: '5px 6px', textAlign: 'left' }}>Action</th>
+                <th style={{ padding: '5px 6px', textAlign: 'left' }}>Owner</th>
+              </tr>
+            </thead>
+            <tbody>
+              {actionRows.map((r, idx) => (
+                <tr key={`${r.scope}-${idx}`} style={{ borderTop: '1px solid #eef2f7' }}>
+                  <td style={{ padding: '5px 6px', fontWeight: 900, color: r.priority === 'High' ? '#C8281A' : '#E8960E' }}>{r.priority}</td>
+                  <td style={{ padding: '5px 6px', fontWeight: 800 }}>{r.scope}</td>
+                  <td style={{ padding: '5px 6px', color: '#334155', lineHeight: 1.25 }} title={r.issue}>{r.action}</td>
+                  <td style={{ padding: '5px 6px', color: '#475569' }}>{r.owner}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── Q1 2026 YTD Snapshot Banner ───────────────────────────────── */}
@@ -1774,6 +1880,47 @@ export default function OpexReportPage() {
               </div>
             );
           })()}
+        </div>
+      </div>
+
+      <div style={{ display: selectedScope === 'ops' ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10, margin: '0 12px 8px' }}>
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+          <div style={{ padding: '6px 10px', background: '#fef2f2', color: '#991b1b', fontWeight: 900, fontSize: 12 }}>
+            🔥 Scope 1 Residual Emissions by Factory — FC 2026
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
+            <thead><tr style={{ background: '#f8fafc', color: '#475569' }}>
+              <th style={{ padding: '5px 7px', textAlign: 'left' }}>Factory</th>
+              <th style={{ padding: '5px 7px', textAlign: 'right' }}>Residual</th>
+              <th style={{ padding: '5px 7px', textAlign: 'right' }}>Share</th>
+              <th style={{ padding: '5px 7px', textAlign: 'left' }}>Status</th>
+            </tr></thead>
+            <tbody>{scope1ResidualRanking.map(r => (
+              <tr key={r.name} style={{ borderTop: '1px solid #eef2f7' }}>
+                <td style={{ padding: '5px 7px', fontWeight: 700 }}>{r.name}</td>
+                <td style={{ padding: '5px 7px', textAlign: 'right', fontWeight: 800 }}>{fmt(r.residual)} tCO₂e</td>
+                <td style={{ padding: '5px 7px', textAlign: 'right' }}>{r.share.toFixed(0)}%</td>
+                <td style={{ padding: '5px 7px', color: r.status.includes('Ahead') ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>{r.status}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+
+        <div style={{ border: '1px solid #dbeafe', borderRadius: 8, background: '#fff', overflow: 'hidden' }}>
+          <div style={{ padding: '6px 10px', background: '#eff6ff', color: '#1d4ed8', fontWeight: 900, fontSize: 12 }}>
+            ⚡ Scope 2 Driver Bridge — Solar / Production / Grid
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: 10 }}>
+            {[
+              { label: 'Emission reduction by solar', value: `-${fmt(solarReductionS2)}`, color: '#3E7B3E', sub: 'abatement embedded in FC' },
+              { label: 'Movement by production growth', value: `${productionMovementS2 > 0 ? '+' : ''}${fmt(productionMovementS2)}`, color: productionMovementS2 > 0 ? '#C8281A' : '#3E7B3E', sub: 'vs 2025 volume base' },
+              { label: 'Residual grid dependency', value: fmt(residualGridS2), color: '#1d4ed8', sub: `without solar ~${fmt(withoutSolarS2)}` },
+            ].map(d => <div key={d.label} style={{ border: '1px solid #e2e8f0', borderRadius: 7, padding: '8px 9px', background: '#f8fafc' }}>
+              <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 800 }}>{d.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: d.color, marginTop: 3 }}>{d.value}</div>
+              <div style={{ fontSize: 10, color: '#64748b' }}>{d.sub}</div>
+            </div>)}
+          </div>
         </div>
       </div>
 
