@@ -1460,32 +1460,59 @@ export default function OpexReportPage() {
             const ytd26 = get(2026).scope1;
             const ytd26rcn = get(2026).rcn;
             const full26rcn = ytd26rcn + facMtcQty;
+            const br26 = scope1Breakdown.find(b => b.year === 2026);
+            const activeCats = S1_CATS.filter(c =>
+              scope1Breakdown.some(b => (b.cats[c.key] || 0) > 0)
+            );
             return (
               <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
                   <thead>
                     <tr style={{ background: '#1a3d5c', color: 'white' }}>
-                      <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700, minWidth: 130 }}>
-                        Scope 1
-                      </th>
+                      <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700, minWidth: 160 }}>Scope 1</th>
                       {years.map(y => <th key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700 }}>{y}</th>)}
                       {ytd26 > 0 && <th style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, background: '#E8960E', whiteSpace: 'nowrap' }}>Q1'26*</th>}
                       <th style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, background: '#C8281A', whiteSpace: 'nowrap' }}>FC'26</th>
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Total row */}
                     <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
                       <td style={{ padding: '3px 6px', fontWeight: 700 }}>Total Emissions (tCO₂e)</td>
                       {years.map(y => <td key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 600 }}>{Math.round(get(y).scope1).toLocaleString()}</td>)}
                       {ytd26 > 0 && <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1' }}>{Math.round(ytd26).toLocaleString()}</td>}
                       <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#C8281A', background: '#fef2f2' }}>{Math.round(fcS1).toLocaleString()}</td>
                     </tr>
-                    <tr style={{ background: '#fff', borderBottom: '1px solid #ddd' }}>
+                    {/* Intensity row */}
+                    <tr style={{ background: '#fff', borderBottom: '2px solid #cbd5e1' }}>
                       <td style={{ padding: '3px 6px', fontWeight: 700, color: '#666' }}>Intensity (tCO₂e/tRCN)</td>
                       {years.map(y => <td key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 600, color: '#666' }}>{(get(y).scope1 / get(y).rcn).toFixed(4)}</td>)}
                       {ytd26 > 0 && <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#88641a', background: '#fff8e1' }}>{(ytd26 / ytd26rcn).toFixed(4)}</td>}
                       <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#b91c1c', background: '#fef2f2' }}>{(fcS1 / full26rcn).toFixed(4)}</td>
                     </tr>
+                    {/* Per-fuel breakdown sub-rows */}
+                    {activeCats.map(cat => {
+                      const br26val = br26 ? (br26.cats[cat.key] || 0) : null;
+                      return (
+                        <tr key={cat.key} style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '3px 6px', color: '#555', paddingLeft: 16 }}>
+                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: cat.color, marginRight: 5 }} />
+                            {cat.label}
+                          </td>
+                          {years.map(y => {
+                            const bd = scope1Breakdown.find(b => b.year === y);
+                            const v = bd ? (bd.cats[cat.key] || 0) : 0;
+                            return <td key={y} style={{ padding: '3px 6px', textAlign: 'right', color: '#555' }}>{v > 0 ? Math.round(v).toLocaleString() : '—'}</td>;
+                          })}
+                          {ytd26 > 0 && (
+                            <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, color: '#7a4f00', background: '#fff8e1' }}>
+                              {br26val != null && br26val > 0 ? Math.round(br26val).toLocaleString() : '—'}
+                            </td>
+                          )}
+                          <td style={{ padding: '3px 6px', textAlign: 'right', color: '#aaa', background: '#fef2f2' }}>—</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1606,31 +1633,53 @@ export default function OpexReportPage() {
             const ytd26 = get(2026).scope2;
             const ytd26rcn = get(2026).rcn;
             const full26rcn = ytd26rcn + facMtcQty;
+            const GRID_EF = 0.8928; // kgCO2e/kWh (HCMC grid 2022-2023)
+            const toMwh = (tco2e: number) => tco2e > 0 ? Math.round(tco2e / GRID_EF * 1000) : 0;
             return (
               <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
                   <thead>
                     <tr style={{ background: '#1a3d5c', color: 'white' }}>
-                      <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700, minWidth: 130 }}>
-                        Scope 2
-                      </th>
+                      <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700, minWidth: 160 }}>Scope 2</th>
                       {years.map(y => <th key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700 }}>{y}</th>)}
                       {ytd26 > 0 && <th style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, background: '#E8960E', whiteSpace: 'nowrap' }}>Q1'26*</th>}
                       <th style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, background: '#4472C4', whiteSpace: 'nowrap' }}>FC'26</th>
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Total Emissions */}
                     <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
                       <td style={{ padding: '3px 6px', fontWeight: 700 }}>Total Emissions (tCO₂e)</td>
                       {years.map(y => <td key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 600 }}>{Math.round(get(y).scope2).toLocaleString()}</td>)}
                       {ytd26 > 0 && <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1' }}>{Math.round(ytd26).toLocaleString()}</td>}
                       <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#4472C4', background: '#eff6ff' }}>{Math.round(fcS2).toLocaleString()}</td>
                     </tr>
-                    <tr style={{ background: '#fff', borderBottom: '1px solid #ddd' }}>
+                    {/* Intensity */}
+                    <tr style={{ background: '#fff', borderBottom: '2px solid #cbd5e1' }}>
                       <td style={{ padding: '3px 6px', fontWeight: 700, color: '#666' }}>Intensity (tCO₂e/tRCN)</td>
                       {years.map(y => <td key={y} style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 600, color: '#666' }}>{(get(y).scope2 / get(y).rcn).toFixed(4)}</td>)}
                       {ytd26 > 0 && <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#88641a', background: '#fff8e1' }}>{(ytd26 / ytd26rcn).toFixed(4)}</td>}
                       <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 800, color: '#1d4ed8', background: '#eff6ff' }}>{(fcS2 / full26rcn).toFixed(4)}</td>
+                    </tr>
+                    {/* RCN Production */}
+                    <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '3px 6px', color: '#555', paddingLeft: 16 }}>
+                        <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#4472C4', marginRight: 5 }} />
+                        RCN Production (tRCN)
+                      </td>
+                      {years.map(y => <td key={y} style={{ padding: '3px 6px', textAlign: 'right', color: '#555' }}>{get(y).rcn.toLocaleString()}</td>)}
+                      {ytd26 > 0 && <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, color: '#7a4f00', background: '#fff8e1' }}>{ytd26rcn.toLocaleString()}</td>}
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: '#555', background: '#eff6ff' }}>{full26rcn.toLocaleString()}</td>
+                    </tr>
+                    {/* Implied kWh */}
+                    <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '3px 6px', color: '#555', paddingLeft: 16 }}>
+                        <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#70AD47', marginRight: 5 }} />
+                        Implied Electricity (MWh)
+                      </td>
+                      {years.map(y => <td key={y} style={{ padding: '3px 6px', textAlign: 'right', color: '#555' }}>{toMwh(get(y).scope2).toLocaleString()}</td>)}
+                      {ytd26 > 0 && <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 700, color: '#7a4f00', background: '#fff8e1' }}>{toMwh(ytd26).toLocaleString()}</td>}
+                      <td style={{ padding: '3px 6px', textAlign: 'right', color: '#555', background: '#eff6ff' }}>{toMwh(fcS2).toLocaleString()}</td>
                     </tr>
                   </tbody>
                 </table>
