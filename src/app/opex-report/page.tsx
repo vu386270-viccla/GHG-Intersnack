@@ -1106,7 +1106,8 @@ export default function OpexReportPage() {
   const [loading, setLoading] = useState(true);
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
-  const [selectedScope, setSelectedScope] = useState<'ops' | 'supply' | 'intensity' | 'forecast'>('ops');
+  const [selectedScope, setSelectedScope] = useState<'ops' | 'supply' | 'intensity'>('ops');
+  const [showForecast, setShowForecast] = useState(false);
   const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2025);
   const [reportData, setReportData] = useState<OpexReportData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1267,6 +1268,20 @@ export default function OpexReportPage() {
     targetBarsS2.push({ key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: s2Proj(y), ...split2026s2 });
   }
 
+  // ── FC 2026 Forecast values (always computed, shown when toggle ON) ──
+  const hasQ1data = ytd26s1 > 0 || ytd26s2 > 0;
+  const fc_ann26s1 = ytd26s1 > 0 ? ytd26s1 * 4 : s1_2025;
+  const fc_ann26s2 = ytd26s2 > 0 ? ytd26s2 * 4 : s2_2025;
+  const fcS1 = Math.round(hasQ1data ? (s1_2025 + fc_ann26s1) / 2 : s1_2025);
+  const fcS2 = Math.round(hasQ1data ? (s2_2025 + fc_ann26s2) / 2 : s2_2025);
+  const fcS3Cat1 = forecast2026Cat1();
+  const fc_t25qty = TRANSPORT_STATIC[2025]?.qty || 1;
+  const s3_2025_data = s3Data.find(d => d.year === 2025);
+  const fcS3Cat3 = Math.round((s3_2025_data?.cat3 || 0) * (PLAN_2026_TOTAL_QTY / fc_t25qty));
+  const fcS3Cat4 = forecast2026Cat4().total;
+  const fcS3Total = fcS3Cat1 + fcS3Cat3 + fcS3Cat4;
+  const fcTotal = fcS1 + fcS2 + fcS3Total;
+
   // ── Scope 1 bars ──────────────────────────────────────────
   const req26_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, 2026));
   const s1Bars: BarPoint[] = [
@@ -1275,6 +1290,7 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
+    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS1, isTotal: true }] : []),
     { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
     ...targetBarsS1,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s1, isTotal: true },
@@ -1308,6 +1324,7 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
+    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS2, isTotal: true }] : []),
     { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
     ...targetBarsS2,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s2, isTotal: true },
@@ -1462,12 +1479,23 @@ export default function OpexReportPage() {
                 onClick={() => setSelectedScope('intensity')}>
                 📊 {lang === 'vi' ? 'Cường độ CO₂' : 'CO₂ Intensity'}
               </button>
-              <button className={`opex-pill-btn${selectedScope === 'forecast' ? ' active-red' : ''}`}
-                onClick={() => setSelectedScope('forecast')}
-                style={{ borderLeft: '1px dashed #bbb' }}>
-                🔮 {lang === 'vi' ? 'Dự báo 2026' : 'FC 2026'}
-              </button>
             </div>
+
+            {/* FC 2026 Toggle */}
+            <button
+              onClick={() => setShowForecast(v => !v)}
+              style={{
+                padding: '5px 13px', fontSize: 12, fontWeight: showForecast ? 800 : 500,
+                border: showForecast ? '2px solid #1a3d5c' : '1.5px dashed #999',
+                borderRadius: 8, cursor: 'pointer',
+                background: showForecast ? 'linear-gradient(135deg, #1a3d5c, #2d6a9f)' : '#f8f8f8',
+                color: showForecast ? '#fff' : '#666',
+                transition: 'all 0.2s ease', whiteSpace: 'nowrap',
+                boxShadow: showForecast ? '0 2px 8px rgba(26,61,92,0.3)' : 'none',
+              }}
+            >
+              🔮 {showForecast ? (lang === 'vi' ? 'FC 2026 ✔' : 'FC 2026 ✔') : (lang === 'vi' ? 'Dự báo 2026' : 'FC 2026')}
+            </button>
 
             <div className="opex-divider" />
 
@@ -1508,9 +1536,7 @@ export default function OpexReportPage() {
             ? (lang === 'vi' ? '🎯 Mục tiêu: −50% Phát thải Vận hành so với năm cơ sở 2021 (SBTi Ngắn hạn)' : '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)')
             : selectedScope === 'supply'
               ? (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')
-              : selectedScope === 'forecast'
-                ? (lang === 'vi' ? '🔮 Dự báo cả năm 2026 dựa theo kế hoạch mua hàng — Scope 1, 2 dùng trung bình 2025 & Q1 2026 nhân 4' : '🔮 Full-year 2026 forecast based on purchasing plan — S1/S2 weighted avg 2025 + Q1×4')
-                : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
+              : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
         </div>
 
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
@@ -2125,6 +2151,7 @@ export default function OpexReportPage() {
           { key: '2023', label: ['2023'], actual: s3_2023?.total || 0 },
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
+          ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS3Total, isTotal: true }] : []),
           { key: 'req_2026', label: ['Target', '2026'], target: planVal(2026) },
           ...planYears.map(y => ({
             key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: planVal(y),
@@ -3310,22 +3337,58 @@ export default function OpexReportPage() {
         );
       })()}
 
-      {/* ── Forecast Panel ──────────────────────────────── */}
-      {selectedScope === 'forecast' && (() => {
-        const s3_2025 = s3Data.find(d => d.year === 2025);
-        return (
-          <ForecastPanel
-            s1_2025={s1_2025}
-            s2_2025={s2_2025}
-            s3_2025_cat1={s3_2025?.cat1 || 0}
-            s3_2025_cat3={s3_2025?.cat3 || 0}
-            s3_2025_cat4={(s3_2025?.cat4v || 0) + (s3_2025?.cat4r || 0)}
-            ytd26s1={get(2026).scope1}
-            ytd26s2={get(2026).scope2}
-            lang={lang}
-          />
-        );
-      })()}
+      {/* ── Forecast Methodology Banner (shown when toggle ON) ──────── */}
+      {showForecast && (
+        <div style={{
+          margin: '4px 12px 6px', borderRadius: 8,
+          border: '2px solid #1a3d5c',
+          background: 'linear-gradient(135deg, #f0f7ff 0%, #e8f0fe 100%)',
+          overflow: 'hidden',
+        }}>
+          {/* Banner header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #1a3d5c, #2d6a9f)', color: '#fff',
+            padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+          }}>
+            <span style={{ fontWeight: 800, fontSize: 12 }}>🔮 FC 2026 — Dự báo Cả Năm (Full Year Forecast)</span>
+            <span style={{ fontSize: 11, fontWeight: 900 }}>
+              Total: {fcTotal.toLocaleString()} tCO₂e
+              <span style={{ marginLeft: 8, fontSize: 10, opacity: 0.85 }}>
+                (S1: {fcS1.toLocaleString()} + S2: {fcS2.toLocaleString()} + S3: {fcS3Total.toLocaleString()})
+              </span>
+            </span>
+          </div>
+          {/* Methodology grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 0 }}>
+            {/* S1/S2 */}
+            <div style={{ padding: '8px 14px', borderRight: '1px solid #d0dbe8' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#1a3d5c', marginBottom: 3 }}>🔥 Scope 1: {fcS1.toLocaleString()} tCO₂e &nbsp;|&nbsp; ⚡ Scope 2: {fcS2.toLocaleString()} tCO₂e</div>
+              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
+                PP: Weighted avg = (2025 actual + Q1 2026×4) / 2<br />
+                {hasQ1data && <span>Q1 ann.: S1={fc_ann26s1.toLocaleString()}, S2={fc_ann26s2.toLocaleString()}</span>}
+              </div>
+            </div>
+            {/* S3 Cat.1 */}
+            <div style={{ padding: '8px 14px', borderRight: '1px solid #d0dbe8' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#3E7B3E', marginBottom: 3 }}>🌿 Cat.1 RCN: {fcS3Cat1.toLocaleString()} tCO₂e</div>
+              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
+                Kế hoạch mua {PLAN_2026_TOTAL_QTY.toLocaleString()} MT × origin EFs (Ecoinvent FLAG)<br />
+                {Object.entries(PLAN_2026_ORIGIN_MIX).sort(([, a], [, b]) => b - a).slice(0, 4).map(([o, q]) =>
+                  <span key={o} style={{ marginRight: 6 }}>{o}: {q.toLocaleString()}</span>
+                )}
+              </div>
+            </div>
+            {/* S3 Cat.3+4 */}
+            <div style={{ padding: '8px 14px' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#1a3d5c', marginBottom: 3 }}>🚢 Cat.3: {fcS3Cat3.toLocaleString()} &nbsp;|&nbsp; Cat.4: {fcS3Cat4.toLocaleString()} tCO₂e</div>
+              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
+                Cat.3: 2025 × (plan qty / 2025 qty) — proportional scaling<br />
+                Cat.4: Per-route km (Procurement data) × volume × vessel/road EFs
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Slide Footer ─────────────────────────────────── */}
       <div style={{
