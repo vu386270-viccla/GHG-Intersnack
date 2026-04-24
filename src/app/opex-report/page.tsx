@@ -274,6 +274,9 @@ function WaterfallChart({
                         n >= 1000 ? `${(n / 1e3).toFixed(1)}K` :
                           n.toLocaleString();
 
+                  const isFC = b.key === 'fc2026';
+                  const topColor = isFC ? C.estimated : C.target;
+
                   return (
                     <>
                       {/* Connector from previous bar — drawn manually since isTotal suppresses auto connLine */}
@@ -284,12 +287,12 @@ function WaterfallChart({
                           stroke="#BBBBBB" strokeWidth={1} strokeDasharray="3,3"
                         />
                       )}
-                      {/* Q2-Q4 plan = GREEN (top portion) */}
-                      <rect x={bx(i)} y={topY} width={bw} height={planH} fill={C.target} rx={2} />
+                      {/* Q2-Q4 plan/est = top portion */}
+                      <rect x={bx(i)} y={topY} width={bw} height={planH} fill={topColor} rx={2} />
                       {/* Q1 actual = RED (bottom portion) */}
                       <rect x={bx(i)} y={splitY} width={bw} height={q1H} fill={C.actual} />
                       {/* Outline + white divider */}
-                      <rect x={bx(i)} y={topY} width={bw} height={totalH} fill="none" stroke="#444" strokeWidth={0.8} rx={2} />
+                      <rect x={bx(i)} y={topY} width={bw} height={totalH} fill="none" stroke={isFC ? '#b45309' : '#444'} strokeWidth={0.8} rx={2} />
                       <line x1={bx(i)} y1={splitY} x2={bx(i) + bw} y2={splitY} stroke="white" strokeWidth={2.5} />
                       {/* Numbers only, no labels */}
                       {planH > 18 && (
@@ -299,7 +302,7 @@ function WaterfallChart({
                         <text x={cx(i)} y={splitY + q1H / 2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(q1Abs)}</text>
                       )}
                       {/* Total plan value above bar */}
-                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={13} fontWeight="900" fill={C.target}>{fv(planVal2026)}</text>
+                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={13} fontWeight="900" fill={topColor}>{fv(planVal2026)}</text>
                     </>
                   );
                 })() : (
@@ -1291,7 +1294,7 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
     ...(showForecast ? [
-      { key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined },
+      { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined },
       ...targetBarsS1.slice(1)
     ] : [
       { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
@@ -1303,11 +1306,19 @@ export default function OpexReportPage() {
   // ── Scope 1 callouts ──────────────────────────────────
   const s1_2024 = get(2024).scope1;
   const s1Callouts: Callout[] = showForecast ? [
+    s1_2025 > 0 ? {
+      // Delta from 2025 to 2026 Est.
+      fromCol: 4, toCol: 5,
+      fromVal: s1_2025, toVal: fcS1,
+      text: pctStr(fcS1, s1_2025),
+      level: 0
+    } : null,
     b1 > 0 ? {
+      // Delta from Baseline to 2026 Est.
       fromCol: 0, toCol: 5,
       fromVal: b1, toVal: fcS1,
       text: pctStr(fcS1, b1),
-      level: 0
+      level: 1
     } : null,
     end_s1 > 0 ? {
       fromCol: 5, toCol: s1Bars.length - 1,
@@ -1339,7 +1350,7 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
     ...(showForecast ? [
-      { key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined },
+      { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined },
       ...targetBarsS2.slice(1)
     ] : [
       { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
@@ -1351,11 +1362,17 @@ export default function OpexReportPage() {
   // ── Scope 2 callouts ──────────────────────────────────
   const s2_2024 = get(2024).scope2;
   const s2Callouts: Callout[] = showForecast ? [
+    s2_2025 > 0 ? {
+      fromCol: 4, toCol: 5,
+      fromVal: s2_2025, toVal: fcS2,
+      text: pctStr(fcS2, s2_2025),
+      level: 0
+    } : null,
     b2 > 0 ? {
       fromCol: 0, toCol: 5,
       fromVal: b2, toVal: fcS2,
       text: pctStr(fcS2, b2),
-      level: 0
+      level: 1
     } : null,
     end_s2 > 0 ? {
       fromCol: 5, toCol: s2Bars.length - 1,
@@ -2180,7 +2197,7 @@ export default function OpexReportPage() {
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
           ...(showForecast ? [
-            { key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined },
+            { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined },
             ...planYears.slice(1).map(y => ({
               key: y.toString(), label: [y.toString()], target: planVal(y)
             }))
@@ -2199,10 +2216,15 @@ export default function OpexReportPage() {
         ];
 
         const s3Callouts: Callout[] = showForecast ? [
+          s3Cur.total > 0 ? {
+            fromCol: 4, toCol: 5,
+            fromVal: s3Cur.total, toVal: fcS3Total,
+            text: pctStr(fcS3Total, s3Cur.total), level: 0
+          } : null,
           s3Base.total > 0 ? {
             fromCol: 0, toCol: 5,
             fromVal: s3Base.total, toVal: fcS3Total,
-            text: pctStr(fcS3Total, s3Base.total), level: 0
+            text: pctStr(fcS3Total, s3Base.total), level: 1
           } : null,
           planVal(targetEndYear) > 0 ? {
             fromCol: 5, toCol: s3Bars.length - 1,
