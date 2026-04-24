@@ -446,6 +446,7 @@ export const PLAN_2026_FACTORIES: Record<string, { total: number; origins: Recor
 };
 
 const PLAN_2026_TOTAL_QTY = Object.values(PLAN_2026_ORIGIN_MIX).reduce((s, v) => s + v, 0);
+const PLAN_2026_PROCESSING_QTY = 62027; // Kế hoạch sản xuất RCN (Scope 1&2 input)
 
 /** Compute 2026 forecast Cat.1 (tCO₂e) from planned origin mix */
 function forecast2026Cat1(): number {
@@ -1284,11 +1285,11 @@ export default function OpexReportPage() {
   const ytd26rcn = get(2026).rcn;
   const hasQ1data = ytd26s1 > 0 || ytd26s2 > 0;
 
-  // Forecast based on Intensity (tCO2e/RCN) x PLAN_2026_TOTAL_QTY
+  // Forecast based on Intensity (tCO2e/RCN) x PLAN_2026_PROCESSING_QTY
   const int_s1 = ytd26rcn > 0 ? ytd26s1 / ytd26rcn : s1_2025 / get(2025).rcn;
   const int_s2 = ytd26rcn > 0 ? ytd26s2 / ytd26rcn : s2_2025 / get(2025).rcn;
-  const fc_ann26s1 = Math.round(int_s1 * PLAN_2026_TOTAL_QTY);
-  const fc_ann26s2 = Math.round(int_s2 * PLAN_2026_TOTAL_QTY);
+  const fc_ann26s1 = Math.round(int_s1 * PLAN_2026_PROCESSING_QTY);
+  const fc_ann26s2 = Math.round(int_s2 * PLAN_2026_PROCESSING_QTY);
 
   const fcS1 = hasQ1data ? fc_ann26s1 : s1_2025;
   const fcS2 = hasQ1data ? fc_ann26s2 : s2_2025;
@@ -3473,7 +3474,7 @@ export default function OpexReportPage() {
                 </div>
                 <div style={{ fontWeight: 700, color: '#444' }}>Cách tính:</div>
                 <div style={{ padding: '4px 6px', background: '#f5f5f5', borderRadius: 4, display: 'inline-block', fontStyle: 'italic', border: '1px solid #ddd' }}>
-                  Cường độ (Q1 tCO₂e ÷ Q1 RCN volume) × Kế hoạch Thu mua: {PLAN_2026_TOTAL_QTY.toLocaleString()} MT
+                  Cường độ (Q1 tCO₂e ÷ Q1 RCN volume) × Kế hoạch Sản xuất: {PLAN_2026_PROCESSING_QTY.toLocaleString()} MT
                 </div>
               </div>
             </div>
