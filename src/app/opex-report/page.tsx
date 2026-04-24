@@ -1016,9 +1016,11 @@ export default function OpexReportPage() {
   const fcS3Cat4 = Math.round(ytd26_s3cat4 + forecast2026Cat4_MTC().total);
 
   const s3_2025_data = s3Data.find(d => d.year === 2025);
-  // Cat.3 estimation based on Intensity (tCO2e/tRCN) applied to full year volume (YTD + MTC)
-  const int_s3cat3 = s3_2025_data ? s3_2025_data.cat3 / get(2025).rcn : 0;
-  const fcS3Cat3 = Math.round(int_s3cat3 * (ytd26rcn + MTC_2026_TOTAL_QTY));
+  const ytd26_s3cat3 = s3Data2026?.cat3 || 0;
+
+  // Cat.3 estimation based on Q1 YTD Intensity (tCO2e/tRCN) applied to MTC volume (62,027) - consistent with S1/S2
+  const int_s3cat3 = ytd26rcn > 0 ? ytd26_s3cat3 / ytd26rcn : (s3_2025_data ? s3_2025_data.cat3 / get(2025).rcn : 0);
+  const fcS3Cat3 = Math.round(ytd26_s3cat3 + (int_s3cat3 * MTC_2026_TOTAL_QTY));
   const fcS3Total = fcS3Cat1 + fcS3Cat3 + fcS3Cat4;
   const fcTotal = fcS1 + fcS2 + fcS3Total;
 
@@ -3244,13 +3246,13 @@ export default function OpexReportPage() {
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 12px', fontWeight: 800, color: '#15803d' }}>⚙️ S3.Cat3</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{get(2025).rcn.toLocaleString()}</b><br />cat3: {s3_2025_data?.cat3 ? Math.round(s3_2025_data.cat3).toLocaleString() : 0}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{int_s3cat3.toFixed(4)}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{ytd26rcn.toLocaleString()}</b><br />ytd: -(chưa có)</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{int_s3cat3.toFixed(4)}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />(Full năm: {(ytd26rcn + MTC_2026_TOTAL_QTY).toLocaleString()} MT)</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{(ytd26rcn > 0 ? ytd26_s3cat3 / ytd26rcn : 0).toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{ytd26rcn.toLocaleString()}</b><br />ytd: {ytd26_s3cat3.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{(ytd26rcn > 0 ? ytd26_s3cat3 / ytd26rcn : 0).toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round((ytd26rcn > 0 ? ytd26_s3cat3 / ytd26rcn : 0) * 62027).toLocaleString()}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', background: '#f0fdf4' }}>
-                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>Cường độ 2025 × Tổng RCN (YTD+MTC)</div>
-                    <b>{int_s3cat3.toFixed(4)} × {(ytd26rcn + MTC_2026_TOTAL_QTY).toLocaleString()} = <span style={{ color: '#15803d', fontSize: 12 }}>{fcS3Cat3.toLocaleString()}</span></b>
+                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Cường độ YTD × 62,027)</div>
+                    <b>{ytd26_s3cat3.toLocaleString()} + {Math.round((ytd26rcn > 0 ? ytd26_s3cat3 / ytd26rcn : 0) * 62027).toLocaleString()} = <span style={{ color: '#15803d', fontSize: 12 }}>{fcS3Cat3.toLocaleString()}</span></b>
                   </td>
                 </tr>
                 {/* Scope 3 Cat4 */}
