@@ -3182,50 +3182,80 @@ export default function OpexReportPage() {
               </span>
             </span>
           </div>
-          {/* Methodology grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 0 }}>
-            {/* S1/S2 */}
-            <div style={{ padding: '10px 14px', borderRight: '1px solid #d0dbe8' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#1a3d5c', marginBottom: 8 }}>🔥 S1: {fcS1.toLocaleString()} | ⚡ S2: {fcS2.toLocaleString()} tCO₂e</div>
-              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
-                <div style={{ padding: '6px 8px', background: s1delta > 0 || s2delta > 0 ? '#fee2e2' : '#dcfce7', borderRadius: 4, marginBottom: 8, border: '1px solid #fecaca' }}>
-                  <span style={{ fontWeight: 700, color: s1delta > 0 || s2delta > 0 ? '#991b1b' : '#166534', fontSize: 10 }}>Gap vs Target (vs {req26_s1 + req26_s2} tCO₂e):</span><br />
-                  <span style={{ fontWeight: 700, color: '#222' }}>S1:</span> {s1delta > 0 ? '+' : ''}{s1delta.toLocaleString()} tCO₂e ({pctStr(fcS1, req26_s1)})<br />
-                  <span style={{ fontWeight: 700, color: '#222' }}>S2:</span> {s2delta > 0 ? '+' : ''}{s2delta.toLocaleString()} tCO₂e ({pctStr(fcS2, req26_s2)})
-                </div>
-                <div style={{ fontWeight: 700, color: '#444' }}>Cách tính:</div>
-                <div style={{ padding: '4px 6px', background: '#f5f5f5', borderRadius: 4, display: 'inline-block', fontStyle: 'italic', border: '1px solid #ddd' }}>
-                  Thực tế YTD + [ Cường độ YTD × Kế hoạch còn lại (MTC): 62,027 MT ]
-                </div>
-              </div>
-            </div>
-            {/* S3 Cat.1 */}
-            <div style={{ padding: '10px 14px', borderRight: '1px solid #d0dbe8' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#3E7B3E', marginBottom: 8 }}>🌿 S3.Cat1: {fcS3Cat1.toLocaleString()} tCO₂e</div>
-              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
-                <div style={{ padding: '6px 8px', background: s3delta > 0 ? '#fee2e2' : '#dcfce7', borderRadius: 4, marginBottom: 8, border: '1px solid #fecaca' }}>
-                  <span style={{ fontWeight: 700, color: s3delta > 0 ? '#991b1b' : '#166534', fontSize: 10 }}>Gap vs Target S3 Total (vs {req26_s3} tCO₂e):</span><br />
-                  <span style={{ fontWeight: 700, color: '#222' }}>S3 (Tổng):</span> {s3delta > 0 ? '+' : ''}{s3delta.toLocaleString()} tCO₂e ({pctStr(fcS3Total, req26_s3)})
-                </div>
-                <div style={{ fontWeight: 700, color: '#444' }}>Cách tính & Dữ liệu:</div>
-                Thực tế YTD + [ Origin Mix EFs MTC × Kế hoạch MTC: 62,027 MT ].<br />
-                {Object.entries(MTC_2026_ORIGIN_MIX).sort(([, a], [, b]) => b - a).slice(0, 3).map(([o, q]) =>
-                  <span key={o} style={{ marginRight: 6 }}>{o}: {q}t,</span>
-                )}...
-              </div>
-            </div>
-            {/* S3 Cat.3+4 */}
-            <div style={{ padding: '10px 14px' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#1a3d5c', marginBottom: 8 }}>🚢 S3.Cat3: {fcS3Cat3.toLocaleString()} | S3.Cat4: {fcS3Cat4.toLocaleString()} tCO₂e</div>
-              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 700, color: '#444' }}>Cách tính & Dữ liệu:</div>
-                <ul style={{ margin: '2px 0 0', paddingLeft: 16 }}>
-                  <li><strong>Cat.3:</strong> Growth scaling dựa trên tỉ lệ Total Volume/MT của năm 2026 vs 2025.</li>
-                  <li><strong>Cat.4:</strong> Tích hợp lộ trình Logistics thực tế từng Zone × Hệ số EFs Vận tải Biển (Tàu/Sea) và Đường bộ.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          {/* Full Audit Table (Raw Data & Methodology) */}
+          <details style={{ background: '#fff', borderTop: '1px solid #d0dbe8' }} open>
+            <summary style={{ padding: '8px 14px', fontSize: 11, fontWeight: 700, color: '#1a3d5c', cursor: 'pointer', userSelect: 'none', background: '#f8fafc' }}>
+              📊 Raw Data & Tham số Tính toán (Click để thu gọn/mở rộng)
+            </summary>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #cbd5e1' }}>
+                  <th style={{ padding: '6px 12px', textAlign: 'left', width: '9%' }}>Scope</th>
+                  <th style={{ padding: '6px 12px', textAlign: 'right', width: '15%' }}>Lịch sử 2025<br /><span style={{ fontWeight: 400, fontSize: 9 }}>(Tấn RCN, tCO₂e)</span></th>
+                  <th style={{ padding: '6px 12px', textAlign: 'right', width: '12%' }}>Cường độ 2025<br /><span style={{ fontWeight: 400, fontSize: 9 }}>(tCO₂e / tRCN)</span></th>
+                  <th style={{ padding: '6px 12px', textAlign: 'right', width: '15%' }}>Thực tế YTD 2026<br /><span style={{ fontWeight: 400, fontSize: 9 }}>(Tấn RCN, tCO₂e)</span></th>
+                  <th style={{ padding: '6px 12px', textAlign: 'right', width: '12%' }}>Cường độ YTD<br /><span style={{ fontWeight: 400, fontSize: 9 }}>(tCO₂e / tRCN)</span></th>
+                  <th style={{ padding: '6px 12px', textAlign: 'right', width: '15%' }}>Phát thải MTC<br /><span style={{ fontWeight: 400, fontSize: 9 }}>(Kế hoạch còn lại)</span></th>
+                  <th style={{ padding: '6px 12px', textAlign: 'right', width: '22%' }}>Công thức / Dự báo 2026</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Scope 1 */}
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 12px', fontWeight: 800, color: '#C8281A' }}>🔥 Scope 1</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{get(2025).rcn.toLocaleString()}</b><br />s1: {s1_2025.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{(s1_2025 / get(2025).rcn).toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{ytd26rcn.toLocaleString()}</b><br />ytd: {ytd26s1.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{int_s1.toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round(mtc_s1).toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', background: '#fef2f2' }}>
+                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Cường độ YTD × 62,027)</div>
+                    <b>{ytd26s1.toLocaleString()} + {Math.round(mtc_s1).toLocaleString()} = <span style={{ color: '#C8281A', fontSize: 12 }}>{fcS1.toLocaleString()}</span></b>
+                  </td>
+                </tr>
+                {/* Scope 2 */}
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 12px', fontWeight: 800, color: '#4472C4' }}>⚡ Scope 2</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{get(2025).rcn.toLocaleString()}</b><br />s2: {s2_2025.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{(s2_2025 / get(2025).rcn).toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{ytd26rcn.toLocaleString()}</b><br />ytd: {ytd26s2.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{int_s2.toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round(mtc_s2).toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', background: '#eff6ff' }}>
+                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Cường độ YTD × 62,027)</div>
+                    <b>{ytd26s2.toLocaleString()} + {Math.round(mtc_s2).toLocaleString()} = <span style={{ color: '#4472C4', fontSize: 12 }}>{fcS2.toLocaleString()}</span></b>
+                  </td>
+                </tr>
+                {/* Scope 3 Cat1 */}
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 12px', fontWeight: 800, color: '#3E7B3E' }}>🌿 S3.Cat1</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>-</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>-</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>ytd: {ytd26_s3cat1.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: '#64748b' }}>Phân bổ theo Origin</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round(forecast2026Cat1_MTC()).toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', background: '#f0fdf4' }}>
+                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + ∑(MTC Origin_i × EF_i)</div>
+                    <b>{ytd26_s3cat1.toLocaleString()} + {Math.round(forecast2026Cat1_MTC()).toLocaleString()} = <span style={{ color: '#3E7B3E', fontSize: 12 }}>{fcS3Cat1.toLocaleString()}</span></b>
+                  </td>
+                </tr>
+                {/* Scope 3 Cat4 */}
+                <tr>
+                  <td style={{ padding: '8px 12px', fontWeight: 800, color: '#0f766e' }}>🚢 S3.Cat4</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>-</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>-</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>ytd: {ytd26_s3cat4.toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: '#64748b' }}>Origin T-km × EF</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round(forecast2026Cat4_MTC().total).toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', background: '#f0fdfa' }}>
+                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + Logistics Route Map MTC</div>
+                    <b>{ytd26_s3cat4.toLocaleString()} + {Math.round(forecast2026Cat4_MTC().total).toLocaleString()} = <span style={{ color: '#0f766e', fontSize: 12 }}>{fcS3Cat4.toLocaleString()}</span></b>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </details>
         </div>
       )}
 
