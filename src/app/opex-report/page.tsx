@@ -823,7 +823,7 @@ export default function OpexReportPage() {
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
   const [selectedScope, setSelectedScope] = useState<'ops' | 'supply' | 'intensity'>('ops');
   const [showForecast, setShowForecast] = useState(false);
-  const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2025);
+  const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2026);
   const [reportData, setReportData] = useState<OpexReportData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -1949,6 +1949,7 @@ export default function OpexReportPage() {
           2023: s3_2023?.cat1 || 0,
           2024: s3_2024?.cat1 || 0,
           2025: s3Cur.cat1,
+          2026: fcS3Cat1,
         };
 
         // Linear plan 2026-targetEndYear
@@ -2140,7 +2141,7 @@ export default function OpexReportPage() {
                       <div style={{ padding: '8px', background: '#fff' }}>
                         {/* Year selector — CLICKABLE */}
                         <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
-                          {[2021, 2022, 2023, 2024, 2025].map(oyr => {
+                          {[2021, 2022, 2023, 2024, 2025, 2026].map(oyr => {
                             const od = originData.find(d => d.year === oyr);
                             if (!od) return null;
                             const actCat1 = cat1ByYear[oyr] || 0;
@@ -2161,7 +2162,7 @@ export default function OpexReportPage() {
                                   transition: 'all 0.15s',
                                 }}
                               >
-                                <strong>{oyr}</strong> &nbsp;
+                                <strong>{oyr === 2026 ? 'FC 2026' : oyr}</strong> &nbsp;
                                 🔴 {highPct}% high-EF
                               </button>
                             );
@@ -3147,81 +3148,46 @@ export default function OpexReportPage() {
 
               </div>
 
-              {/* Bottom Row Grids */}
-              <div style={{ display: 'flex', padding: '0 12px 12px', gap: 12 }}>
+              {/* Bottom Row: Balanced executive cards — duplicate country summary removed because Regional Split below already contains the same data */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', padding: '0 12px 12px', gap: 12 }}>
 
-                {/* Panel 3: Summary table */}
-                <div style={{ flex: '0.6', border: '1px solid #ccc', background: 'white' }}>
-                  <div style={{ background: '#9A0000', color: 'white', padding: '3px 8px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ background: 'white', color: '#9A0000', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6, fontSize: 9 }}>3</div>
-                    TOTAL SCOPE 3 BY COUNTRY (SUMMARY)
+                {/* Panel 3: Insights */}
+                <div style={{ border: '1px solid #d7dde5', background: 'white', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
+                  <div style={{ background: '#9A0000', color: 'white', padding: '6px 10px', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center' }}>
+                    <div style={{ background: 'white', color: '#9A0000', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, fontSize: 9, fontWeight: 900 }}>3</div>
+                    KEY INSIGHTS & EMISSION DRIVERS
                   </div>
-                  <div style={{ display: 'flex', padding: '6px 12px', fontSize: 11 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: '#333', marginBottom: 4 }}>🇻🇳 Vietnam</div>
-                      {scope3Regional.map(r => (
-                        <div key={r.year} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
-                          <span style={{ color: '#666' }}>• {r.year}:</span>
-                          <span style={{ fontWeight: 600 }}>{r.vn.toLocaleString()} tCO₂e</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: '#333', marginBottom: 4 }}>🇮🇳 India</div>
-                      {scope3Regional.map(r => (
-                        <div key={r.year} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
-                          <span style={{ color: '#666' }}>• {r.year}:</span>
-                          <span style={{ fontWeight: 600 }}>{r.india.toLocaleString()} tCO₂e</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Panel 4: Insights */}
-                <div style={{ flex: '1', border: '1px solid #ccc', background: 'white' }}>
-                  <div style={{ background: '#9A0000', color: 'white', padding: '3px 8px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ background: 'white', color: '#9A0000', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6, fontSize: 9 }}>4</div>
-                    KEY INSIGHTS, DRIVERS &amp; NEXT ACTIONS
-                  </div>
-                  <div style={{ padding: '6px 12px', fontSize: 10, lineHeight: 1.4 }}>
-                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Trends &amp; Drivers</div>
-                    <ul style={{ paddingLeft: 14, margin: '0 0 6px 0', color: '#444' }}>
-                      <li>Strong downward trend from 2021 to 2024 driven by reduced RCN volumes and sourcing changes</li>
-                      <li>2025 increase mainly due to higher RCN procurement volume</li>
-                      <li>Emissions in 2025 remain significantly below 2021 baseline (~17% lower)</li>
-                      <li>Changes in RCN sourcing profile (not only volume) play a critical role in overall Scope 3 performance</li>
+                  <div style={{ padding: '10px 14px', fontSize: 10.5, lineHeight: 1.45 }}>
+                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>Trends &amp; Drivers</div>
+                    <ul style={{ paddingLeft: 16, margin: '0 0 8px 0', color: '#374151' }}>
+                      <li>Scope 3 movement is primarily driven by RCN procurement volume and sourcing origin mix.</li>
+                      <li>Cat.1 remains the dominant hotspot (&gt;90%), therefore EF control at origin level is the highest-impact lever.</li>
+                      <li>FC 2026 should be read together with origin EF and high-EF share, not only total tonnage.</li>
                     </ul>
-                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Category Insight</div>
-                    <ul style={{ paddingLeft: 14, margin: 0, color: '#444' }}>
-                      <li>Purchase of Goods &amp; Services (RCN) dominates Scope 3 emissions (&gt;90%)</li>
-                      <li>Emission intensity is influenced by: Agricultural practices, Processing methods, Distance from sourcing origin to factories</li>
+                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>Category Insight</div>
+                    <ul style={{ paddingLeft: 16, margin: 0, color: '#374151' }}>
+                      <li>Emission intensity is influenced by agricultural practice, processing method, and transport distance.</li>
+                      <li>Regional split below is retained as the single source of truth for Vietnam vs India allocation.</li>
                     </ul>
                   </div>
                 </div>
 
-                {/* Panel 5: Strategy */}
-                <div style={{ flex: '0.8', border: '1px solid #ccc', background: 'white' }}>
-                  <div style={{ background: '#9A0000', color: 'white', padding: '3px 8px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ background: 'white', color: '#9A0000', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 6, fontSize: 9 }}>5</div>
-                    NEXT ACTIONS &amp; LONG-TERM STRATEGY (2032)
+                {/* Panel 4: Strategy */}
+                <div style={{ border: '1px solid #d7dde5', background: 'white', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
+                  <div style={{ background: '#9A0000', color: 'white', padding: '6px 10px', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center' }}>
+                    <div style={{ background: 'white', color: '#9A0000', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, fontSize: 9, fontWeight: 900 }}>4</div>
+                    NEXT ACTIONS & LONG-TERM STRATEGY (2032)
                   </div>
-                  <div style={{ padding: '6px 12px', fontSize: 10, lineHeight: 1.4 }}>
-                    <div style={{ fontWeight: 800, marginBottom: 2 }}>RCN Sourcing Strategy</div>
-                    <ul style={{ paddingLeft: 14, margin: '0 0 6px 0', color: '#444' }}>
-                      <li>Prioritize low-emission-factor (low EF) RCN suppliers</li>
-                      <li>Increase sourcing from geographically closer origins to reduce transport-related emissions</li>
-                      <li>Gradually integrate sustainability criteria into RCN supplier selection</li>
+                  <div style={{ padding: '10px 14px', fontSize: 10.5, lineHeight: 1.45 }}>
+                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>RCN Sourcing Strategy</div>
+                    <ul style={{ paddingLeft: 16, margin: '0 0 8px 0', color: '#374151' }}>
+                      <li>Prioritize low-EF RCN suppliers and gradually tighten sourcing criteria by origin.</li>
+                      <li>Reduce dependency on high-EF origins where quality and supply continuity allow.</li>
                     </ul>
-                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Fuel &amp; Energy Strategy</div>
-                    <ul style={{ paddingLeft: 14, margin: '0 0 6px 0', color: '#444' }}>
-                      <li>Evaluate increased use of biomass and alternative fuels with lower emission factors</li>
-                      <li>Continue improving fuel efficiency and monitoring energy-related Scope 3 impacts</li>
-                    </ul>
-                    <div style={{ fontWeight: 800, marginBottom: 2 }}>Overall Focus</div>
-                    <ul style={{ paddingLeft: 14, margin: '0 0 0 0', color: '#444' }}>
-                      <li>Shift Scope 3 reduction approach from volume-driven to supply-chain optimization</li>
-                      <li>Align sourcing, logistics, and fuel strategy to achieve 2032 SBTi-aligned target</li>
+                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>Operational Focus</div>
+                    <ul style={{ paddingLeft: 16, margin: 0, color: '#374151' }}>
+                      <li>Align procurement, logistics, and fuel strategy to achieve the 2032 SBTi-aligned target.</li>
+                      <li>Use FC 2026 as an early-warning control point for supplier engagement and volume allocation.</li>
                     </ul>
                   </div>
                 </div>
