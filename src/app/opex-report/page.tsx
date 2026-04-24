@@ -195,8 +195,10 @@ function WaterfallChart({
           const renderedBars = bars.map((b, i) => {
             const isFloating = !b.isTotal;
             const isTargetMarker = b.target !== undefined && !b.actual;
+            const isEstGap = b.key.includes('fc2026_gap');
             const color = b.key === 'base' ? C.baseline :
-              (b.key === 'end' || isTargetMarker) ? C.target : C.actual;
+              (b.key === 'end' || isTargetMarker) ? C.target :
+                isEstGap ? C.estimated : C.actual;
 
             const val = b.actual ?? b.target ?? 0;
             if (val === 0) {
@@ -308,8 +310,8 @@ function WaterfallChart({
                       {b.marker !== undefined && (
                         <g>
                           <line x1={bx(i) - 6} y1={py(b.marker)} x2={bx(i) + bw + 6} y2={py(b.marker)} stroke={C.target} strokeWidth={2} strokeDasharray="3,2" />
-                          <rect x={bx(i) - 2} y={py(b.marker) - 18} width={bw + 4} height={14} fill={C.target} rx={2} />
-                          <text x={cx(i)} y={py(b.marker) - 8} textAnchor="middle" fontSize={10} fontWeight="900" fill="white">T: {fv(b.marker)}</text>
+                          <rect x={cx(i) - 20} y={py(b.marker) + 4} width={40} height={14} fill={C.target} rx={2} />
+                          <text x={cx(i)} y={py(b.marker) + 14} textAnchor="middle" fontSize={10} fontWeight="900" fill="white">T: {fv(b.marker)}</text>
                         </g>
                       )}
                     </>
@@ -1306,7 +1308,7 @@ export default function OpexReportPage() {
       { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS1 },
       {
         key: 'fc2026',
-        label: ['2026', '(Est.)', `vs Target:`, pctStr(fcS1, req26_s1)],
+        label: ['2026 (Est.)', `Gap vs Target:`, `${fcS1 - req26_s1 > 0 ? '+' : ''}${Math.round(fcS1 - req26_s1)} (${pctStr(fcS1, req26_s1)})`],
         actual: fcS1,
         isTotal: true,
         isActualPlanSplit: true,
@@ -1364,7 +1366,7 @@ export default function OpexReportPage() {
       { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS2 },
       {
         key: 'fc2026',
-        label: ['2026', '(Est.)', `vs Target:`, pctStr(fcS2, req26_s2)],
+        label: ['2026 (Est.)', `Gap vs Target:`, `${fcS2 - req26_s2 > 0 ? '+' : ''}${Math.round(fcS2 - req26_s2)} (${pctStr(fcS2, req26_s2)})`],
         actual: fcS2,
         isTotal: true,
         isActualPlanSplit: true,
@@ -2214,7 +2216,7 @@ export default function OpexReportPage() {
             { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS3Total },
             {
               key: 'fc2026',
-              label: ['2026', '(Est.)', `vs Target:`, pctStr(fcS3Total, planVal(2026))],
+              label: ['2026 (Est.)', `Gap vs Target:`, `${fcS3Total - planVal(2026) > 0 ? '+' : ''}${Math.round(fcS3Total - planVal(2026))} (${pctStr(fcS3Total, planVal(2026))})`],
               actual: fcS3Total,
               isTotal: true,
               isActualPlanSplit: true,
