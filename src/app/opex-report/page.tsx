@@ -1294,6 +1294,7 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
     ...(showForecast ? [
+      { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS1 },
       { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined },
       ...targetBarsS1.slice(1)
     ] : [
@@ -1306,22 +1307,15 @@ export default function OpexReportPage() {
   // ── Scope 1 callouts ──────────────────────────────────
   const s1_2024 = get(2024).scope1;
   const s1Callouts: Callout[] = showForecast ? [
-    s1_2025 > 0 ? {
-      // Delta from 2025 to 2026 Est.
-      fromCol: 4, toCol: 5,
-      fromVal: s1_2025, toVal: fcS1,
-      text: pctStr(fcS1, s1_2025),
-      level: 0
-    } : null,
     b1 > 0 ? {
       // Delta from Baseline to 2026 Est.
-      fromCol: 0, toCol: 5,
+      fromCol: 0, toCol: 6,
       fromVal: b1, toVal: fcS1,
       text: pctStr(fcS1, b1),
       level: 1
     } : null,
     end_s1 > 0 ? {
-      fromCol: 5, toCol: s1Bars.length - 1,
+      fromCol: 6, toCol: s1Bars.length - 1,
       fromVal: fcS1, toVal: end_s1,
       text: pctStr(end_s1, b1),
       level: 0
@@ -1350,6 +1344,7 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
     ...(showForecast ? [
+      { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS2 },
       { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined },
       ...targetBarsS2.slice(1)
     ] : [
@@ -1362,20 +1357,14 @@ export default function OpexReportPage() {
   // ── Scope 2 callouts ──────────────────────────────────
   const s2_2024 = get(2024).scope2;
   const s2Callouts: Callout[] = showForecast ? [
-    s2_2025 > 0 ? {
-      fromCol: 4, toCol: 5,
-      fromVal: s2_2025, toVal: fcS2,
-      text: pctStr(fcS2, s2_2025),
-      level: 0
-    } : null,
     b2 > 0 ? {
-      fromCol: 0, toCol: 5,
+      fromCol: 0, toCol: 6,
       fromVal: b2, toVal: fcS2,
       text: pctStr(fcS2, b2),
       level: 1
     } : null,
     end_s2 > 0 ? {
-      fromCol: 5, toCol: s2Bars.length - 1,
+      fromCol: 6, toCol: s2Bars.length - 1,
       fromVal: fcS2, toVal: end_s2,
       text: pctStr(end_s2, b2),
       level: 0
@@ -2197,6 +2186,7 @@ export default function OpexReportPage() {
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
           ...(showForecast ? [
+            { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS3Total },
             { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined },
             ...planYears.slice(1).map(y => ({
               key: y.toString(), label: [y.toString()], target: planVal(y)
@@ -2216,18 +2206,13 @@ export default function OpexReportPage() {
         ];
 
         const s3Callouts: Callout[] = showForecast ? [
-          s3Cur.total > 0 ? {
-            fromCol: 4, toCol: 5,
-            fromVal: s3Cur.total, toVal: fcS3Total,
-            text: pctStr(fcS3Total, s3Cur.total), level: 0
-          } : null,
           s3Base.total > 0 ? {
-            fromCol: 0, toCol: 5,
+            fromCol: 0, toCol: 6,
             fromVal: s3Base.total, toVal: fcS3Total,
             text: pctStr(fcS3Total, s3Base.total), level: 1
           } : null,
           planVal(targetEndYear) > 0 ? {
-            fromCol: 5, toCol: s3Bars.length - 1,
+            fromCol: 6, toCol: s3Bars.length - 1,
             fromVal: fcS3Total, toVal: planVal(targetEndYear),
             text: pctStr(planVal(targetEndYear), s3Base.total), level: 0
           } : null,
