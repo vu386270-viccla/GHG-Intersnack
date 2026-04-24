@@ -1,17 +1,17 @@
 // ── Origin EFs (kg CO₂e / kg RCN, Cat.1, FLAG) ────────
 export const ORIGIN_EF: Record<string, { ef: number; flag: boolean; color: string }> = {
-  'Indonesia':  { ef: 24.74,    flag: true, color: '#C8281A' },  // 🔴 highest
-  'Tanzania':   { ef: 14.96,    flag: true, color: '#C8281A' },  // 🔴 very high
-  'C.Ivory':    { ef: 11.2396,  flag: true, color: '#E8960E' },  // 🟠 high
-  'Vietnam':    { ef: 11.2396,  flag: true, color: '#E8960E' },  // 🟠 high
-  'Guinea-B':   { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 Africa generic
-  'Senegal':    { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠
-  'Guinea':     { ef:  9.82,    flag: true, color: '#E8960E' },  // 🟠 
-  'India':      { ef:  4.24971, flag: true, color: '#E8960E' },  // 🟡 medium
-  'Cambodia':   { ef:  2.7,     flag: true, color: '#3E7B3E' },  // 🟢 lower
-  'Ghana':      { ef:  2.2,     flag: true, color: '#3E7B3E' },  // 🟢 lower
-  'Benin':      { ef:  2.13,    flag: true, color: '#3E7B3E' },  // 🟢 lower
-  'Nigeria':    { ef:  1.56,    flag: true, color: '#3E7B3E' },  // 🟢 lowest
+  'Indonesia': { ef: 24.74, flag: true, color: '#C8281A' },  // 🔴 highest
+  'Tanzania': { ef: 14.96, flag: true, color: '#C8281A' },  // 🔴 very high
+  'C.Ivory': { ef: 11.2396, flag: true, color: '#E8960E' },  // 🟠 high
+  'Vietnam': { ef: 11.2396, flag: true, color: '#E8960E' },  // 🟠 high
+  'Guinea-B': { ef: 9.82, flag: true, color: '#E8960E' },  // 🟠 Africa generic
+  'Senegal': { ef: 9.82, flag: true, color: '#E8960E' },  // 🟠
+  'Guinea': { ef: 9.82, flag: true, color: '#E8960E' },  // 🟠 
+  'India': { ef: 4.24971, flag: true, color: '#E8960E' },  // 🟡 medium
+  'Cambodia': { ef: 2.7, flag: true, color: '#3E7B3E' },  // 🟢 lower
+  'Ghana': { ef: 2.2, flag: true, color: '#3E7B3E' },  // 🟢 lower
+  'Benin': { ef: 2.13, flag: true, color: '#3E7B3E' },  // 🟢 lower
+  'Nigeria': { ef: 1.56, flag: true, color: '#3E7B3E' },  // 🟢 lowest
 };
 
 // ── Origin Mix per year (MTs) ────────
@@ -30,16 +30,38 @@ export const ORIGIN_MIX: Record<number, Record<string, number>> = {
 
 // ── TRANSPORT_STATIC (km×ton) ────────
 export const TRANSPORT_STATIC: Record<number, { vessel: number; road: number; qty: number }> = {
-  2021: { vessel: 1_161_599_654, road:  9_993_561, qty:  77090 },
-  2022: { vessel: 1_185_494_849, road:  8_861_755, qty:  83032 },
-  2023: { vessel:   756_317_036, road:  6_770_330, qty:  63097 },
-  2024: { vessel:   541_928_701, road: 11_311_107, qty:  54954 },
-  2025: { vessel:   806_825_797, road:  6_748_142, qty:  66346 },
+  2021: { vessel: 1_161_599_654, road: 9_993_561, qty: 77090 },
+  2022: { vessel: 1_185_494_849, road: 8_861_755, qty: 83032 },
+  2023: { vessel: 756_317_036, road: 6_770_330, qty: 63097 },
+  2024: { vessel: 541_928_701, road: 11_311_107, qty: 54954 },
+  2025: { vessel: 806_825_797, road: 6_748_142, qty: 66346 },
   // 2026 YTD: vessel = 16,214,090+11,774,816+419+17,518,686 = 45,508,011 (unchanged)
   //           road   = 90,999+76,860+19,700+119,700+1,555,586 = 1,862,845
   //             (Tanzania VN road updated: 1,555,585.95 → replaces old partial value)
   //           qty    = 3,250+610+0+156+950+11,175+0 = 16,141 MTS
   2026: { vessel: 45_508_011, road: 1_862_845, qty: 16141 },
+};
+
+// ── Per-route distances (km) by origin → destination region ────────
+// Source: user-provided transit data, Apr 2026
+// Destinations: 'VN' = Vietnam factories (Tay Ninh, Long An, Phan Thiet)
+//               'IN' = India (Tuticorin)
+export const ROUTE_KM: Record<string, { vessel: number; road: number }> = {
+  // Origin key format: `${origin}:${region}`
+  'Cambodia:VN': { vessel: 0, road: 126 },
+  'Indonesia:VN': { vessel: 2_228, road: 126 },
+  'Tanzania:VN': { vessel: 8_680, road: 160 },
+  'Guinea:VN': { vessel: 12_120, road: 160 },  // Conakry
+  'Senegal:VN': { vessel: 16_799, road: 160 },
+  'Guinea-B:VN': { vessel: 17_237, road: 160 },  // Bissau
+  'C.Ivory:VN': { vessel: 18_939, road: 160 },  // Ivory Coast
+  'Ghana:VN': { vessel: 19_376, road: 160 },
+  // India routes
+  'Tanzania:IN': { vessel: 4_989, road: 2 },
+  'Guinea:IN': { vessel: 8_120, road: 2 },
+  'Guinea-B:IN': { vessel: 13_244, road: 2 },
+  'C.Ivory:IN': { vessel: 14_946, road: 13 },
+  'Ghana:IN': { vessel: 15_383, road: 2 },
 };
 
 
