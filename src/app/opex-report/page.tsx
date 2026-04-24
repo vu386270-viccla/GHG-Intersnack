@@ -1290,7 +1290,7 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
-    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS1, isTotal: true }] : []),
+    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined }] : []),
     { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
     ...targetBarsS1,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s1, isTotal: true },
@@ -1329,7 +1329,7 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
-    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS2, isTotal: true }] : []),
+    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined }] : []),
     { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
     ...targetBarsS2,
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s2, isTotal: true },
@@ -2152,13 +2152,14 @@ export default function OpexReportPage() {
         const bestYear = s3Data.slice(1).reduce((a, b) => b.total < a.total ? b : a);
 
         // Waterfall bars for scope 3
+        const s3_2026ytd = s3Data.find(d => d.year === 2026);
         const s3Bars: BarPoint[] = [
           { key: 'base', label: ['Baseline', '2021'], actual: s3Base.total, isTotal: true },
           { key: '2022', label: ['2022'], actual: s3_2022?.total || 0 },
           { key: '2023', label: ['2023'], actual: s3_2023?.total || 0 },
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
-          ...(showForecast ? [{ key: 'fc2026', label: ['\ud83d\udd2e FC', '2026'], actual: fcS3Total, isTotal: true }] : []),
+          ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined }] : []),
           { key: 'req_2026', label: ['Target', '2026'], target: planVal(2026) },
           ...planYears.map(y => ({
             key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: planVal(y),
@@ -2189,8 +2190,7 @@ export default function OpexReportPage() {
           } : null,
         ].filter(Boolean) as Callout[];
 
-        // Q1 2026 Scope 3 YTD
-        const s3_2026ytd = s3Data.find(d => d.year === 2026);
+        // Q1 2026 Scope 3 YTD (already defined above)
 
         // OGSM rows
         const ogsm = [
