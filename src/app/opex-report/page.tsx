@@ -1281,11 +1281,17 @@ export default function OpexReportPage() {
   }
 
   // ── FC 2026 Forecast values (always computed, shown when toggle ON) ──
+  const ytd26rcn = get(2026).rcn;
   const hasQ1data = ytd26s1 > 0 || ytd26s2 > 0;
-  const fc_ann26s1 = ytd26s1 > 0 ? ytd26s1 * 4 : s1_2025;
-  const fc_ann26s2 = ytd26s2 > 0 ? ytd26s2 * 4 : s2_2025;
-  const fcS1 = Math.round(hasQ1data ? fc_ann26s1 : s1_2025);
-  const fcS2 = Math.round(hasQ1data ? fc_ann26s2 : s2_2025);
+
+  // Forecast based on Intensity (tCO2e/RCN) x PLAN_2026_TOTAL_QTY
+  const int_s1 = ytd26rcn > 0 ? ytd26s1 / ytd26rcn : s1_2025 / get(2025).rcn;
+  const int_s2 = ytd26rcn > 0 ? ytd26s2 / ytd26rcn : s2_2025 / get(2025).rcn;
+  const fc_ann26s1 = Math.round(int_s1 * PLAN_2026_TOTAL_QTY);
+  const fc_ann26s2 = Math.round(int_s2 * PLAN_2026_TOTAL_QTY);
+
+  const fcS1 = hasQ1data ? fc_ann26s1 : s1_2025;
+  const fcS2 = hasQ1data ? fc_ann26s2 : s2_2025;
   const fcS3Cat1 = forecast2026Cat1();
   const fc_t25qty = TRANSPORT_STATIC[2025]?.qty || 1;
   const s3_2025_data = s3Data.find(d => d.year === 2025);
@@ -3466,7 +3472,9 @@ export default function OpexReportPage() {
                   <span style={{ fontWeight: 700, color: '#222' }}>S2:</span> {s2delta > 0 ? '+' : ''}{s2delta.toLocaleString()} tCO₂e ({pctStr(fcS2, req26_s2)})
                 </div>
                 <div style={{ fontWeight: 700, color: '#444' }}>Cách tính:</div>
-                Thực tế Q1 2026 × 4 (Annualized Run-Rate)
+                <div style={{ padding: '4px 6px', background: '#f5f5f5', borderRadius: 4, display: 'inline-block', fontStyle: 'italic', border: '1px solid #ddd' }}>
+                  Cường độ (Q1 tCO₂e ÷ Q1 RCN volume) × Kế hoạch Thu mua: {PLAN_2026_TOTAL_QTY.toLocaleString()} MT
+                </div>
               </div>
             </div>
             {/* S3 Cat.1 */}
