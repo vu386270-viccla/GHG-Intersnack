@@ -29,18 +29,15 @@ function sbtiTarget(baseline: number, year: number): number {
 }
 
 function fmt(n: number): string {
-  if (n >= 10000) return (n / 1000).toFixed(3).replace(/\./, ',');
-  if (n >= 1000) return n.toLocaleString('de-DE');
-  return Math.round(n).toString();
+  if (n == null) return '';
+  return Math.round(n).toLocaleString('de-DE');
 }
 
 // Short format for INSIDE bars (avoids overflow in narrow bars)
+// Updated to use the same consistent format but with smaller font sizes in rendering instead of 'K' text.
 function fmtBar(n: number): string {
-  const abs = Math.abs(n);
-  if (abs >= 100000) return Math.round(n / 1000) + 'K';
-  if (abs >= 10000) return (n / 1000).toFixed(1) + 'K';
-  if (abs >= 1000) return n.toLocaleString('de-DE');
-  return Math.round(n).toString();
+  if (n == null) return '';
+  return Math.round(n).toLocaleString('de-DE');
 }
 
 function pctStr(val: number, base: number): string {
@@ -244,10 +241,10 @@ function WaterfallChart({
                     {/* Stacked 2025 bar (approx match PPT ~ 62.4% Est / 37.6% Act) */}
                     <rect x={bx(i)} y={py(val)} width={bw} height={py(val * 0.376) - py(val)} fill={C.estimated} />
                     <rect x={bx(i)} y={py(val * 0.376)} width={bw} height={py(0) - py(val * 0.376)} fill={C.actual} />
-                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val)) / 2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#222">
+                    <text x={cx(i)} y={py(val) + (py(val * 0.376) - py(val)) / 2 + 4} textAnchor="middle" fontSize="11" fontWeight="800" fill="#222">
                       {fmt(val * 0.624)}
                     </text>
-                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376)) / 2 + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="white">
+                    <text x={cx(i)} y={py(val * 0.376) + (py(0) - py(val * 0.376)) / 2 + 4} textAnchor="middle" fontSize="11" fontWeight="800" fill="white">
                       {fmt(val * 0.376)}
                     </text>
                   </>
@@ -269,13 +266,6 @@ function WaterfallChart({
                   const splitY = py(q1Abs);                   // Y coord of Q1/Plan boundary
                   const q1H = Math.max(baseY - splitY, 4); // red height (0 → q1Abs)
                   const planH = Math.max(splitY - topY, 4);  // green height (q1Abs → plan)
-
-                  // Compact number formatter for inside-bar labels
-                  const fv = (n: number) =>
-                    n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` :
-                      n >= 1e4 ? `${(n / 1e3).toFixed(0)}K` :
-                        n >= 1000 ? `${(n / 1e3).toFixed(1)}K` :
-                          n.toLocaleString();
 
                   const isFC = b.key === 'fc2026';
                   const topColor = isFC ? C.estimated : C.target;
@@ -299,13 +289,13 @@ function WaterfallChart({
                       <line x1={bx(i)} y1={splitY} x2={bx(i) + bw} y2={splitY} stroke="white" strokeWidth={2.5} />
                       {/* Numbers only, no labels */}
                       {planH > 18 && (
-                        <text x={cx(i)} y={topY + planH / 2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(planAbs)}</text>
+                        <text x={cx(i)} y={topY + planH / 2 + 3.5} textAnchor="middle" fontSize={11} fontWeight="800" fill="white">{fmt(planAbs)}</text>
                       )}
                       {q1H > 18 && (
-                        <text x={cx(i)} y={splitY + q1H / 2 + 3.5} textAnchor="middle" fontSize={12} fontWeight="900" fill="white">{fv(q1Abs)}</text>
+                        <text x={cx(i)} y={splitY + q1H / 2 + 3.5} textAnchor="middle" fontSize={11} fontWeight="800" fill="white">{fmt(q1Abs)}</text>
                       )}
                       {/* Total plan value above bar */}
-                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={13} fontWeight="900" fill={topColor}>{fv(planVal2026)}</text>
+                      <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={11.5} fontWeight="800" fill={topColor}>{fmt(planVal2026)}</text>
                       {/* Optional Target Marker Overlay */}
                       {b.marker !== undefined && (
                         <g>
@@ -328,13 +318,13 @@ function WaterfallChart({
 
                     {/* text delta: short format INSIDE bars, full format OUTSIDE */}
                     {boxH > 26 ? (
-                      // Inside tall bar — use short K-format so text fits within bar width
-                      <text x={cx(i)} y={boxY + boxH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill="white">
+                      // Inside tall bar — use strict format so text fits within bar width
+                      <text x={cx(i)} y={boxY + boxH / 2 + 4.5} textAnchor="middle" fontSize="11" fontWeight="800" fill="white">
                         {deltaStrShort}
                       </text>
                     ) : (
                       // Outside small bar — always above bar, full format
-                      <text x={cx(i)} y={boxY - 7} textAnchor="middle" fontSize="12.5" fontWeight="800" fill={color}>
+                      <text x={cx(i)} y={boxY - 6} textAnchor="middle" fontSize="11.5" fontWeight="800" fill={color}>
                         {deltaStr}
                       </text>
                     )}
@@ -343,7 +333,7 @@ function WaterfallChart({
 
                 {/* Year labels below axis — no absolute value numbers, data is visible in bars */}
                 {b.label.map((l, li) => (
-                  <text key={li} x={cx(i)} y={PT + chartH + 18 + li * 15} textAnchor="middle" fontSize="12.5" fill="#555" fontWeight={600}>
+                  <text key={li} x={cx(i)} y={PT + chartH + 18 + li * 15} textAnchor="middle" fontSize="12" fill="#555" fontWeight={600}>
                     {l}
                   </text>
                 ))}
@@ -765,11 +755,11 @@ function Scope1BreakdownChart({
               segs.push(
                 <text
                   key={cat.key + 'lbl'}
-                  x={cx(i)} y={stackY + segH / 2 + 5}
-                  textAnchor="middle" fontSize={segH > 28 ? 13 : 10.5}
-                  fontWeight="900" fill="white"
+                  x={cx(i)} y={stackY + segH / 2 + 4.5}
+                  textAnchor="middle" fontSize={segH > 28 ? 11 : 10}
+                  fontWeight="800" fill="white"
                 >
-                  {Math.round(val)}
+                  {Math.round(val).toLocaleString('de-DE')}
                 </text>
               );
             }
@@ -795,8 +785,8 @@ function Scope1BreakdownChart({
                 rx={1}
               />
               {/* Total label above bar */}
-              <text x={cx(i)} y={barTop - 4} textAnchor="middle" fontSize={13} fontWeight="900" fill="#333">
-                {Math.round(bd.total)}
+              <text x={cx(i)} y={barTop - 5} textAnchor="middle" fontSize={11.5} fontWeight="800" fill="#333">
+                {Math.round(bd.total).toLocaleString('de-DE')}
               </text>
               {/* Year label below */}
               <text x={cx(i)} y={PT + chartH + 16} textAnchor="middle" fontSize={13} fill="#555" fontWeight={yr === 2026 ? 800 : 600}>
