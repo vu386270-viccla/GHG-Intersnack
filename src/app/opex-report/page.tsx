@@ -1557,34 +1557,6 @@ export default function OpexReportPage() {
                       : 'However, further reductions are needed to create headroom for the other factories in the group of 4 sharing the 50% target. Current trajectory aims for an additional 25% reduction from 2025 levels.'}
                   </p>
                 )}
-                <p style={{ margin: '0 0 5px' }}>
-                  <strong>{s1BeyondTarget ? '🏆' : '📋'} {lang === 'vi' ? 'Hiệu suất SBTi Scope 1 (2025):' : 'Scope 1 SBTi Performance (2025):'}</strong> {lang === 'vi' ? 'Tổng khối lượng ở mức' : 'Total volume stands at'}{' '}
-                  <strong style={{ color: s1BeyondTarget ? '#3E7B3E' : '#C8281A' }}>{fmt(s1_2025)} tCO₂e</strong>
-                  {' '}({pct1_vs_baseline > 0 ? '+' : ''}{pct1_vs_baseline}% vs 2021 Base Year).
-                  {' '}{lang === 'vi' ? 'Chênh lệch so với SBTi:' : 'SBTi Target Variance:'}{' '}
-                  <span style={{ color: pct1_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
-                    {pct1_vs_target > 0 ? '+' : ''}{pct1_vs_target}%
-                  </span>.
-                  {' '}{lang === 'vi' ? 'Mức thay đổi YoY 2024→2025:' : 'YoY 2024→2025 Shift:'}{' '}
-                  <strong style={{ color: yoy2025_s1 <= 0 ? '#3E7B3E' : '#C8281A' }}>
-                    {yoy2025_s1 > 0 ? '+' : ''}{fmt(yoy2025_s1)} tCO₂e
-                  </strong>.
-                  {bestS1.delta < 0 && (
-                    <> {lang === 'vi' ? 'Chu kỳ giảm mạnh nhất:' : 'Highest reduction cycle:'} <strong style={{ color: '#3E7B3E' }}>{bestS1.year}</strong> ({fmt(Math.abs(bestS1.delta))} {lang === 'vi' ? 'tCO₂e giảm' : 'tCO₂e drop'}).</>
-                  )}
-                  {worstS1.delta > 0 && (
-                    <> {lang === 'vi' ? 'Đợt tăng phát thải cao điểm:' : 'Peak volume increase:'} <strong style={{ color: '#C8281A' }}>{worstS1.year}</strong> (+{fmt(worstS1.delta)} tCO₂e).</>
-                  )}
-                </p>
-
-                <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
-                  <strong>📊 {lang === 'vi' ? 'Phân tích Cường độ (Scope 1/RCN):' : 'Intensity Analysis (Scope 1/RCN):'}</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
-                  {' '}{lang === 'vi' ? 'Biến động cường độ:' : 'Intensity shift:'}{' '}
-                  <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
-                  {' '}{lang === 'vi' ? 'so với thay đổi sản lượng:' : 'vs Production shift:'}{' '}
-                  <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
-                  {' '}<em>{intGrowth > 0 ? (lang === 'vi' ? 'Tăng phát thải vượt mức tăng sản lượng, cho thấy lò hơi đun sinh khối đun kém hiệu quả.' : 'Emissions outpaced production, indicating heat/boiler inefficiency.') : (lang === 'vi' ? 'Cải thiện hiệu suất bù đắp được mức tăng do sản lượng.' : 'Efficiency improvements offset production volume impacts.')}</em>
-                </p>
 
                 {selectedFac === 'ALL' && (
                   <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
@@ -1763,34 +1735,6 @@ export default function OpexReportPage() {
                     </div>
                   );
                 })()}
-                <p style={{ margin: '0 0 5px' }}>
-                  <strong>{s2BeyondTarget ? '🏆' : '⚠️'} {lang === 'vi' ? 'Hiệu suất SBTi Scope 2 (2025):' : 'Scope 2 SBTi Performance (2025):'}</strong> {lang === 'vi' ? 'Phát thải điện tiêu thụ ở mức' : 'Electricity-driven footprint recorded at'}{' '}
-                  <strong style={{ color: s2BeyondTarget ? '#3E7B3E' : '#E8960E' }}>{fmt(s2_2025)} tCO₂e</strong>
-                  {' '}({pct2_vs_baseline > 0 ? '+' : ''}{pct2_vs_baseline}% vs 2021 Base Year).
-                  {' '}{lang === 'vi' ? 'Độ lệch mục tiêu SBTi:' : 'SBTi Target Variance:'}{' '}
-                  <span style={{ color: pct2_vs_target <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 700 }}>
-                    {pct2_vs_target > 0 ? '+' : ''}{pct2_vs_target}%
-                  </span>.
-                  {' '}{lang === 'vi' ? 'Biến động 2024→2025:' : 'YoY 2024→2025 Shift:'}{' '}
-                  <strong style={{ color: yoy2025_s2 <= 0 ? '#3E7B3E' : '#C8281A' }}>
-                    {yoy2025_s2 > 0 ? '+' : ''}{fmt(Math.round(yoy2025_s2))} tCO₂e
-                  </strong>.
-                  {worstS2.delta > 0 && (
-                    <> {lang === 'vi' ? 'Ghi nhận mức tăng mạnh vào ' : 'Critical escalation identified in '}<strong style={{ color: '#C8281A' }}>{worstS2.year}</strong> (+{fmt(Math.round(worstS2.delta))} tCO₂e){lang === 'vi' ? ', do phụ thuộc nhiều vào điện lưới.' : ', driven by expanded grid reliance.'}</>
-                  )}
-                  {bestS2.delta < 0 && (
-                    <> {lang === 'vi' ? 'Xu hướng giảm mạnh nhất vào ' : 'Strongest reduction trend seen in '}<strong style={{ color: '#3E7B3E' }}>{bestS2.year}</strong> ({fmt(Math.abs(Math.round(bestS2.delta)))} {lang === 'vi' ? 'tCO₂e giảm' : 'tCO₂e drop'}).</>
-                  )}
-                </p>
-
-                <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#444' }}>
-                  <strong>📊 {lang === 'vi' ? 'Phân tích Cường độ (Scope 2/RCN):' : 'Intensity Analysis (Scope 2/RCN):'}</strong> 2024 ({int24.toFixed(3)}) → 2025 ({int25.toFixed(3)}).
-                  {' '}{lang === 'vi' ? 'Thay đổi cường độ:' : 'Intensity shift:'}{' '}
-                  <span style={{ color: intGrowth <= 0 ? '#3E7B3E' : '#C8281A', fontWeight: 600 }}>{intGrowth > 0 ? '+' : ''}{intGrowth.toFixed(1)}%</span>
-                  {' '}{lang === 'vi' ? 'so với thay đổi sản lượng:' : 'vs Production shift:'}{' '}
-                  <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
-                  {' '}<em>{intGrowth > 0 ? (lang === 'vi' ? "Mức sử dụng điện lưới đang tăng nhanh hơn mức tăng trưởng sản lượng. Cần ưu tiên can thiệp." : "Grid power usage is scaling worse than production growth. Priority intervention required.") : (lang === 'vi' ? "Hiệu suất điện lưới được cải thiện so với sản lượng." : "Grid efficiency improved relative to production throughput.")}</em>
-                </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px', fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
                   <strong>🔮 {lang === 'vi' ? 'Dự phóng 2026 (FC 2026) & Phương pháp luận:' : '2026 Forecast (FC 2026) & Methodology:'}</strong>{' '}
