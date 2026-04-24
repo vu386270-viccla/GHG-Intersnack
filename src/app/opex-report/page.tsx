@@ -997,12 +997,25 @@ export default function OpexReportPage() {
   const ytd26rcn = get(2026).rcn;
   const hasQ1data = ytd26s1 > 0 || ytd26s2 > 0;
 
+  // Resolve MTC for current factory selection (processing MTC, not procurement MTC)
+  // MTC_2026_FACTORIES keys: 'Tay Ninh' | 'Long An' | 'Phan Thiet' | 'Tuticorin'
+  const facMtcQty = (() => {
+    if (selectedFac === 'ALL') return MTC_2026_TOTAL_QTY; // 62,027
+    const facName = selectedFactory?.name || '';
+    const normName = facName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (normName.includes('tay ninh') || normName.includes('tay-ninh')) return MTC_2026_FACTORIES['Tay Ninh'].total;
+    if (normName.includes('long an')) return MTC_2026_FACTORIES['Long An'].total;
+    if (normName.includes('phan thiet') || normName.includes('phan-thiet') || normName.startsWith('pt')) return MTC_2026_FACTORIES['Phan Thiet'].total;
+    if (normName.includes('tuti') || normName.includes('india')) return MTC_2026_FACTORIES['Tuticorin'].total;
+    return MTC_2026_TOTAL_QTY;
+  })();
+
   // Forecast based on YTD Actuals + (Intensity x MTC_QTY)
-  // Scope 1 & 2 use Processing MTC (62,027 MT)
+  // Scope 1 & 2 use factory-specific Processing MTC
   const int_s1 = ytd26rcn > 0 ? ytd26s1 / ytd26rcn : s1_2025 / get(2025).rcn;
   const int_s2 = ytd26rcn > 0 ? ytd26s2 / ytd26rcn : s2_2025 / get(2025).rcn;
-  const mtc_s1 = int_s1 * 62027; // Use hardcoded processing MTC 62027 per pivot
-  const mtc_s2 = int_s2 * 62027;
+  const mtc_s1 = int_s1 * facMtcQty;
+  const mtc_s2 = int_s2 * facMtcQty;
 
   const fcS1 = Math.round(hasQ1data ? ytd26s1 + mtc_s1 : s1_2025);
   const fcS2 = Math.round(hasQ1data ? ytd26s2 + mtc_s2 : s2_2025);
@@ -1446,7 +1459,7 @@ export default function OpexReportPage() {
             const years = [2021, 2022, 2023, 2024, 2025];
             const ytd26 = get(2026).scope1;
             const ytd26rcn = get(2026).rcn;
-            const full26rcn = ytd26rcn + MTC_2026_TOTAL_QTY;
+            const full26rcn = ytd26rcn + facMtcQty;
             return (
               <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
@@ -1592,7 +1605,7 @@ export default function OpexReportPage() {
             const years = [2021, 2022, 2023, 2024, 2025];
             const ytd26 = get(2026).scope2;
             const ytd26rcn = get(2026).rcn;
-            const full26rcn = ytd26rcn + MTC_2026_TOTAL_QTY;
+            const full26rcn = ytd26rcn + facMtcQty;
             return (
               <div style={{ overflowX: 'auto', marginBottom: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
