@@ -1870,13 +1870,24 @@ export default function OpexReportPage() {
               s3Base.cat4v + s3Base.cat4r, (s3_2022?.cat4v || 0) + (s3_2022?.cat4r || 0),
               (s3_2023?.cat4v || 0) + (s3_2023?.cat4r || 0), (s3_2024?.cat4v || 0) + (s3_2024?.cat4r || 0),
               s3Cur.cat4v + s3Cur.cat4r,
-              s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : '—', '—', '—',
+              s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : '—',
+              fcS3Cat4, '—', '—',
             ]
           },
         ];
 
-        const oKeys = ['2021', '2022', '2023', '2024', '2025', 'Q1 2026*', '2026 Plan', '2027 Plan'];
-        const oYears = [2021, 2022, 2023, 2024, 2025, 2026, 2026, 2027]; // year index per column for intensity
+        // RCN per year for intensity
+        const rcnByYear: Record<number, number> = {
+          2021: s3Data.find(d => d.year === 2021) ? get(2021).rcn : 0,
+          2022: get(2022).rcn,
+          2023: get(2023).rcn,
+          2024: get(2024).rcn,
+          2025: get(2025).rcn,
+        };
+        const ytd26rcn_s3 = get(2026).rcn;
+        const full26rcn_s3 = ytd26rcn_s3 + MTC_2026_TOTAL_QTY;
+
+        const oKeys = ['2021', '2022', '2023', '2024', '2025', 'Q1 2026*', 'FC 2026'];
         const s3IntLabel = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
 
         return (
@@ -1886,33 +1897,51 @@ export default function OpexReportPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
                   <tr style={{ background: '#1a3d5c', color: 'white' }}>
-                    <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, minWidth: 220 }}>
-                      OGSM — {s3IntLabel}
-                    </th>
-                    {oKeys.map((k, ki) => (
+                    <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, minWidth: 220 }}>Scope 3</th>
+                    {oKeys.map((k) => (
                       <th key={k} style={{
                         padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap',
-                        background: k.includes('2026*') ? '#E8960E' : undefined,
+                        background: k.includes('2026*') ? '#E8960E' : k.includes('FC') ? '#3E7B3E' : undefined,
                       }}>{k}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {ogsm.map((row, ri) => (
-                    <tr key={ri} style={{ background: ri === 0 ? '#f9f9f9' : 'white', borderBottom: '1px solid #ddd' }}>
-                      <td style={{ padding: '4px 8px', fontWeight: ri === 0 ? 700 : 400, color: ri === 0 ? '#1a1a1a' : '#555' }}>{row.label}</td>
-                      {row.vals.map((v, vi) => (
-                        <td key={vi} style={{
-                          padding: '4px 8px', textAlign: 'right',
-                          fontWeight: vi === 5 ? 800 : ri === 0 ? 600 : 400,
-                          color: vi >= 6 ? '#777' : vi === 5 ? '#7a4f00' : ri === 0 ? '#1a1a1a' : '#555',
-                          background: vi === 5 ? '#fff8e1' : undefined,
-                        }}>
-                          {typeof v === 'number'
-                            ? (showIntensity && vi < 5 ? fmtInt(v, oYears[vi]) : fmt(v))
-                            : v}
-                        </td>
-                      ))}
+                  {/* Total Emissions row */}
+                  <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: 700 }}>Total Emissions (tCO₂e)</td>
+                    {[s3Base.total, s3_2022?.total || 0, s3_2023?.total || 0, s3_2024?.total || 0, s3Cur.total].map((v, vi) => (
+                      <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{Math.round(v).toLocaleString()}</td>
+                    ))}
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1' }}>{s3_2026ytd ? Math.round(s3_2026ytd.total).toLocaleString() : '—'}</td>
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#3E7B3E', background: '#f0fdf4' }}>{fcS3Total.toLocaleString()}</td>
+                  </tr>
+                  {/* Intensity row (tCO2e / tRCN procured) */}
+                  <tr style={{ background: '#fff', borderBottom: '2px solid #cbd5e1' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: 700, color: '#666' }}>Intensity (tCO₂e/tRCN)</td>
+                    {[2021, 2022, 2023, 2024, 2025].map((y, vi) => (
+                      <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#666' }}>
+                        {rcnByYear[y] > 0 ? (((s3Data.find(d => d.year === y)?.total) || 0) / rcnByYear[y]).toFixed(4) : '—'}
+                      </td>
+                    ))}
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#88641a', background: '#fff8e1' }}>
+                      {s3_2026ytd && ytd26rcn_s3 > 0 ? (s3_2026ytd.total / ytd26rcn_s3).toFixed(4) : '—'}
+                    </td>
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#15803d', background: '#f0fdf4' }}>
+                      {(fcS3Total / full26rcn_s3).toFixed(4)}
+                    </td>
+                  </tr>
+                  {/* Sub-category rows */}
+                  {[
+                    { label: '  ↳ Cat.1 Cashew (FLAG)', ytd: s3_2026ytd?.cat1, fc: fcS3Cat1, hist: [s3Base.cat1, s3_2022?.cat1 || 0, s3_2023?.cat1 || 0, s3_2024?.cat1 || 0, s3Cur.cat1] },
+                    { label: '  ↳ Cat.3 WTT', ytd: s3_2026ytd?.cat3, fc: fcS3Cat3, hist: [s3Base.cat3, s3_2022?.cat3 || 0, s3_2023?.cat3 || 0, s3_2024?.cat3 || 0, s3Cur.cat3] },
+                    { label: '  ↳ Cat.4 Transport', ytd: s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : undefined, fc: fcS3Cat4, hist: [s3Base.cat4v + s3Base.cat4r, (s3_2022?.cat4v || 0) + (s3_2022?.cat4r || 0), (s3_2023?.cat4v || 0) + (s3_2023?.cat4r || 0), (s3_2024?.cat4v || 0) + (s3_2024?.cat4r || 0), s3Cur.cat4v + s3Cur.cat4r] },
+                  ].map((row, ri) => (
+                    <tr key={ri} style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '4px 8px', color: '#555' }}>{row.label}</td>
+                      {row.hist.map((v, vi) => <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', color: '#555' }}>{Math.round(v).toLocaleString()}</td>)}
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#7a4f00', background: '#fff8e1' }}>{row.ytd != null ? Math.round(row.ytd).toLocaleString() : '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#3E7B3E', background: '#f0fdf4' }}>{row.fc.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
