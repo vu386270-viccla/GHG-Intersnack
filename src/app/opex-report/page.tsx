@@ -309,9 +309,7 @@ function WaterfallChart({
                       {/* Optional Target Marker Overlay */}
                       {b.marker !== undefined && (
                         <g>
-                          <line x1={bx(i) - 6} y1={py(b.marker)} x2={bx(i) + bw + 6} y2={py(b.marker)} stroke={C.target} strokeWidth={2} strokeDasharray="3,2" />
-                          <rect x={cx(i) - 20} y={py(b.marker) + 4} width={40} height={14} fill={C.target} rx={2} />
-                          <text x={cx(i)} y={py(b.marker) + 14} textAnchor="middle" fontSize={10} fontWeight="900" fill="white">T: {fv(b.marker)}</text>
+                          <line x1={bx(i) - 6} y1={py(b.marker)} x2={bx(i) + bw + 6} y2={py(b.marker)} stroke={C.target} strokeWidth={2.5} strokeDasharray="4,2" />
                         </g>
                       )}
                     </>
@@ -1296,8 +1294,25 @@ export default function OpexReportPage() {
   const fcS3Total = fcS3Cat1 + fcS3Cat3 + fcS3Cat4;
   const fcTotal = fcS1 + fcS2 + fcS3Total;
 
-  // ── Scope 1 bars ──────────────────────────────────────
+  // Compute Targets for EST Gap Calculations
   const req26_s1 = Math.round(targetProj(s1_2025, s1AnnualCut, 2026));
+  const req26_s2 = s2Proj(2026);
+  let req26_s3 = 0;
+  const s3BaseForTgt = s3Data.find(d => d.year === 2021);
+  if (s3BaseForTgt && s3_2025_data) {
+    const flagTarget2032 = Math.round(s3BaseForTgt.cat1 * (1 - FLAG_TGT_PCT / 100));
+    const nonflagTarget2032 = Math.round((s3BaseForTgt.cat4v + s3BaseForTgt.cat4r + s3BaseForTgt.cat3) * (1 - NONFLAG_TGT_PCT / 100));
+    const totalTarget2032 = flagTarget2032 + nonflagTarget2032;
+    const annualCutS3 = (s3_2025_data.total - totalTarget2032) / (S3_TARGET_YEAR - 2025);
+    req26_s3 = Math.round(s3_2025_data.total - annualCutS3 * 1);
+  }
+
+  // Deltas for Banner
+  const s1delta = fcS1 - req26_s1;
+  const s2delta = fcS2 - req26_s2;
+  const s3delta = fcS3Total - req26_s3;
+
+  // ── Scope 1 bars ──────────────────────────────────────
   const s1Bars: BarPoint[] = [
     { key: 'base', label: ['Baseline', '2021'], actual: b1, isTotal: true },
     { key: '2022', label: ['2022'], actual: get(2022).scope1 },
@@ -1308,7 +1323,7 @@ export default function OpexReportPage() {
       { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS1 },
       {
         key: 'fc2026',
-        label: ['2026 (Est.)', `Gap vs Target:`, `${fcS1 - req26_s1 > 0 ? '+' : ''}${Math.round(fcS1 - req26_s1)} (${pctStr(fcS1, req26_s1)})`],
+        label: ['2026', '(Est.)'],
         actual: fcS1,
         isTotal: true,
         isActualPlanSplit: true,
@@ -1355,7 +1370,6 @@ export default function OpexReportPage() {
   ].filter(Boolean) as Callout[];
 
   // ── Scope 2 bars ──────────────────────────────────────
-  const req26_s2 = s2Proj(2026);
   const s2Bars: BarPoint[] = [
     { key: 'base', label: ['Baseline', '2021'], actual: b2, isTotal: true },
     { key: '2022', label: ['2022'], actual: get(2022).scope2 },
@@ -1366,7 +1380,7 @@ export default function OpexReportPage() {
       { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS2 },
       {
         key: 'fc2026',
-        label: ['2026 (Est.)', `Gap vs Target:`, `${fcS2 - req26_s2 > 0 ? '+' : ''}${Math.round(fcS2 - req26_s2)} (${pctStr(fcS2, req26_s2)})`],
+        label: ['2026', '(Est.)'],
         actual: fcS2,
         isTotal: true,
         isActualPlanSplit: true,
@@ -2216,7 +2230,7 @@ export default function OpexReportPage() {
             { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS3Total },
             {
               key: 'fc2026',
-              label: ['2026 (Est.)', `Gap vs Target:`, `${fcS3Total - planVal(2026) > 0 ? '+' : ''}${Math.round(fcS3Total - planVal(2026))} (${pctStr(fcS3Total, planVal(2026))})`],
+              label: ['2026', '(Est.)'],
               actual: fcS3Total,
               isTotal: true,
               isActualPlanSplit: true,
@@ -3443,29 +3457,42 @@ export default function OpexReportPage() {
           {/* Methodology grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 0 }}>
             {/* S1/S2 */}
-            <div style={{ padding: '8px 14px', borderRight: '1px solid #d0dbe8' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: '#1a3d5c', marginBottom: 3 }}>🔥 Scope 1: {fcS1.toLocaleString()} tCO₂e &nbsp;|&nbsp; ⚡ Scope 2: {fcS2.toLocaleString()} tCO₂e</div>
+            <div style={{ padding: '10px 14px', borderRight: '1px solid #d0dbe8' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#1a3d5c', marginBottom: 8 }}>🔥 S1: {fcS1.toLocaleString()} | ⚡ S2: {fcS2.toLocaleString()} tCO₂e</div>
               <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
-                PP: Weighted avg = (2025 actual + Q1 2026×4) / 2<br />
-                {hasQ1data && <span>Q1 ann.: S1={fc_ann26s1.toLocaleString()}, S2={fc_ann26s2.toLocaleString()}</span>}
+                <div style={{ padding: '6px 8px', background: s1delta > 0 || s2delta > 0 ? '#fee2e2' : '#dcfce7', borderRadius: 4, marginBottom: 8, border: '1px solid #fecaca' }}>
+                  <span style={{ fontWeight: 700, color: s1delta > 0 || s2delta > 0 ? '#991b1b' : '#166534', fontSize: 10 }}>Gap vs Target (vs {req26_s1 + req26_s2} tCO₂e):</span><br />
+                  <span style={{ fontWeight: 700, color: '#222' }}>S1:</span> {s1delta > 0 ? '+' : ''}{s1delta.toLocaleString()} tCO₂e ({pctStr(fcS1, req26_s1)})<br />
+                  <span style={{ fontWeight: 700, color: '#222' }}>S2:</span> {s2delta > 0 ? '+' : ''}{s2delta.toLocaleString()} tCO₂e ({pctStr(fcS2, req26_s2)})
+                </div>
+                <div style={{ fontWeight: 700, color: '#444' }}>Cách tính:</div>
+                Trung bình trọng số = [ (Thực tế 2025) + (Thực tế Q1 2026 × 4) ] / 2
               </div>
             </div>
             {/* S3 Cat.1 */}
-            <div style={{ padding: '8px 14px', borderRight: '1px solid #d0dbe8' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: '#3E7B3E', marginBottom: 3 }}>🌿 Cat.1 RCN: {fcS3Cat1.toLocaleString()} tCO₂e</div>
+            <div style={{ padding: '10px 14px', borderRight: '1px solid #d0dbe8' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#3E7B3E', marginBottom: 8 }}>🌿 S3.Cat1: {fcS3Cat1.toLocaleString()} tCO₂e</div>
               <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
-                Kế hoạch mua {PLAN_2026_TOTAL_QTY.toLocaleString()} MT × origin EFs (Ecoinvent FLAG)<br />
-                {Object.entries(PLAN_2026_ORIGIN_MIX).sort(([, a], [, b]) => b - a).slice(0, 4).map(([o, q]) =>
-                  <span key={o} style={{ marginRight: 6 }}>{o}: {q.toLocaleString()}</span>
-                )}
+                <div style={{ padding: '6px 8px', background: s3delta > 0 ? '#fee2e2' : '#dcfce7', borderRadius: 4, marginBottom: 8, border: '1px solid #fecaca' }}>
+                  <span style={{ fontWeight: 700, color: s3delta > 0 ? '#991b1b' : '#166534', fontSize: 10 }}>Gap vs Target S3 Total (vs {req26_s3} tCO₂e):</span><br />
+                  <span style={{ fontWeight: 700, color: '#222' }}>S3 (Tổng):</span> {s3delta > 0 ? '+' : ''}{s3delta.toLocaleString()} tCO₂e ({pctStr(fcS3Total, req26_s3)})
+                </div>
+                <div style={{ fontWeight: 700, color: '#444' }}>Cách tính & Dữ liệu:</div>
+                Hỗn hợp Origin EFs (Ecoinvent) × {PLAN_2026_TOTAL_QTY.toLocaleString()} MT (Kế hoạch thu mua).<br />
+                {Object.entries(PLAN_2026_ORIGIN_MIX).sort(([, a], [, b]) => b - a).slice(0, 3).map(([o, q]) =>
+                  <span key={o} style={{ marginRight: 6 }}>{o}: {q}t,</span>
+                )}...
               </div>
             </div>
             {/* S3 Cat.3+4 */}
-            <div style={{ padding: '8px 14px' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: '#1a3d5c', marginBottom: 3 }}>🚢 Cat.3: {fcS3Cat3.toLocaleString()} &nbsp;|&nbsp; Cat.4: {fcS3Cat4.toLocaleString()} tCO₂e</div>
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#1a3d5c', marginBottom: 8 }}>🚢 S3.Cat3: {fcS3Cat3.toLocaleString()} | S3.Cat4: {fcS3Cat4.toLocaleString()} tCO₂e</div>
               <div style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>
-                Cat.3: 2025 × (plan qty / 2025 qty) — proportional scaling<br />
-                Cat.4: Per-route km (Procurement data) × volume × vessel/road EFs
+                <div style={{ fontWeight: 700, color: '#444' }}>Cách tính & Dữ liệu:</div>
+                <ul style={{ margin: '2px 0 0', paddingLeft: 16 }}>
+                  <li><strong>Cat.3:</strong> Growth scaling dựa trên tỉ lệ Total Volume/MT của năm 2026 vs 2025.</li>
+                  <li><strong>Cat.4:</strong> Tích hợp lộ trình Logistics thực tế từng Zone × Hệ số EFs Vận tải Biển (Tàu/Sea) và Đường bộ.</li>
+                </ul>
               </div>
             </div>
           </div>
