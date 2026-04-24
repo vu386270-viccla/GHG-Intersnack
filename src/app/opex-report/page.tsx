@@ -418,15 +418,31 @@ const FLAG_TGT_PCT = 36.4;
 const NONFLAG_TGT_PCT = 30.0;
 const S3_TARGET_YEAR = 2032;
 
-// ── 2026 Full-Year Purchasing Plan (from user's pivot table, Apr 2026) ────────
-// Source: procurement schedule — YTD actual + MTC (remaining plan) = Grand Total
+// ── MTC (Months To Come) Purchasing Plan (from user's pivot table for REST OF 2026) ────────
 // Origins mapped to ORIGIN_EF keys; BISSAU = Guinea-B; IVC = C.Ivory; CONAKRY = Guinea
+export const MTC_2026_ORIGIN_MIX: Record<string, number> = {
+  'Guinea-B': 3220 + 5648 + 3896 + 8011,   // BISSAU
+  'C.Ivory': 4720 + 5852 + 2992 + 2100,     // IVC
+  'Tanzania': 1800 + 1600 + 1760 + 0,       // TANZANIA (Tuticorin has 0 MTC, 4476 was all YTD)
+  'Indonesia': 1685,                        // INDONESIA (Tay Ninh)
+  'Cambodia': 1430,                         // CAMBODIA (Tay Ninh)
+  'Senegal': 1610 + 1496,                   // SENEGAL
+  'Ghana': 2860 + 6400,                     // GHANA
+  'Guinea': 2992 + 1955,                    // CONAKRY
+};
+
+// Factory-level MTC totals (remaining plan only)
+export const MTC_2026_FACTORIES: Record<string, { total: number; origins: Record<string, number> }> = {
+  'Tay Ninh': { total: 14465, origins: { 'Guinea-B': 3220, 'Cambodia': 1430, 'Indonesia': 1685, 'C.Ivory': 4720, 'Senegal': 1610, 'Tanzania': 1800 } },
+  'Long An': { total: 14596, origins: { 'Guinea-B': 5648, 'C.Ivory': 5852, 'Senegal': 1496, 'Tanzania': 1600 } },
+  'Phan Thiet': { total: 14500, origins: { 'Guinea-B': 3896, 'Guinea': 2992, 'Ghana': 2860, 'C.Ivory': 2992, 'Tanzania': 1760 } },
+  'Tuticorin': { total: 18466, origins: { 'Guinea-B': 8011, 'Guinea': 1955, 'Ghana': 6400, 'C.Ivory': 2100 } },
+};
+
+const MTC_2026_TOTAL_QTY = Object.values(MTC_2026_ORIGIN_MIX).reduce((s, v) => s + v, 0); // 62,027
+
+// For 2026 forecast (using user's procurement plan)
 export const PLAN_2026_ORIGIN_MIX: Record<string, number> = {
-  // Factory-level plan → summed to company-wide total origin mix
-  // Tay Ninh: Bissau 3220, Cambodia 1430, Indonesia 1685, IVC 4720, Senegal 1610, Tanzania 1800
-  // Long An:  Bissau 6449 (800 ytd+5649 mtc ≈ rounded), IVC 5852, Senegal 1496, Tanzania 4003
-  // Phan Thiet: Bissau 4596, Conakry 2992, Ghana 2860, IVC 2992, Tanzania 4260
-  // Tuticorin: Bissau 10069, Conakry 1955, Ghana 6400, IVC 2100, Tanzania 4476
   'Guinea-B': 3220 + 6449 + 4596 + 10069,   // BISSAU
   'C.Ivory': 4720 + 5852 + 2992 + 2100,     // IVC
   'Tanzania': 1800 + 4003 + 4260 + 4476,     // TANZANIA
@@ -437,7 +453,6 @@ export const PLAN_2026_ORIGIN_MIX: Record<string, number> = {
   'Guinea': 2992 + 1955,                    // CONAKRY
 };
 
-// Factory-level volume totals for reference (full year incl. YTD)
 export const PLAN_2026_FACTORIES: Record<string, { total: number; origins: Record<string, number> }> = {
   'Tay Ninh': { total: 18000, origins: { 'Guinea-B': 3220, 'Cambodia': 1430, 'Indonesia': 1685, 'C.Ivory': 4720, 'Senegal': 1610, 'Tanzania': 1800 } },
   'Long An': { total: 17800, origins: { 'Guinea-B': 6449, 'C.Ivory': 5852, 'Senegal': 1496, 'Tanzania': 4003 } },
@@ -445,17 +460,16 @@ export const PLAN_2026_FACTORIES: Record<string, { total: number; origins: Recor
   'Tuticorin': { total: 25000, origins: { 'Guinea-B': 10069, 'Guinea': 1955, 'Ghana': 6400, 'C.Ivory': 2100, 'Tanzania': 4476 } },
 };
 
-const PLAN_2026_TOTAL_QTY = Object.values(PLAN_2026_ORIGIN_MIX).reduce((s, v) => s + v, 0);
-const PLAN_2026_PROCESSING_QTY = 62027; // Kế hoạch sản xuất RCN (Scope 1&2 input)
+const PLAN_2026_TOTAL_QTY = Object.values(PLAN_2026_ORIGIN_MIX).reduce((s, v) => s + v, 0); // 78,500
 
-/** Compute 2026 forecast Cat.1 (tCO₂e) from planned origin mix */
-function forecast2026Cat1(): number {
+/** Compute 2026 forecast Cat.1 (tCO₂e) purely for the MTC (Months to Come) */
+function forecast2026Cat1_MTC(): number {
   let total = 0;
-  for (const [origin, qty] of Object.entries(PLAN_2026_ORIGIN_MIX)) {
+  for (const [origin, qty] of Object.entries(MTC_2026_ORIGIN_MIX)) {
     const ef = ORIGIN_EF[origin]?.ef ?? 2.5;
     total += qty * ef;
   }
-  return Math.round(total);
+  return total;
 }
 
 /** Compute 2026 forecast Cat.4 transport (tCO₂e).
@@ -464,7 +478,7 @@ function forecast2026Cat1(): number {
  *  EF: vessel = 0.01604 g CO₂e/t-km → 0.00001604 t/t-km
  *      road   = 0.07547 g CO₂e/t-km → 0.00007547 t/t-km
  */
-function forecast2026Cat4(): { vessel: number; road: number; total: number; detail: { factory: string; origin: string; vesselTkm: number; roadTkm: number; co2: number }[] } {
+function forecast2026Cat4_MTC(): { vessel: number; road: number; total: number; detail: { factory: string; origin: string; vesselTkm: number; roadTkm: number; co2: number }[] } {
   const EF_VESSEL = 0.01604 / 1000; // tCO₂e per tonne-km
   const EF_ROAD = 0.07547 / 1000;
 
@@ -472,7 +486,7 @@ function forecast2026Cat4(): { vessel: number; road: number; total: number; deta
   let totalRoad = 0;
   const detail: { factory: string; origin: string; vesselTkm: number; roadTkm: number; co2: number }[] = [];
 
-  for (const [factory, { origins }] of Object.entries(PLAN_2026_FACTORIES)) {
+  for (const [factory, { origins }] of Object.entries(MTC_2026_FACTORIES)) {
     const region = factory === 'Tuticorin' ? 'IN' : 'VN';
     for (const [origin, qty] of Object.entries(origins)) {
       const routeKey = `${origin}:${region}`;
@@ -806,308 +820,6 @@ function Scope1BreakdownChart({
   );
 }
 
-// ── ForecastPanel Component ────────────────────────────────
-function ForecastPanel({
-  s1_2025, s2_2025, s3_2025_cat1, s3_2025_cat3, s3_2025_cat4,
-  ytd26s1, ytd26s2, lang,
-}: {
-  s1_2025: number; s2_2025: number;
-  s3_2025_cat1: number; s3_2025_cat3: number; s3_2025_cat4: number;
-  ytd26s1: number; ytd26s2: number;
-  lang: string;
-}) {
-  const [showDetail, setShowDetail] = React.useState(false);
-
-  // ── S1 / S2 Forecast: weighted avg of 2025 full-year + Q1 2026 annualized ──
-  // Logic: Q1 actual is real data; 2025 captures full-year patterns.
-  // Weight: 50% from each. If Q1 missing, fall back to 2025 only.
-  const hasQ1 = ytd26s1 > 0 || ytd26s2 > 0;
-  const ann26s1 = ytd26s1 > 0 ? ytd26s1 * 4 : s1_2025;
-  const ann26s2 = ytd26s2 > 0 ? ytd26s2 * 4 : s2_2025;
-  const fcS1 = Math.round(hasQ1 ? (s1_2025 + ann26s1) / 2 : s1_2025);
-  const fcS2 = Math.round(hasQ1 ? (s2_2025 + ann26s2) / 2 : s2_2025);
-
-  // ── S3 Forecast ──────────────────────────────────────────────────────────
-  const fcS3Cat1 = forecast2026Cat1();
-
-  // Cat.3 (WTT): scale from 2025 proportionally to planned qty vs 2025 qty
-  const t25qty = TRANSPORT_STATIC[2025]?.qty || 1;
-  const fcS3Cat3 = Math.round(s3_2025_cat3 * (PLAN_2026_TOTAL_QTY / t25qty));
-
-  // Cat.4 (Transport)
-  const cat4fc = forecast2026Cat4();
-  const fcS3Cat4 = cat4fc.total;
-
-  const fcS3 = fcS3Cat1 + fcS3Cat3 + fcS3Cat4;
-  const fcTotal = fcS1 + fcS2 + fcS3;
-
-  // ── Delta vs 2025 ────────────────────────────────────────────────────────
-  const s3_2025_total = s3_2025_cat1 + s3_2025_cat3 + s3_2025_cat4;
-  const total2025 = s1_2025 + s2_2025 + s3_2025_total;
-  const delta = fcTotal - total2025;
-  const deltaPct = total2025 > 0 ? Math.round((delta / total2025) * 100) : 0;
-
-  // Color helpers
-  const good = (d: number) => d <= 0 ? '#2E6B2E' : '#C8281A';
-  const dStr = (d: number) => (d > 0 ? '+' : '') + Math.round(d).toLocaleString();
-
-  return (
-    <div style={{ padding: '4px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-      {/* ── Header banner ── */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1a3d5c 0%, #2d6a9f 100%)',
-        borderRadius: 8, padding: '10px 16px', color: 'white',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-      }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: 0.3 }}>🔮 Dự báo Cả Năm 2026 — Full Year Forecast</div>
-          <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 2 }}>
-            Dựa theo kế hoạch mua hàng 2026 (Grand Total {PLAN_2026_TOTAL_QTY.toLocaleString()} MT) &amp; Q1 2026 actual
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{fcTotal.toLocaleString()}</div>
-            <div style={{ fontSize: 10, opacity: 0.8 }}>tCO₂e forecast 2026</div>
-          </div>
-          <div style={{
-            padding: '4px 10px', borderRadius: 6,
-            background: delta <= 0 ? 'rgba(46,107,46,0.4)' : 'rgba(200,40,26,0.4)',
-            border: `1px solid ${delta <= 0 ? '#5eba58' : '#e86050'}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 900 }}>{deltaPct > 0 ? '+' : ''}{deltaPct}%</div>
-            <div style={{ fontSize: 9, opacity: 0.85 }}>vs 2025</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 3-column scope cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-
-        {/* Scope 1 */}
-        <div style={{ border: '1.5px solid #C8281A', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ background: '#C8281A', color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 800 }}>🔥 Scope 1 — Direct Combustion</div>
-          <div style={{ padding: '10px 12px', background: '#fff' }}>
-            <div style={{ fontSize: 26, fontWeight: 900, color: '#C8281A', lineHeight: 1 }}>{fcS1.toLocaleString()}</div>
-            <div style={{ fontSize: 10.5, color: '#555', marginTop: 2 }}>tCO₂e</div>
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>2025 actual:</span>
-                <span style={{ fontWeight: 600 }}>{s1_2025.toLocaleString()}</span>
-              </div>
-              {hasQ1 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888' }}>Q1 2026 ann.:</span>
-                  <span style={{ fontWeight: 600 }}>{ann26s1.toLocaleString()}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #eee', paddingTop: 3, marginTop: 1 }}>
-                <span style={{ color: '#555', fontWeight: 700 }}>Forecast:</span>
-                <span style={{ fontWeight: 800, color: good(fcS1 - s1_2025) }}>
-                  {dStr(fcS1 - s1_2025)} ({fcS1 - s1_2025 <= 0 ? '▼' : '▲'}{Math.abs(Math.round((fcS1 - s1_2025) / s1_2025 * 100))}%)
-                </span>
-              </div>
-            </div>
-            <div style={{ marginTop: 6, fontSize: 9.5, color: '#999', fontStyle: 'italic' }}>
-              {hasQ1 ? 'Weighted avg: 50% 2025 + 50% Q1×4' : 'Based on 2025 full-year (no Q1 data yet)'}
-            </div>
-          </div>
-        </div>
-
-        {/* Scope 2 */}
-        <div style={{ border: '1.5px solid #4472C4', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ background: '#4472C4', color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 800 }}>⚡ Scope 2 — Grid Electricity</div>
-          <div style={{ padding: '10px 12px', background: '#fff' }}>
-            <div style={{ fontSize: 26, fontWeight: 900, color: '#4472C4', lineHeight: 1 }}>{fcS2.toLocaleString()}</div>
-            <div style={{ fontSize: 10.5, color: '#555', marginTop: 2 }}>tCO₂e</div>
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>2025 actual:</span>
-                <span style={{ fontWeight: 600 }}>{s2_2025.toLocaleString()}</span>
-              </div>
-              {hasQ1 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#888' }}>Q1 2026 ann.:</span>
-                  <span style={{ fontWeight: 600 }}>{ann26s2.toLocaleString()}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #eee', paddingTop: 3, marginTop: 1 }}>
-                <span style={{ color: '#555', fontWeight: 700 }}>Forecast:</span>
-                <span style={{ fontWeight: 800, color: good(fcS2 - s2_2025) }}>
-                  {dStr(fcS2 - s2_2025)} ({fcS2 - s2_2025 <= 0 ? '▼' : '▲'}{Math.abs(Math.round((fcS2 - s2_2025) / s2_2025 * 100))}%)
-                </span>
-              </div>
-            </div>
-            <div style={{ marginTop: 6, fontSize: 9.5, color: '#999', fontStyle: 'italic' }}>
-              {hasQ1 ? 'Weighted avg: 50% 2025 + 50% Q1×4' : 'Based on 2025 full-year (no Q1 data yet)'}
-            </div>
-          </div>
-        </div>
-
-        {/* Scope 3 */}
-        <div style={{ border: '1.5px solid #3E7B3E', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ background: '#3E7B3E', color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 800 }}>🌍 Scope 3 — Supply Chain</div>
-          <div style={{ padding: '10px 12px', background: '#fff' }}>
-            <div style={{ fontSize: 26, fontWeight: 900, color: '#3E7B3E', lineHeight: 1 }}>{fcS3.toLocaleString()}</div>
-            <div style={{ fontSize: 10.5, color: '#555', marginTop: 2 }}>tCO₂e</div>
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>Cat.1 (Plan, {PLAN_2026_TOTAL_QTY.toLocaleString()} MT):</span>
-                <span style={{ fontWeight: 600 }}>{fcS3Cat1.toLocaleString()}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>Cat.3 WTT (scaled):</span>
-                <span style={{ fontWeight: 600 }}>{fcS3Cat3.toLocaleString()}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#888' }}>Cat.4 Transport (∝ km/t):</span>
-                <span style={{ fontWeight: 600 }}>{fcS3Cat4.toLocaleString()}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #eee', paddingTop: 3, marginTop: 1 }}>
-                <span style={{ color: '#555', fontWeight: 700 }}>Forecast vs 2025:</span>
-                <span style={{ fontWeight: 800, color: good(fcS3 - s3_2025_total) }}>
-                  {dStr(fcS3 - s3_2025_total)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Toggle detail button ── */}
-      <div style={{ textAlign: 'center' }}>
-        <button
-          onClick={() => setShowDetail(v => !v)}
-          style={{
-            padding: '6px 20px', fontSize: 11, fontWeight: 700, borderRadius: 6,
-            border: '1.5px solid #1a3d5c', background: showDetail ? '#1a3d5c' : '#fff',
-            color: showDetail ? '#fff' : '#1a3d5c', cursor: 'pointer', transition: 'all 0.18s',
-          }}
-        >
-          {showDetail ? '▲ Ẩn chi tiết' : '▼ Xem chi tiết Origin Mix & Methodology'}
-        </button>
-      </div>
-
-      {showDetail && (
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-
-          {/* Origin Mix detail table */}
-          <div style={{ flex: '1 1 340px', border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ background: '#1a3d5c', color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 800 }}>
-              📦 Cat.1 — Kế hoạch mua hàng 2026 (by Origin)
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
-              <thead>
-                <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Origin</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>EF (tCO₂e/t)</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>Plan (MT)</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>tCO₂e</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(PLAN_2026_ORIGIN_MIX)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([origin, qty], i) => {
-                    const ef = ORIGIN_EF[origin]?.ef ?? 2.5;
-                    const em = Math.round(qty * ef);
-                    const color = ORIGIN_EF[origin]?.color ?? '#888';
-                    return (
-                      <tr key={origin} style={{ background: i % 2 === 0 ? '#fafafa' : '#fff', borderBottom: '1px solid #f0f0f0' }}>
-                        <td style={{ padding: '3px 8px', fontWeight: 600, color }}>{origin}</td>
-                        <td style={{ padding: '3px 8px', textAlign: 'right', color, fontWeight: 600 }}>{ef.toFixed(2)}</td>
-                        <td style={{ padding: '3px 8px', textAlign: 'right' }}>{qty.toLocaleString()}</td>
-                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, color }}>{em.toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-              <tfoot>
-                <tr style={{ borderTop: '1.5px solid #bbb', background: '#f0f0f0', fontWeight: 800, fontSize: 11 }}>
-                  <td style={{ padding: '4px 8px' }} colSpan={2}>TOTAL</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>{PLAN_2026_TOTAL_QTY.toLocaleString()} MT</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right', color: '#3E7B3E' }}>{fcS3Cat1.toLocaleString()}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          {/* Factory breakdown */}
-          <div style={{ flex: '1 1 300px', border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ background: '#1a3d5c', color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 800 }}>
-              🏭 Volume Plan by Factory
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
-              <thead>
-                <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Factory</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>Plan (MT)</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(PLAN_2026_FACTORIES).map(([fac, d], i) => (
-                  <tr key={fac} style={{ background: i % 2 === 0 ? '#fafafa' : '#fff', borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '3px 8px', fontWeight: 600 }}>{fac}</td>
-                    <td style={{ padding: '3px 8px', textAlign: 'right' }}>{d.total.toLocaleString()}</td>
-                    <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555' }}>
-                      {Math.round(d.total / PLAN_2026_TOTAL_QTY * 100)}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ borderTop: '1.5px solid #bbb', background: '#f0f0f0', fontWeight: 800, fontSize: 11 }}>
-                  <td style={{ padding: '4px 8px' }}>TOTAL</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>{PLAN_2026_TOTAL_QTY.toLocaleString()}</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>100%</td>
-                </tr>
-              </tfoot>
-            </table>
-
-            {/* Cat.4 methodology note */}
-            <div style={{ padding: '8px 10px', background: '#fffbeb', borderTop: '1px solid #ddd', fontSize: 9.5, color: '#7a4f00', lineHeight: 1.5 }}>
-              🚢 <strong>Cat.4 — per-route exact km:</strong> Dữ liệu quãng đường thực tế từ Procurement.
-              VN factories: Cambodia 0 km, Indonesia 2,228 km, Tanzania 8,680 km, Bissau 17,237 km, IVC 18,939 km, Ghana 19,376 km...<br />
-              India (Tuticorin): Tanzania 4,989 km, Bissau 13,244 km, IVC 14,946 km, Ghana 15,383 km.<br />
-              <span style={{ opacity: 0.8 }}>Vessel EF: 0.01604 kg/t-km · Road EF: 0.07547 kg/t-km (IMO/GLEC + DEFRA)</span>
-            </div>
-          </div>
-
-          {/* Methodology summary */}
-          <div style={{ flex: '1 1 220px', border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ background: '#555', color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 800 }}>📋 Methodology</div>
-            <div style={{ padding: '10px 12px', fontSize: 10.5, lineHeight: 1.65, color: '#333' }}>
-              <p style={{ margin: '0 0 6px' }}><strong>Scope 1 &amp; 2:</strong></p>
-              <p style={{ margin: '0 0 8px', color: '#555' }}>
-                Weighted avg = (2025 actual + Q1 2026 × 4) / 2.<br />
-                Accounts for both historical patterns and current trends.
-              </p>
-              <p style={{ margin: '0 0 6px' }}><strong>Scope 3 Cat.1 (Cashew RCN):</strong></p>
-              <p style={{ margin: '0 0 8px', color: '#555' }}>
-                Based on 2026 purchasing plan × per-origin SBTi FLAG EFs (Ecoinvent).
-                Total plan: {PLAN_2026_TOTAL_QTY.toLocaleString()} MT across 4 factories.
-              </p>
-              <p style={{ margin: '0 0 6px' }}><strong>Scope 3 Cat.3 (WTT):</strong></p>
-              <p style={{ margin: '0 0 8px', color: '#555' }}>
-                2025 Cat.3 × (2026 plan qty / 2025 actual qty). Proportional scaling.
-              </p>
-              <p style={{ margin: '0 0 6px' }}><strong>Scope 3 Cat.4 (Transport):</strong></p>
-              <p style={{ margin: 0, color: '#555' }}>
-                Actual per-route km (Procurement data, Apr 2026) × planned volume × EFs.
-                VN factories use VN routes; Tuticorin uses India routes.
-                Vessel EF 0.01604 · Road EF 0.07547 kg CO₂e/t-km.
-              </p>
-            </div>
-          </div>
-
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Main Page ──────────────────────────────────────────────
 export default function OpexReportPage() {
@@ -1285,19 +997,28 @@ export default function OpexReportPage() {
   const ytd26rcn = get(2026).rcn;
   const hasQ1data = ytd26s1 > 0 || ytd26s2 > 0;
 
-  // Forecast based on Intensity (tCO2e/RCN) x PLAN_2026_PROCESSING_QTY
+  // Forecast based on YTD Actuals + (Intensity x MTC_QTY)
+  // Scope 1 & 2 use Processing MTC (62,027 MT)
   const int_s1 = ytd26rcn > 0 ? ytd26s1 / ytd26rcn : s1_2025 / get(2025).rcn;
   const int_s2 = ytd26rcn > 0 ? ytd26s2 / ytd26rcn : s2_2025 / get(2025).rcn;
-  const fc_ann26s1 = Math.round(int_s1 * PLAN_2026_PROCESSING_QTY);
-  const fc_ann26s2 = Math.round(int_s2 * PLAN_2026_PROCESSING_QTY);
+  const mtc_s1 = int_s1 * 62027; // Use hardcoded processing MTC 62027 per pivot
+  const mtc_s2 = int_s2 * 62027;
 
-  const fcS1 = hasQ1data ? fc_ann26s1 : s1_2025;
-  const fcS2 = hasQ1data ? fc_ann26s2 : s2_2025;
-  const fcS3Cat1 = forecast2026Cat1();
-  const fc_t25qty = TRANSPORT_STATIC[2025]?.qty || 1;
+  const fcS1 = Math.round(hasQ1data ? ytd26s1 + mtc_s1 : s1_2025);
+  const fcS2 = Math.round(hasQ1data ? ytd26s2 + mtc_s2 : s2_2025);
+
+  // Scope 3 Uses Procurement MTC (~62k) + YTD Actuals
+  const s3Data2026 = s3Data.find(d => d.year === 2026);
+  const ytd26_s3cat1 = s3Data2026?.cat1 || 0;
+  const ytd26_s3cat4 = (s3Data2026?.cat4v || 0) + (s3Data2026?.cat4r || 0);
+
+  const fcS3Cat1 = Math.round(ytd26_s3cat1 + forecast2026Cat1_MTC());
+  const fcS3Cat4 = Math.round(ytd26_s3cat4 + forecast2026Cat4_MTC().total);
+
+  const t25qty = TRANSPORT_STATIC[2025]?.qty || 1;
   const s3_2025_data = s3Data.find(d => d.year === 2025);
-  const fcS3Cat3 = Math.round((s3_2025_data?.cat3 || 0) * (PLAN_2026_TOTAL_QTY / fc_t25qty));
-  const fcS3Cat4 = forecast2026Cat4().total;
+  // Cat3 estimation -> simplistic heuristic (will optimize if detailed fuel mix needed)
+  const fcS3Cat3 = Math.round((s3_2025_data?.cat3 || 0) * ((16473 + MTC_2026_TOTAL_QTY) / t25qty));
   const fcS3Total = fcS3Cat1 + fcS3Cat3 + fcS3Cat4;
   const fcTotal = fcS1 + fcS2 + fcS3Total;
 
@@ -3474,7 +3195,7 @@ export default function OpexReportPage() {
                 </div>
                 <div style={{ fontWeight: 700, color: '#444' }}>Cách tính:</div>
                 <div style={{ padding: '4px 6px', background: '#f5f5f5', borderRadius: 4, display: 'inline-block', fontStyle: 'italic', border: '1px solid #ddd' }}>
-                  Cường độ (Q1 tCO₂e ÷ Q1 RCN volume) × Kế hoạch Sản xuất: {PLAN_2026_PROCESSING_QTY.toLocaleString()} MT
+                  Thực tế YTD + [ Cường độ YTD × Kế hoạch còn lại (MTC): 62,027 MT ]
                 </div>
               </div>
             </div>
@@ -3487,8 +3208,8 @@ export default function OpexReportPage() {
                   <span style={{ fontWeight: 700, color: '#222' }}>S3 (Tổng):</span> {s3delta > 0 ? '+' : ''}{s3delta.toLocaleString()} tCO₂e ({pctStr(fcS3Total, req26_s3)})
                 </div>
                 <div style={{ fontWeight: 700, color: '#444' }}>Cách tính & Dữ liệu:</div>
-                Hỗn hợp Origin EFs (Ecoinvent) × {PLAN_2026_TOTAL_QTY.toLocaleString()} MT (Kế hoạch thu mua).<br />
-                {Object.entries(PLAN_2026_ORIGIN_MIX).sort(([, a], [, b]) => b - a).slice(0, 3).map(([o, q]) =>
+                Thực tế YTD + [ Origin Mix EFs MTC × Kế hoạch MTC: 62,027 MT ].<br />
+                {Object.entries(MTC_2026_ORIGIN_MIX).sort(([, a], [, b]) => b - a).slice(0, 3).map(([o, q]) =>
                   <span key={o} style={{ marginRight: 6 }}>{o}: {q}t,</span>
                 )}...
               </div>
