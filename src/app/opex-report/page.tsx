@@ -60,6 +60,7 @@ interface BarPoint {
   isActualPlanSplit?: boolean; // 2-color bar: red Q1 actual (bottom), green Q2-Q4 plan (top)
   q1ActualRatio?: number;      // fraction of bar height that is actual (fallback, default 0.25)
   splitActualAbsVal?: number;  // absolute value of Q1 actual (used when isTotal=true)
+  marker?: number;             // overlay target line on a bar (useful for showing target on a prediction bar)
 }
 
 interface Callout {
@@ -303,6 +304,14 @@ function WaterfallChart({
                       )}
                       {/* Total plan value above bar */}
                       <text x={cx(i)} y={topY - 6} textAnchor="middle" fontSize={13} fontWeight="900" fill={topColor}>{fv(planVal2026)}</text>
+                      {/* Optional Target Marker Overlay */}
+                      {b.marker !== undefined && (
+                        <g>
+                          <line x1={bx(i) - 6} y1={py(b.marker)} x2={bx(i) + bw + 6} y2={py(b.marker)} stroke={C.target} strokeWidth={2} strokeDasharray="3,2" />
+                          <rect x={bx(i) - 2} y={py(b.marker) - 18} width={bw + 4} height={14} fill={C.target} rx={2} />
+                          <text x={cx(i)} y={py(b.marker) - 8} textAnchor="middle" fontSize={10} fontWeight="900" fill="white">T: {fv(b.marker)}</text>
+                        </g>
+                      )}
                     </>
                   );
                 })() : (
@@ -1295,7 +1304,15 @@ export default function OpexReportPage() {
     { key: '2025', label: ['2025'], actual: s1_2025 },
     ...(showForecast ? [
       { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS1 },
-      { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined },
+      {
+        key: 'fc2026',
+        label: ['2026', '(Est.)', `vs Target:`, pctStr(fcS1, req26_s1)],
+        actual: fcS1,
+        isTotal: true,
+        isActualPlanSplit: true,
+        splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined,
+        marker: req26_s1
+      },
       ...targetBarsS1.slice(1)
     ] : [
       { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
@@ -1345,7 +1362,15 @@ export default function OpexReportPage() {
     { key: '2025', label: ['2025'], actual: s2_2025 },
     ...(showForecast ? [
       { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS2 },
-      { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined },
+      {
+        key: 'fc2026',
+        label: ['2026', '(Est.)', `vs Target:`, pctStr(fcS2, req26_s2)],
+        actual: fcS2,
+        isTotal: true,
+        isActualPlanSplit: true,
+        splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined,
+        marker: req26_s2
+      },
       ...targetBarsS2.slice(1)
     ] : [
       { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
@@ -2187,7 +2212,15 @@ export default function OpexReportPage() {
           { key: '2025', label: ['2025'], actual: s3Cur.total },
           ...(showForecast ? [
             { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS3Total },
-            { key: 'fc2026', label: ['2026', '(Est.)'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined },
+            {
+              key: 'fc2026',
+              label: ['2026', '(Est.)', `vs Target:`, pctStr(fcS3Total, planVal(2026))],
+              actual: fcS3Total,
+              isTotal: true,
+              isActualPlanSplit: true,
+              splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined,
+              marker: planVal(2026)
+            },
             ...planYears.slice(1).map(y => ({
               key: y.toString(), label: [y.toString()], target: planVal(y)
             }))
