@@ -1290,34 +1290,43 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope1 },
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
-    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined }] : []),
-    { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
-    ...targetBarsS1,
+    ...(showForecast ? [
+      { key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS1, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s1 > 0 ? ytd26s1 : undefined },
+      ...targetBarsS1.slice(1)
+    ] : [
+      { key: 'req_2026', label: ['Target', '2026'], target: req26_s1 },
+      ...targetBarsS1
+    ]),
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s1, isTotal: true },
   ];
 
   // ── Scope 1 callouts ──────────────────────────────────
   const s1_2024 = get(2024).scope1;
-  const fcOff = showForecast ? 1 : 0; // column offset when FC bar is inserted
-  const s1Callouts: Callout[] = [
-    // Baseline 2021 → FC 2026 (when FC ON) or → Target 2026 (when OFF)
-    showForecast && b1 > 0 ? {
+  const s1Callouts: Callout[] = showForecast ? [
+    b1 > 0 ? {
       fromCol: 0, toCol: 5,
       fromVal: b1, toVal: fcS1,
       text: pctStr(fcS1, b1),
       level: 0
     } : null,
+    end_s1 > 0 ? {
+      fromCol: 5, toCol: s1Bars.length - 1,
+      fromVal: fcS1, toVal: end_s1,
+      text: pctStr(end_s1, b1),
+      level: 0
+    } : null,
+  ].filter(Boolean) as Callout[] : [
     b1 > 0 && get(2026).scope1 > 0 ? {
-      fromCol: 0, toCol: 6 + fcOff,
+      fromCol: 0, toCol: 6,
       fromVal: b1, toVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)),
       text: pctStr(Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), b1),
-      level: showForecast ? 1 : 0
+      level: 0
     } : null,
     end_s1 > 0 ? {
-      fromCol: 6 + fcOff, toCol: s1Bars.length - 1,
+      fromCol: 6, toCol: s1Bars.length - 1,
       fromVal: Math.round(targetProj(s1_2025, s1AnnualCut, 2026)), toVal: end_s1,
       text: pctStr(end_s1, b1),
-      level: showForecast ? 1 : 0
+      level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
@@ -1329,32 +1338,43 @@ export default function OpexReportPage() {
     { key: '2023', label: ['2023'], actual: get(2023).scope2 },
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
-    ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined }] : []),
-    { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
-    ...targetBarsS2,
+    ...(showForecast ? [
+      { key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS2, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: ytd26s2 > 0 ? ytd26s2 : undefined },
+      ...targetBarsS2.slice(1)
+    ] : [
+      { key: 'req_2026', label: ['Target', '2026'], target: req26_s2 },
+      ...targetBarsS2
+    ]),
     { key: 'end', label: ['by End', targetEndYear.toString()], actual: end_s2, isTotal: true },
   ];
 
   // ── Scope 2 callouts ──────────────────────────────────
   const s2_2024 = get(2024).scope2;
-  const s2Callouts: Callout[] = [
-    showForecast && b2 > 0 ? {
+  const s2Callouts: Callout[] = showForecast ? [
+    b2 > 0 ? {
       fromCol: 0, toCol: 5,
       fromVal: b2, toVal: fcS2,
       text: pctStr(fcS2, b2),
       level: 0
     } : null,
+    end_s2 > 0 ? {
+      fromCol: 5, toCol: s2Bars.length - 1,
+      fromVal: fcS2, toVal: end_s2,
+      text: pctStr(end_s2, b2),
+      level: 0
+    } : null,
+  ].filter(Boolean) as Callout[] : [
     b2 > 0 && get(2026).scope2 > 0 ? {
-      fromCol: 0, toCol: 6 + fcOff,
+      fromCol: 0, toCol: 6,
       fromVal: b2, toVal: s2Proj(2026),
       text: pctStr(s2Proj(2026), b2),
-      level: showForecast ? 1 : 0
+      level: 0
     } : null,
     end_s2 > 0 ? {
-      fromCol: 6 + fcOff, toCol: s2Bars.length - 1,
+      fromCol: 6, toCol: s2Bars.length - 1,
       fromVal: s2Proj(2026), toVal: end_s2,
       text: pctStr(end_s2, b2),
-      level: showForecast ? 1 : 0
+      level: 0
     } : null,
   ].filter(Boolean) as Callout[];
 
@@ -2159,34 +2179,46 @@ export default function OpexReportPage() {
           { key: '2023', label: ['2023'], actual: s3_2023?.total || 0 },
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
-          ...(showForecast ? [{ key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined }] : []),
-          { key: 'req_2026', label: ['Target', '2026'], target: planVal(2026) },
-          ...planYears.map(y => ({
-            key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: planVal(y),
-            ...(y === 2026 ? {
-              isActualPlanSplit: true,
-              isTotal: true,
-              splitActualAbsVal: Math.round(planVal(y) * 0.25),
-            } : {})
-          })),
+          ...(showForecast ? [
+            { key: 'fc2026', label: ['🔮 FC', '2026'], actual: fcS3Total, isTotal: true, isActualPlanSplit: true, splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined },
+            ...planYears.slice(1).map(y => ({
+              key: y.toString(), label: [y.toString()], target: planVal(y)
+            }))
+          ] : [
+            { key: 'req_2026', label: ['Target', '2026'], target: planVal(2026) },
+            ...planYears.map(y => ({
+              key: y.toString(), label: [y === 2026 ? 'FC1,2026' : y.toString()], target: planVal(y),
+              ...(y === 2026 ? {
+                isActualPlanSplit: true,
+                isTotal: true,
+                splitActualAbsVal: Math.round(planVal(y) * 0.25),
+              } : {})
+            }))
+          ]),
           { key: 'end', label: ['by End', targetEndYear.toString()], target: planVal(targetEndYear), isTotal: true },
         ];
 
-        const s3Callouts: Callout[] = [
-          showForecast && s3Base.total > 0 ? {
+        const s3Callouts: Callout[] = showForecast ? [
+          s3Base.total > 0 ? {
             fromCol: 0, toCol: 5,
             fromVal: s3Base.total, toVal: fcS3Total,
             text: pctStr(fcS3Total, s3Base.total), level: 0
           } : null,
+          planVal(targetEndYear) > 0 ? {
+            fromCol: 5, toCol: s3Bars.length - 1,
+            fromVal: fcS3Total, toVal: planVal(targetEndYear),
+            text: pctStr(planVal(targetEndYear), s3Base.total), level: 0
+          } : null,
+        ].filter(Boolean) as Callout[] : [
           s3Base.total > 0 && planVal(2026) > 0 ? {
-            fromCol: 0, toCol: 6 + fcOff,
+            fromCol: 0, toCol: 6,
             fromVal: s3Base.total, toVal: planVal(2026),
-            text: pctStr(planVal(2026), s3Base.total), level: showForecast ? 1 : 0
+            text: pctStr(planVal(2026), s3Base.total), level: 0
           } : null,
           planVal(targetEndYear) > 0 ? {
-            fromCol: 6 + fcOff, toCol: s3Bars.length - 1,
+            fromCol: 6, toCol: s3Bars.length - 1,
             fromVal: planVal(2026), toVal: planVal(targetEndYear),
-            text: pctStr(planVal(targetEndYear), s3Base.total), level: showForecast ? 1 : 0
+            text: pctStr(planVal(targetEndYear), s3Base.total), level: 0
           } : null,
         ].filter(Boolean) as Callout[];
 
