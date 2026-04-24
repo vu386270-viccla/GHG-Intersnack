@@ -1755,162 +1755,6 @@ export default function OpexReportPage() {
             );
           })()}
 
-          {/* ── Scope 3 Regional Breakdown: VN vs India ── */}
-          {scope3Regional.length > 0 && (() => {
-            const VN_COLOR = '#C8281A';
-            const IN_COLOR = '#9ab0c4';
-            const YEARS_S3 = scope3Regional.filter(r => r.total > 0).map(r => r.year);
-            const maxVal = Math.max(...scope3Regional.map(r => r.total)) * 1.15 || 1;
-            const W = 340, H = 140;
-            const PL = 44, PR = 10, PT = 28, PB = 24;
-            const chartW = W - PL - PR;
-            const chartH = H - PT - PB;
-            const barW = Math.min(34, (chartW / YEARS_S3.length) * 0.62);
-            const colW = chartW / YEARS_S3.length;
-            const py = (v: number) => PT + chartH - (v / maxVal) * chartH;
-
-            const SBT_TARGET = scope3Regional.find(r => r.year === 2021);
-            const target2032 = SBT_TARGET ? Math.round(SBT_TARGET.total * 0.70) : 0;
-
-            // Y axis ticks
-            const tickCount = 4;
-            const tickStep = Math.ceil(maxVal / tickCount / 100000) * 100000;
-            const ticks = Array.from({ length: tickCount + 1 }, (_, i) => i * tickStep).filter(t => t <= maxVal * 1.2);
-
-            return (
-              <div style={{ marginTop: 12, background: '#fafafa', border: '1px solid #e8e8e8', borderRadius: 6, padding: '8px 12px' }}>
-                <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#1a3d5c', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  🌍 {lang === 'vi' ? 'Scope 3 — Phân bổ theo quốc gia (VN vs Ấn Độ)' : 'Scope 3 — Regional Split (Vietnam vs India)'}
-                  <span style={{ fontSize: '10px', fontWeight: 400, color: '#888' }}>
-                    {lang === 'vi' ? 'Cat.1 + Cat.3 + Cat.4 (tCO₂e)' : 'Cat.1 + Cat.3 + Cat.4 (tCO₂e)'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {/* Stacked bar chart */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-regional') as unknown as SVGSVGElement, 'Scope3_Regional_Breakdown.png')}
-                      style={{ position: 'absolute', top: 0, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10 }}
-                      title="Download PNG"
-                    >📸 HD</button>
-                    <svg id="svg-s3-regional" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto', display: 'block' }}>
-                      {/* Y-axis ticks */}
-                      {ticks.map(t => (
-                        <g key={t}>
-                          <line x1={PL} y1={py(t)} x2={W - PR} y2={py(t)} stroke="#eee" strokeWidth={1} />
-                          <text x={PL - 4} y={py(t) + 3.5} textAnchor="end" fontSize={8} fill="#999">
-                            {t >= 1000 ? `${Math.round(t / 1000)}K` : t}
-                          </text>
-                        </g>
-                      ))}
-
-                      {/* SBTi 2032 target line */}
-                      {target2032 > 0 && (
-                        <g>
-                          <line x1={PL} x2={W - PR} y1={py(target2032)} y2={py(target2032)}
-                            stroke="#3E7B3E" strokeWidth={1.2} strokeDasharray="4 3" />
-                          <text x={W - PR - 2} y={py(target2032) - 3} textAnchor="end" fontSize={8} fill="#3E7B3E">SBTi 2032</text>
-                        </g>
-                      )}
-
-                      {/* Stacked bars */}
-                      {YEARS_S3.map((yr, i) => {
-                        const row = scope3Regional.find(r => r.year === yr)!;
-                        const cx = PL + i * colW + colW / 2 - barW / 2;
-                        const vnH = (row.vn / maxVal) * chartH;
-                        const inH = (row.india / maxVal) * chartH;
-                        const totalH = vnH + inH;
-                        const isYtd = yr >= 2026;
-                        return (
-                          <g key={yr}>
-                            {/* India (bottom) */}
-                            <rect x={cx} y={PT + chartH - inH} width={barW} height={inH}
-                              fill={IN_COLOR} opacity={isYtd ? 0.7 : 1}
-                              rx={1}>
-                              <title>India {yr}: {row.india.toLocaleString()} tCO₂e</title>
-                            </rect>
-                            {/* Vietnam (top) */}
-                            <rect x={cx} y={PT + chartH - totalH} width={barW} height={vnH}
-                              fill={VN_COLOR} opacity={isYtd ? 0.7 : 1}
-                              rx={1}>
-                              <title>Vietnam {yr}: {row.vn.toLocaleString()} tCO₂e</title>
-                            </rect>
-                            {/* Total label */}
-                            <text x={cx + barW / 2} y={PT + chartH - totalH - 4}
-                              textAnchor="middle" fontSize={8} fontWeight={700} fill="#1a1a1a">
-                              {Math.round(row.total / 1000)}K
-                            </text>
-                            {/* Year label */}
-                            <text x={cx + barW / 2} y={H - PB + 11}
-                              textAnchor="middle" fontSize={8.5} fill={isYtd ? '#E8960E' : '#555'} fontWeight={isYtd ? 700 : 400}>
-                              {isYtd ? `Q1 '${String(yr).slice(-2)}` : yr}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* Axis */}
-                      <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth={1.5} />
-                    </svg>
-                  </div>
-
-                  {/* Right column: summary table + key insights */}
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: '10.5px' }}>
-                    {/* Mini table */}
-                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                      <thead>
-                        <tr style={{ background: '#1a3d5c', color: 'white' }}>
-                          <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700 }}>Year</th>
-                          <th style={{ padding: '3px 6px', textAlign: 'right', color: '#fba4a4' }}>🇻🇳 VN</th>
-                          <th style={{ padding: '3px 6px', textAlign: 'right', color: '#c8dce8' }}>🇮🇳 India</th>
-                          <th style={{ padding: '3px 6px', textAlign: 'right' }}>Total</th>
-                          <th style={{ padding: '3px 6px', textAlign: 'right' }}>VN %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {scope3Regional.filter(r => r.total > 0).map((row, ri) => (
-                          <tr key={row.year} style={{ background: ri % 2 === 0 ? '#f9f9f9' : 'white', borderBottom: '1px solid #eee' }}>
-                            <td style={{ padding: '2px 6px', fontWeight: row.year >= 2026 ? 700 : 400, color: row.year >= 2026 ? '#7a4f00' : '#1a1a1a' }}>
-                              {row.year >= 2026 ? `Q1 '26` : row.year}
-                            </td>
-                            <td style={{ padding: '2px 6px', textAlign: 'right', color: VN_COLOR, fontWeight: 600 }}>{row.vn.toLocaleString()}</td>
-                            <td style={{ padding: '2px 6px', textAlign: 'right', color: '#5580a0', fontWeight: 600 }}>{row.india.toLocaleString()}</td>
-                            <td style={{ padding: '2px 6px', textAlign: 'right', fontWeight: 700 }}>{row.total.toLocaleString()}</td>
-                            <td style={{ padding: '2px 6px', textAlign: 'right', color: '#555' }}>
-                              {row.total > 0 ? Math.round(row.vn / row.total * 100) + '%' : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* Legend */}
-                    <div style={{ display: 'flex', gap: 12, fontSize: '10px', color: '#555', marginTop: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, background: VN_COLOR, display: 'inline-block', borderRadius: 2 }} />🇻🇳 Vietnam (Long An · Phan Thiết · Tây Ninh)</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, background: IN_COLOR, display: 'inline-block', borderRadius: 2 }} />🇮🇳 India (Tuticorin)</div>
-                    </div>
-
-                    {/* Key insight */}
-                    {(() => {
-                      const r2021 = scope3Regional.find(r => r.year === 2021);
-                      const r2025 = scope3Regional.find(r => r.year === 2025);
-                      const inPct2021 = r2021 && r2021.total > 0 ? Math.round(r2021.india / r2021.total * 100) : 0;
-                      const inPct2025 = r2025 && r2025.total > 0 ? Math.round(r2025.india / r2025.total * 100) : 0;
-                      const vnPct2025 = 100 - inPct2025;
-                      return (
-                        <div style={{ padding: '5px 8px', background: '#fff8e1', border: '1px solid #E8960E', borderRadius: 4, fontSize: '10px', color: '#7a4f00', lineHeight: '1.5' }}>
-                          <strong>💡 {lang === 'vi' ? 'Nhận xét:' : 'Key Insight:'}</strong>{' '}
-                          {lang === 'vi'
-                            ? `Khối VN chiếm ${vnPct2025}% Scope 3 năm 2025 (tăng từ ${100 - inPct2021}% năm 2021). Tuticorin (India) từ ${inPct2021}% giảm xuống còn ${inPct2025}% — gánh nặng chuỗi cung ứng đang dồn về Việt Nam. Sử dụng số liệu này để giao KPI giảm phát thải cụ thể cho từng quốc gia.`
-                            : `Vietnam accounts for ${vnPct2025}% of Scope 3 in 2025 (up from ${100 - inPct2021}% in 2021). India (Tuticorin) dropped from ${inPct2021}% to ${inPct2025}% — supply chain carbon burden is shifting toward Vietnam. Use this split to assign country-specific emission reduction KPIs.`}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
 
           {/* ── Scope 1 Fuel Breakdown Chart ── */}
           <Scope1BreakdownChart
@@ -3428,6 +3272,162 @@ export default function OpexReportPage() {
 
               </div>
 
+          {/* ── Scope 3 Regional Breakdown: VN vs India ── */}
+          {scope3Regional.length > 0 && (() => {
+            const VN_COLOR = '#C8281A';
+            const IN_COLOR = '#9ab0c4';
+            const YEARS_S3 = scope3Regional.filter(r => r.total > 0).map(r => r.year);
+            const maxVal = Math.max(...scope3Regional.map(r => r.total)) * 1.15 || 1;
+            const W = 340, H = 140;
+            const PL = 44, PR = 10, PT = 28, PB = 24;
+            const chartW = W - PL - PR;
+            const chartH = H - PT - PB;
+            const barW = Math.min(34, (chartW / YEARS_S3.length) * 0.62);
+            const colW = chartW / YEARS_S3.length;
+            const py = (v: number) => PT + chartH - (v / maxVal) * chartH;
+
+            const SBT_TARGET = scope3Regional.find(r => r.year === 2021);
+            const target2032 = SBT_TARGET ? Math.round(SBT_TARGET.total * 0.70) : 0;
+
+            // Y axis ticks
+            const tickCount = 4;
+            const tickStep = Math.ceil(maxVal / tickCount / 100000) * 100000;
+            const ticks = Array.from({ length: tickCount + 1 }, (_, i) => i * tickStep).filter(t => t <= maxVal * 1.2);
+
+            return (
+              <div style={{ marginTop: 12, background: '#fafafa', border: '1px solid #e8e8e8', borderRadius: 6, padding: '8px 12px' }}>
+                <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#1a3d5c', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🌍 {lang === 'vi' ? 'Scope 3 — Phân bổ theo quốc gia (VN vs Ấn Độ)' : 'Scope 3 — Regional Split (Vietnam vs India)'}
+                  <span style={{ fontSize: '10px', fontWeight: 400, color: '#888' }}>
+                    {lang === 'vi' ? 'Cat.1 + Cat.3 + Cat.4 (tCO₂e)' : 'Cat.1 + Cat.3 + Cat.4 (tCO₂e)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {/* Stacked bar chart */}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => downloadSvgAsPng(document.getElementById('svg-s3-regional') as unknown as SVGSVGElement, 'Scope3_Regional_Breakdown.png')}
+                      style={{ position: 'absolute', top: 0, right: 0, fontSize: '10px', padding: '2px 5px', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 10 }}
+                      title="Download PNG"
+                    >📸 HD</button>
+                    <svg id="svg-s3-regional" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto', display: 'block' }}>
+                      {/* Y-axis ticks */}
+                      {ticks.map(t => (
+                        <g key={t}>
+                          <line x1={PL} y1={py(t)} x2={W - PR} y2={py(t)} stroke="#eee" strokeWidth={1} />
+                          <text x={PL - 4} y={py(t) + 3.5} textAnchor="end" fontSize={8} fill="#999">
+                            {t >= 1000 ? `${Math.round(t / 1000)}K` : t}
+                          </text>
+                        </g>
+                      ))}
+
+                      {/* SBTi 2032 target line */}
+                      {target2032 > 0 && (
+                        <g>
+                          <line x1={PL} x2={W - PR} y1={py(target2032)} y2={py(target2032)}
+                            stroke="#3E7B3E" strokeWidth={1.2} strokeDasharray="4 3" />
+                          <text x={W - PR - 2} y={py(target2032) - 3} textAnchor="end" fontSize={8} fill="#3E7B3E">SBTi 2032</text>
+                        </g>
+                      )}
+
+                      {/* Stacked bars */}
+                      {YEARS_S3.map((yr, i) => {
+                        const row = scope3Regional.find(r => r.year === yr)!;
+                        const cx = PL + i * colW + colW / 2 - barW / 2;
+                        const vnH = (row.vn / maxVal) * chartH;
+                        const inH = (row.india / maxVal) * chartH;
+                        const totalH = vnH + inH;
+                        const isYtd = yr >= 2026;
+                        return (
+                          <g key={yr}>
+                            {/* India (bottom) */}
+                            <rect x={cx} y={PT + chartH - inH} width={barW} height={inH}
+                              fill={IN_COLOR} opacity={isYtd ? 0.7 : 1}
+                              rx={1}>
+                              <title>India {yr}: {row.india.toLocaleString()} tCO₂e</title>
+                            </rect>
+                            {/* Vietnam (top) */}
+                            <rect x={cx} y={PT + chartH - totalH} width={barW} height={vnH}
+                              fill={VN_COLOR} opacity={isYtd ? 0.7 : 1}
+                              rx={1}>
+                              <title>Vietnam {yr}: {row.vn.toLocaleString()} tCO₂e</title>
+                            </rect>
+                            {/* Total label */}
+                            <text x={cx + barW / 2} y={PT + chartH - totalH - 4}
+                              textAnchor="middle" fontSize={8} fontWeight={700} fill="#1a1a1a">
+                              {Math.round(row.total / 1000)}K
+                            </text>
+                            {/* Year label */}
+                            <text x={cx + barW / 2} y={H - PB + 11}
+                              textAnchor="middle" fontSize={8.5} fill={isYtd ? '#E8960E' : '#555'} fontWeight={isYtd ? 700 : 400}>
+                              {isYtd ? `Q1 '${String(yr).slice(-2)}` : yr}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Axis */}
+                      <line x1={PL} y1={PT + chartH} x2={W - PR} y2={PT + chartH} stroke="#bbb" strokeWidth={1.5} />
+                    </svg>
+                  </div>
+
+                  {/* Right column: summary table + key insights */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: '10.5px' }}>
+                    {/* Mini table */}
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                          <th style={{ padding: '3px 6px', textAlign: 'left', fontWeight: 700 }}>Year</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right', color: '#fba4a4' }}>🇻🇳 VN</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right', color: '#c8dce8' }}>🇮🇳 India</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right' }}>Total</th>
+                          <th style={{ padding: '3px 6px', textAlign: 'right' }}>VN %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scope3Regional.filter(r => r.total > 0).map((row, ri) => (
+                          <tr key={row.year} style={{ background: ri % 2 === 0 ? '#f9f9f9' : 'white', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '2px 6px', fontWeight: row.year >= 2026 ? 700 : 400, color: row.year >= 2026 ? '#7a4f00' : '#1a1a1a' }}>
+                              {row.year >= 2026 ? `Q1 '26` : row.year}
+                            </td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', color: VN_COLOR, fontWeight: 600 }}>{row.vn.toLocaleString()}</td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', color: '#5580a0', fontWeight: 600 }}>{row.india.toLocaleString()}</td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', fontWeight: 700 }}>{row.total.toLocaleString()}</td>
+                            <td style={{ padding: '2px 6px', textAlign: 'right', color: '#555' }}>
+                              {row.total > 0 ? Math.round(row.vn / row.total * 100) + '%' : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Legend */}
+                    <div style={{ display: 'flex', gap: 12, fontSize: '10px', color: '#555', marginTop: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, background: VN_COLOR, display: 'inline-block', borderRadius: 2 }} />🇻🇳 Vietnam (Long An · Phan Thiết · Tây Ninh)</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, background: IN_COLOR, display: 'inline-block', borderRadius: 2 }} />🇮🇳 India (Tuticorin)</div>
+                    </div>
+
+                    {/* Key insight */}
+                    {(() => {
+                      const r2021 = scope3Regional.find(r => r.year === 2021);
+                      const r2025 = scope3Regional.find(r => r.year === 2025);
+                      const inPct2021 = r2021 && r2021.total > 0 ? Math.round(r2021.india / r2021.total * 100) : 0;
+                      const inPct2025 = r2025 && r2025.total > 0 ? Math.round(r2025.india / r2025.total * 100) : 0;
+                      const vnPct2025 = 100 - inPct2025;
+                      return (
+                        <div style={{ padding: '5px 8px', background: '#fff8e1', border: '1px solid #E8960E', borderRadius: 4, fontSize: '10px', color: '#7a4f00', lineHeight: '1.5' }}>
+                          <strong>💡 {lang === 'vi' ? 'Nhận xét:' : 'Key Insight:'}</strong>{' '}
+                          {lang === 'vi'
+                            ? `Khối VN chiếm ${vnPct2025}% Scope 3 năm 2025 (tăng từ ${100 - inPct2021}% năm 2021). Tuticorin (India) từ ${inPct2021}% giảm xuống còn ${inPct2025}% — gánh nặng chuỗi cung ứng đang dồn về Việt Nam. Sử dụng số liệu này để giao KPI giảm phát thải cụ thể cho từng quốc gia.`
+                            : `Vietnam accounts for ${vnPct2025}% of Scope 3 in 2025 (up from ${100 - inPct2021}% in 2021). India (Tuticorin) dropped from ${inPct2021}% to ${inPct2025}% — supply chain carbon burden is shifting toward Vietnam. Use this split to assign country-specific emission reduction KPIs.`}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
             </div>
           </div>
         );
