@@ -1454,6 +1454,13 @@ export default function OpexReportPage() {
             downloadName={`Scope1_Emissions_${selectedFac}.png`}
           />
 
+          {/* ── Scope 1 Fuel Breakdown Chart ── */}
+          <Scope1BreakdownChart
+            years={[2021, 2022, 2023, 2024, 2025, 2026].filter(y => y < 2026 || get(2026).scope1 > 0)}
+            breakdown={scope1Breakdown}
+            selectedFac={selectedFac}
+          />
+
           {/* ── Scope 1 mini-OGSM table ── */}
           {(() => {
             const years = [2021, 2022, 2023, 2024, 2025];
@@ -1519,13 +1526,6 @@ export default function OpexReportPage() {
             );
           })()}
 
-
-          {/* ── Scope 1 Fuel Breakdown Chart ── */}
-          <Scope1BreakdownChart
-            years={[2021, 2022, 2023, 2024, 2025, 2026].filter(y => y < 2026 || get(2026).scope1 > 0)}
-            breakdown={scope1Breakdown}
-            selectedFac={selectedFac}
-          />
 
           {/* Commentary — 100% data-driven from DB */}
           {(() => {
@@ -1600,16 +1600,23 @@ export default function OpexReportPage() {
                 )}
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px', fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
-                  <strong>🔮 {lang === 'vi' ? 'Phương pháp thuật toán Dự báo 2026:' : '2026 Forecast Algorithm Methodology:'}</strong>{' '}
+                  <strong>🔮 {lang === 'vi' ? 'Dự phóng 2026 (FC 2026) & Phương pháp luận:' : '2026 Forecast (FC 2026) & Methodology:'}</strong>{' '}
                   {lang === 'vi'
-                    ? 'Dự báo được tính toán động (dynamic forecasting) kết hợp hiệu suất lượng phát thải thực tế Quý 1 với Kế hoạch sản xuất các tháng còn lại (MTC - Months to Come). Công thức:'
-                    : 'The forecast employs dynamic modeling, compounding Q1 actual emissions performance with the remaining production plan (MTC - Months to Come). Formula:'}
+                    ? `Dự phóng phát thải cuối năm 2026 đạt khoảng `
+                    : `Year-end 2026 emissions are projected at `}
+                  <strong style={{ color: '#b91c1c' }}>{Math.round(fcS1).toLocaleString()} tCO₂e</strong>.
                   <br />
-                  <span style={{ fontFamily: 'monospace', color: '#b91c1c', display: 'inline-block', margin: '3px 0' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
-                  <br />
-                  {lang === 'vi'
-                    ? 'Cách tiếp cận trực tiếp nắn chỉnh dự phóng theo mức độ tối ưu năng lượng hiện thời (YTD Intensity), triệt tiêu sai lệch so với ấn định tĩnh ban đầu.'
-                    : 'This directly aligns the year-end estimate with the current operational energy efficiency factor (YTD Intensity), neutralizing static estimation drift.'}
+                  <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '11px', color: '#4a5568' }}>
+                    {lang === 'vi'
+                      ? 'Dự báo được tính toán động, kết hợp hiệu suất thực tế Quý 1 với Kế hoạch sản xuất các tháng còn lại (MTC). Công thức:'
+                      : 'The forecast employs dynamic modeling, compounding Q1 actual performance with the remaining production plan (MTC). Formula:'}
+                    <br />
+                    <span style={{ fontFamily: 'monospace', color: '#88641a', display: 'inline-block', margin: '2px 0 4px' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
+                    <br />
+                    {lang === 'vi'
+                      ? 'Cách tiếp cận trực tiếp nắn chỉnh dự phóng theo mức độ tối ưu năng lượng hiện thời (YTD Intensity), triệt tiêu sai lệch so với ấn định tĩnh ban đầu.'
+                      : 'This aligns the year-end estimate with the current operational energy efficiency factor (YTD Intensity), neutralizing static estimation drift.'}
+                  </span>
                 </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
@@ -1786,16 +1793,23 @@ export default function OpexReportPage() {
                 </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px', fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
-                  <strong>🔮 {lang === 'vi' ? 'Phương pháp thuật toán Dự báo 2026:' : '2026 Forecast Algorithm Methodology:'}</strong>{' '}
+                  <strong>🔮 {lang === 'vi' ? 'Dự phóng 2026 (FC 2026) & Phương pháp luận:' : '2026 Forecast (FC 2026) & Methodology:'}</strong>{' '}
                   {lang === 'vi'
-                    ? 'Tương tự Scope 1, dự báo Scope 2 dựa trên Cường độ tiêu thụ điện năng thực tế Quý 1 nhân với Khối lượng sản xuất MTC. Công thức:'
-                    : 'Similar to Scope 1, the Scope 2 forecast applies Q1 actual grid power intensity to the outstanding MTC production volume. Formula:'}
+                    ? `Phát thải điện cuối 2026 dự phóng ở mức `
+                    : `Year-end 2026 grid emissions are projected at `}
+                  <strong style={{ color: '#4472C4' }}>{Math.round(fcS2).toLocaleString()} tCO₂e</strong>.
                   <br />
-                  <span style={{ fontFamily: 'monospace', color: '#4472C4', display: 'inline-block', margin: '3px 0' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
-                  <br />
-                  {lang === 'vi'
-                    ? 'Giúp điều chỉnh lại các dự báo trước đây, tự động phản ánh sự cải thiện (hoặc suy giảm) hiệu suất do lưới điện hoặc thiết bị, giúp theo dõi sát sao lượng tiêu thụ điện còn lại.'
-                    : 'This recalibrates projected emissions, natively capturing improvements (or degradation) in machine efficiency or grid usage patterns relative to remaining production load.'}
+                  <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '11px', color: '#4a5568' }}>
+                    {lang === 'vi'
+                      ? 'Tương tự Scope 1, dự báo Scope 2 dựa trên Cường độ tiêu thụ điện năng thực tế Quý 1 nhân với Khối lượng sản xuất MTC. Công thức:'
+                      : 'Similar to Scope 1, the Scope 2 forecast applies Q1 actual grid power intensity to the outstanding MTC production volume. Formula:'}
+                    <br />
+                    <span style={{ fontFamily: 'monospace', color: '#4472C4', display: 'inline-block', margin: '2px 0 4px' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
+                    <br />
+                    {lang === 'vi'
+                      ? 'Giúp điều chỉnh lại các dự báo trước đây, tự động phản ánh sự cải thiện (hoặc suy giảm) hiệu suất do lưới điện hoặc thiết bị, giúp theo dõi sát sao lượng tiêu thụ điện còn lại.'
+                      : 'This recalibrates projected emissions, natively capturing improvements (or degradation) in machine efficiency or grid usage patterns relative to remaining production load.'}
+                  </span>
                 </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
@@ -1980,61 +1994,6 @@ export default function OpexReportPage() {
 
         return (
           <div style={{ padding: '4px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {/* OGSM Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                <thead>
-                  <tr style={{ background: '#1a3d5c', color: 'white' }}>
-                    <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, minWidth: 220 }}>Scope 3</th>
-                    {oKeys.map((k) => (
-                      <th key={k} style={{
-                        padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap',
-                        background: k.includes('2026*') ? '#E8960E' : k.includes('FC') ? '#3E7B3E' : undefined,
-                      }}>{k}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Total Emissions row */}
-                  <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
-                    <td style={{ padding: '4px 8px', fontWeight: 700 }}>Total Emissions (tCO₂e)</td>
-                    {[s3Base.total, s3_2022?.total || 0, s3_2023?.total || 0, s3_2024?.total || 0, s3Cur.total].map((v, vi) => (
-                      <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{Math.round(v).toLocaleString()}</td>
-                    ))}
-                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1' }}>{s3_2026ytd ? Math.round(s3_2026ytd.total).toLocaleString() : '—'}</td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#3E7B3E', background: '#f0fdf4' }}>{fcS3Total.toLocaleString()}</td>
-                  </tr>
-                  {/* Intensity row (tCO2e / tRCN procured) */}
-                  <tr style={{ background: '#fff', borderBottom: '2px solid #cbd5e1' }}>
-                    <td style={{ padding: '4px 8px', fontWeight: 700, color: '#666' }}>Intensity (tCO₂e/tRCN)</td>
-                    {[2021, 2022, 2023, 2024, 2025].map((y, vi) => (
-                      <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#666' }}>
-                        {rcnByYear[y] > 0 ? (((s3Data.find(d => d.year === y)?.total) || 0) / rcnByYear[y]).toFixed(4) : '—'}
-                      </td>
-                    ))}
-                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#88641a', background: '#fff8e1' }}>
-                      {s3_2026ytd && ytd26rcn_s3 > 0 ? (s3_2026ytd.total / ytd26rcn_s3).toFixed(4) : '—'}
-                    </td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#15803d', background: '#f0fdf4' }}>
-                      {(fcS3Total / full26rcn_s3).toFixed(4)}
-                    </td>
-                  </tr>
-                  {/* Sub-category rows */}
-                  {[
-                    { label: '  ↳ Cat.1 Cashew (FLAG)', ytd: s3_2026ytd?.cat1, fc: fcS3Cat1, hist: [s3Base.cat1, s3_2022?.cat1 || 0, s3_2023?.cat1 || 0, s3_2024?.cat1 || 0, s3Cur.cat1] },
-                    { label: '  ↳ Cat.3 WTT', ytd: s3_2026ytd?.cat3, fc: fcS3Cat3, hist: [s3Base.cat3, s3_2022?.cat3 || 0, s3_2023?.cat3 || 0, s3_2024?.cat3 || 0, s3Cur.cat3] },
-                    { label: '  ↳ Cat.4 Transport', ytd: s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : undefined, fc: fcS3Cat4, hist: [s3Base.cat4v + s3Base.cat4r, (s3_2022?.cat4v || 0) + (s3_2022?.cat4r || 0), (s3_2023?.cat4v || 0) + (s3_2023?.cat4r || 0), (s3_2024?.cat4v || 0) + (s3_2024?.cat4r || 0), s3Cur.cat4v + s3Cur.cat4r] },
-                  ].map((row, ri) => (
-                    <tr key={ri} style={{ background: 'white', borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '4px 8px', color: '#555' }}>{row.label}</td>
-                      {row.hist.map((v, vi) => <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', color: '#555' }}>{Math.round(v).toLocaleString()}</td>)}
-                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#7a4f00', background: '#fff8e1' }}>{row.ytd != null ? Math.round(row.ytd).toLocaleString() : '—'}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#3E7B3E', background: '#f0fdf4' }}>{row.fc.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
 
             {/* Chart + Commentary side by side */}
             <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
@@ -2214,7 +2173,11 @@ export default function OpexReportPage() {
                 </div>
 
                 <div style={{ fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
-                  <strong>🔮 {lang === 'vi' ? 'Phương pháp thuật toán Dự báo 2026 (Scope 3):' : '2026 Forecast Algorithm Methodology (Scope 3):'}</strong>{' '}
+                  <strong>🔮 {lang === 'vi' ? 'Dự phóng 2026 (FC 2026) & Phương pháp luận:' : '2026 Forecast (FC 2026) & Methodology:'}</strong>{' '}
+                  {lang === 'vi'
+                    ? `Dự phóng phát thải chuỗi cung ứng cuối 2026 cán mốc `
+                    : `Year-end 2026 supply chain emissions are projected at `}
+                  <strong style={{ color: '#3E7B3E' }}>{Math.round(fcS3Total).toLocaleString()} tCO₂e</strong>.
                   <span style={{ display: 'block', margin: '4px 0 2px' }}>
                     {lang === 'vi'
                       ? 'Dự phóng chuỗi cung ứng được cấu trúc độc lập theo từng Category nhằm triệt tiêu điểm mù tĩnh:'
@@ -2558,6 +2521,63 @@ export default function OpexReportPage() {
 
               </div>
             </div>
+
+            {/* OGSM Table */}
+            <div style={{ overflowX: 'auto', marginTop: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                <thead>
+                  <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                    <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, minWidth: 220 }}>Scope 3</th>
+                    {oKeys.map((k) => (
+                      <th key={k} style={{
+                        padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap',
+                        background: k.includes('2026*') ? '#E8960E' : k.includes('FC') ? '#3E7B3E' : undefined,
+                      }}>{k}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Total Emissions row */}
+                  <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: 700 }}>Total Emissions (tCO₂e)</td>
+                    {[s3Base.total, s3_2022?.total || 0, s3_2023?.total || 0, s3_2024?.total || 0, s3Cur.total].map((v, vi) => (
+                      <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{Math.round(v).toLocaleString()}</td>
+                    ))}
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#7a4f00', background: '#fff8e1' }}>{s3_2026ytd ? Math.round(s3_2026ytd.total).toLocaleString() : '—'}</td>
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#3E7B3E', background: '#f0fdf4' }}>{fcS3Total.toLocaleString()}</td>
+                  </tr>
+                  {/* Intensity row (tCO2e / tRCN procured) */}
+                  <tr style={{ background: '#fff', borderBottom: '2px solid #cbd5e1' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: 700, color: '#666' }}>Intensity (tCO₂e/tRCN)</td>
+                    {[2021, 2022, 2023, 2024, 2025].map((y, vi) => (
+                      <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#666' }}>
+                        {rcnByYear[y] > 0 ? (((s3Data.find(d => d.year === y)?.total) || 0) / rcnByYear[y]).toFixed(4) : '—'}
+                      </td>
+                    ))}
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#88641a', background: '#fff8e1' }}>
+                      {s3_2026ytd && ytd26rcn_s3 > 0 ? (s3_2026ytd.total / ytd26rcn_s3).toFixed(4) : '—'}
+                    </td>
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#15803d', background: '#f0fdf4' }}>
+                      {(fcS3Total / full26rcn_s3).toFixed(4)}
+                    </td>
+                  </tr>
+                  {/* Sub-category rows */}
+                  {[
+                    { label: '  ↳ Cat.1 Cashew (FLAG)', ytd: s3_2026ytd?.cat1, fc: fcS3Cat1, hist: [s3Base.cat1, s3_2022?.cat1 || 0, s3_2023?.cat1 || 0, s3_2024?.cat1 || 0, s3Cur.cat1] },
+                    { label: '  ↳ Cat.3 WTT', ytd: s3_2026ytd?.cat3, fc: fcS3Cat3, hist: [s3Base.cat3, s3_2022?.cat3 || 0, s3_2023?.cat3 || 0, s3_2024?.cat3 || 0, s3Cur.cat3] },
+                    { label: '  ↳ Cat.4 Transport', ytd: s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : undefined, fc: fcS3Cat4, hist: [s3Base.cat4v + s3Base.cat4r, (s3_2022?.cat4v || 0) + (s3_2022?.cat4r || 0), (s3_2023?.cat4v || 0) + (s3_2023?.cat4r || 0), (s3_2024?.cat4v || 0) + (s3_2024?.cat4r || 0), s3Cur.cat4v + s3Cur.cat4r] },
+                  ].map((row, ri) => (
+                    <tr key={ri} style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '4px 8px', color: '#555' }}>{row.label}</td>
+                      {row.hist.map((v, vi) => <td key={vi} style={{ padding: '4px 8px', textAlign: 'right', color: '#555' }}>{Math.round(v).toLocaleString()}</td>)}
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#7a4f00', background: '#fff8e1' }}>{row.ytd != null ? Math.round(row.ytd).toLocaleString() : '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#3E7B3E', background: '#f0fdf4' }}>{row.fc.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
           </div>
         );
       })()}
