@@ -943,11 +943,11 @@ export default function OpexReportPage() {
     return {
       s1AnnualCut: f_s1AnnualCut,
       s2AnnualCut: f_s2AnnualCut,
-      s1Proj: (year: number) => Math.max(f_s1_2025 - f_s1AnnualCut * (year - 2025), isSolar ? 0 : 0),
+      s1Proj: (year: number) => Math.max(f_s1_2025 - f_s1AnnualCut * (year - 2025), f_s1FinalTarget),
       s2Proj: (year: number) => {
         const linearCut = f_s2_2025 - f_s2AnnualCut * (year - 2025);
         const solar = isSolar ? ptSolarSaving(year) : 0;
-        return Math.max(linearCut - solar, f_b2 * 0.5);
+        return Math.max(linearCut - solar, f_s2FinalTargetBase);
       }
     };
   };
@@ -1599,6 +1599,19 @@ export default function OpexReportPage() {
                   </p>
                 )}
 
+                <p style={{ margin: '0 0 4px', marginTop: '6px', fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
+                  <strong>🔮 {lang === 'vi' ? 'Phương pháp thuật toán Dự báo 2026:' : '2026 Forecast Algorithm Methodology:'}</strong>{' '}
+                  {lang === 'vi'
+                    ? 'Dự báo được tính toán động (dynamic forecasting) kết hợp hiệu suất lượng phát thải thực tế Quý 1 với Kế hoạch sản xuất các tháng còn lại (MTC - Months to Come). Công thức:'
+                    : 'The forecast employs dynamic modeling, compounding Q1 actual emissions performance with the remaining production plan (MTC - Months to Come). Formula:'}
+                  <br />
+                  <span style={{ fontFamily: 'monospace', color: '#b91c1c', display: 'inline-block', margin: '3px 0' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
+                  <br />
+                  {lang === 'vi'
+                    ? 'Cách tiếp cận trực tiếp nắn chỉnh dự phóng theo mức độ tối ưu năng lượng hiện thời (YTD Intensity), triệt tiêu sai lệch so với ấn định tĩnh ban đầu.'
+                    : 'This directly aligns the year-end estimate with the current operational energy efficiency factor (YTD Intensity), neutralizing static estimation drift.'}
+                </p>
+
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
                 <ul style={{ margin: 0, paddingLeft: '18px' }}>
                   {(selectedFac === 'ALL' || factories.find(f => f.id === selectedFac)?.country === 'Vietnam') && (
@@ -1770,6 +1783,19 @@ export default function OpexReportPage() {
                   {' '}{lang === 'vi' ? 'so với thay đổi sản lượng:' : 'vs Production shift:'}{' '}
                   <span style={{ fontWeight: 600 }}>{rcnGrowth > 0 ? '+' : ''}{rcnGrowth.toFixed(1)}%</span>.
                   {' '}<em>{intGrowth > 0 ? (lang === 'vi' ? "Mức sử dụng điện lưới đang tăng nhanh hơn mức tăng trưởng sản lượng. Cần ưu tiên can thiệp." : "Grid power usage is scaling worse than production growth. Priority intervention required.") : (lang === 'vi' ? "Hiệu suất điện lưới được cải thiện so với sản lượng." : "Grid efficiency improved relative to production throughput.")}</em>
+                </p>
+
+                <p style={{ margin: '0 0 4px', marginTop: '6px', fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
+                  <strong>🔮 {lang === 'vi' ? 'Phương pháp thuật toán Dự báo 2026:' : '2026 Forecast Algorithm Methodology:'}</strong>{' '}
+                  {lang === 'vi'
+                    ? 'Tương tự Scope 1, dự báo Scope 2 dựa trên Cường độ tiêu thụ điện năng thực tế Quý 1 nhân với Khối lượng sản xuất MTC. Công thức:'
+                    : 'Similar to Scope 1, the Scope 2 forecast applies Q1 actual grid power intensity to the outstanding MTC production volume. Formula:'}
+                  <br />
+                  <span style={{ fontFamily: 'monospace', color: '#4472C4', display: 'inline-block', margin: '3px 0' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
+                  <br />
+                  {lang === 'vi'
+                    ? 'Giúp điều chỉnh lại các dự báo trước đây, tự động phản ánh sự cải thiện (hoặc suy giảm) hiệu suất do lưới điện hoặc thiết bị, giúp theo dõi sát sao lượng tiêu thụ điện còn lại.'
+                    : 'This recalibrates projected emissions, natively capturing improvements (or degradation) in machine efficiency or grid usage patterns relative to remaining production load.'}
                 </p>
 
                 <p style={{ margin: '0 0 4px', marginTop: '6px' }}><strong>{lang === 'vi' ? 'Kế hoạch Giảm thiểu Chiến lược:' : 'Strategic Mitigation Plan:'}</strong></p>
@@ -2185,6 +2211,26 @@ export default function OpexReportPage() {
                       <span title="This analysis uses EF (tCO₂e/tonne RCN) to isolate:&#10;Are emission changes due to business scale (Volume) or actual supply chain efficiency (Sourcing Mix)?&#10;The charts below strip away the Volume factor to evaluate pure Carbon efficiency, generating targeted Action Plans." style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, background: '#E8960E', color: 'white', borderRadius: '50%', fontSize: '9px', marginLeft: 6, fontWeight: 'bold' }}>?</span>
                     </strong> — <em>Aggregated overview</em> logic applied as Scope 3 is not yet allocated per factory. EF (tCO₂e / tRCN) evaluates emissions efficiency.<br /><span style={{ opacity: 0.85, fontSize: '9.5px' }}>* Hover over the (?) icon in the title to view analysis rationale.</span></>
                   )}
+                </div>
+
+                <div style={{ fontSize: '11.5px', color: '#2d3748', background: '#f8fafc', padding: '6px 8px', borderLeft: '3px solid #cbd5e1', borderRadius: '4px' }}>
+                  <strong>🔮 {lang === 'vi' ? 'Phương pháp thuật toán Dự báo 2026 (Scope 3):' : '2026 Forecast Algorithm Methodology (Scope 3):'}</strong>{' '}
+                  <span style={{ display: 'block', margin: '4px 0 2px' }}>
+                    {lang === 'vi'
+                      ? 'Dự phóng chuỗi cung ứng được cấu trúc độc lập theo từng Category nhằm triệt tiêu điểm mù tĩnh:'
+                      : 'Supply chain forecasting is structurally bifurcated by Category to eliminate static blind spots:'}
+                  </span>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: '#4a5568' }}>
+                    <li>
+                      <strong style={{ color: '#2F855A' }}>Cat.1 (Cashew):</strong> {lang === 'vi' ? 'Q1 Thực tế + [Kế hoạch Thu mua MTC × Origin EF của từng quốc gia gộp lại].' : 'Q1 Actual + [Aggregated MTC Procurement Plan × Origin-specific Unit EF].'}
+                    </li>
+                    <li>
+                      <strong style={{ color: '#90BE6D' }}>Cat.3 (WTT Fuel):</strong> {lang === 'vi' ? 'Q1 Thực tế + [Cường độ WTT Q1 × Khối lượng sản xuất MTC]. Thể hiện sự đồng bộ hoàn toàn với Scope 1 & 2.' : 'Q1 Actual + [Q1 YTD WTT Intensity × Remaining MTC Processing Volume]. Ensures absolute synchronicity with Scope 1 & 2 momentum.'}
+                    </li>
+                    <li>
+                      <strong style={{ color: '#4A9E8C' }}>Cat.4 (Transport):</strong> {lang === 'vi' ? 'Q1 Thực tế + Tổng [Khoảng cách tuyến đường × Khối lượng vận chuyển MTC × EF phương tiện].' : 'Q1 Actual + Sum of [Route Distance × MTC Haulage Volume × Mode-specific EF].'}
+                    </li>
+                  </ul>
                 </div>
 
                 {/* ── EF Trend — all years ── */}
