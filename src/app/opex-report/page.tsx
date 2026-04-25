@@ -75,20 +75,22 @@ function WaterfallChart({
   title,
   legendOrder,
   downloadName,
+  compact = false,
 }: {
   bars: BarPoint[];
   callouts?: Callout[];
   title: string;
   legendOrder?: ('baseline' | 'actual' | 'estimated' | 'target')[];
   downloadName?: string;
+  compact?: boolean;
 }) {
   const svgRef = React.useRef<SVGSVGElement>(null);
 
-  // SVG dimensions — tall chart with generous top pad for callout brackets
-  const W = 560, H = 400;
-  const PL = 8, PR = 8, PT = 130, PB = 46;
+  // SVG dimensions — keep Opex waterfall executive-sized instead of filling the viewport.
+  const W = 560, H = compact ? 260 : 320;
+  const PL = 8, PR = 8, PT = compact ? 74 : 104, PB = compact ? 34 : 42;
   const cw = (W - PL - PR) / bars.length;
-  const bw = Math.min(40, cw * 0.65);
+  const bw = Math.min(compact ? 34 : 34, cw * (compact ? 0.58 : 0.58));
   const chartH = H - PT - PB;
 
   // Y scale
@@ -114,7 +116,7 @@ function WaterfallChart({
     <div style={{ flex: 1, minWidth: 0 }}>
       {/* Chart title & Export row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px' }}>
-        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#222', lineHeight: 1.3 }}
+        <div style={{ fontSize: compact ? '11.5px' : '12.5px', fontWeight: 700, color: '#222', lineHeight: 1.25 }}
           dangerouslySetInnerHTML={{ __html: title }}
         />
         {downloadName && (
@@ -128,7 +130,7 @@ function WaterfallChart({
         )}
       </div>
       {/* Legend — top right position matching PPT */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '2px', fontSize: '10.5px', alignItems: 'center', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: compact ? '8px' : '12px', marginBottom: compact ? '0px' : '2px', fontSize: compact ? '9.5px' : '10.5px', alignItems: 'center', justifyContent: 'flex-end' }}>
         {legendItems.map(item => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px', flexShrink: 0 }} />
@@ -667,17 +669,18 @@ const S1_CATS: { key: string; label: string; color: string }[] = [
 type S1BreakYear = OpexScope1BreakYear;
 
 function Scope1BreakdownChart({
-  years, breakdown, selectedFac,
+  years, breakdown, selectedFac, compact = false,
 }: {
   years: number[];
   breakdown: S1BreakYear[];
   selectedFac: string;
+  compact?: boolean;
 }) {
   const [hovYear, setHovYear] = React.useState<number | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
 
-  const W = 540, H = 230;
-  const PL = 6, PR = 6, PT = 14, PB = 50;
+  const W = 540, H = compact ? 170 : 230;
+  const PL = 6, PR = 6, PT = compact ? 10 : 14, PB = compact ? 34 : 50;
   const chartH = H - PT - PB;
   const cw = (W - PL - PR) / years.length;
   const bw = Math.min(38, cw * 0.72);
@@ -694,9 +697,9 @@ function Scope1BreakdownChart({
   );
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: compact ? 4 : 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#C8281A' }}>
+        <div style={{ fontSize: compact ? '10.5px' : '11px', fontWeight: 700, color: '#C8281A' }}>
           🔥 Scope 1 — Breakdown by Fuel / Source (tCO₂e)
         </div>
         <button
@@ -756,7 +759,7 @@ function Scope1BreakdownChart({
                 <text
                   key={cat.key + 'lbl'}
                   x={cx(i)} y={stackY + segH / 2 + 4.5}
-                  textAnchor="middle" fontSize={segH > 28 ? 11 : 10}
+                  textAnchor="middle" fontSize={compact ? 8.5 : segH > 28 ? 11 : 10}
                   fontWeight="800" fill="white"
                 >
                   {Math.round(val).toLocaleString('de-DE')}
@@ -785,11 +788,11 @@ function Scope1BreakdownChart({
                 rx={1}
               />
               {/* Total label above bar */}
-              <text x={cx(i)} y={barTop - 5} textAnchor="middle" fontSize={11.5} fontWeight="800" fill="#333">
+              <text x={cx(i)} y={barTop - 4} textAnchor="middle" fontSize={compact ? 9.5 : 11.5} fontWeight="800" fill="#333">
                 {Math.round(bd.total).toLocaleString('de-DE')}
               </text>
               {/* Year label below */}
-              <text x={cx(i)} y={PT + chartH + 16} textAnchor="middle" fontSize={13} fill="#555" fontWeight={yr === 2026 ? 800 : 600}>
+              <text x={cx(i)} y={PT + chartH + (compact ? 13 : 16)} textAnchor="middle" fontSize={compact ? 10.5 : 13} fill="#555" fontWeight={yr === 2026 ? 800 : 600}>
                 {yr === 2026 ? "Q1'26" : yr.toString()}
               </text>
             </g>
@@ -798,10 +801,10 @@ function Scope1BreakdownChart({
       </svg>
 
       {/* Legend */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginTop: 8, fontSize: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: compact ? '4px 10px' : '8px 16px', marginTop: compact ? 3 : 8, fontSize: compact ? '10px' : '12px' }}>
         {activeCats.map(c => (
           <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 14, height: 14, background: c.color, borderRadius: 2, flexShrink: 0 }} />
+            <div style={{ width: compact ? 10 : 14, height: compact ? 10 : 14, background: c.color, borderRadius: 2, flexShrink: 0 }} />
             <span style={{ color: '#444', fontWeight: 500 }}>{c.label}</span>
           </div>
         ))}
@@ -821,7 +824,7 @@ export default function OpexReportPage() {
   const [loading, setLoading] = useState(true);
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
-  const [selectedScope, setSelectedScope] = useState<'ops' | 'supply' | 'intensity'>('ops');
+  const [selectedScope, setSelectedScope] = useState<'scope1' | 'scope2' | 'supply' | 'intensity'>('scope1');
   const [showForecast, setShowForecast] = useState(false);
   const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2026);
   const [reportData, setReportData] = useState<OpexReportData | null>(null);
@@ -1327,9 +1330,13 @@ export default function OpexReportPage() {
 
             {/* Scope tab switcher */}
             <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: '8px', padding: '3px', border: '1px solid #e2e2e2' }}>
-              <button className={`opex-pill-btn${selectedScope === 'ops' ? ' active-red' : ''}`}
-                onClick={() => setSelectedScope('ops')}>
-                🔥 {lang === 'vi' ? 'Scope 1, 2' : 'Scope 1, 2'}
+              <button className={`opex-pill-btn${selectedScope === 'scope1' ? ' active-red' : ''}`}
+                onClick={() => setSelectedScope('scope1')}>
+                🔥 {lang === 'vi' ? 'Scope 1' : 'Scope 1'}
+              </button>
+              <button className={`opex-pill-btn${selectedScope === 'scope2' ? ' active-red' : ''}`}
+                onClick={() => setSelectedScope('scope2')}>
+                ⚡ {lang === 'vi' ? 'Scope 2' : 'Scope 2'}
               </button>
               <button className={`opex-pill-btn${selectedScope === 'supply' ? ' active-green' : ''}`}
                 onClick={() => setSelectedScope('supply')}>
@@ -1392,11 +1399,13 @@ export default function OpexReportPage() {
         <div style={{
           fontSize: '12px', color: '#888', fontStyle: 'italic',
         }}>
-          {selectedScope === 'ops'
-            ? (lang === 'vi' ? '🎯 Mục tiêu: −50% Phát thải Vận hành so với năm cơ sở 2021 (SBTi Ngắn hạn)' : '🎯 Target: −50% Operations emissions vs 2021 baseline (SBTi Near-term)')
-            : selectedScope === 'supply'
-              ? (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')
-              : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
+          {selectedScope === 'scope1'
+            ? (lang === 'vi' ? '🔥 Scope 1: Phát thải trực tiếp — biomass, LPG/diesel, F-gas và residual emission theo nhà máy' : '🔥 Scope 1: Direct emissions — biomass, LPG/diesel, F-gas and factory residual emissions')
+            : selectedScope === 'scope2'
+              ? (lang === 'vi' ? '⚡ Scope 2: Điện lưới, solar/RE và driver bridge cho phụ thuộc điện còn lại' : '⚡ Scope 2: Grid electricity, solar/RE and driver bridge for residual grid dependency')
+              : selectedScope === 'supply'
+                ? (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')
+                : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
         </div>
 
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
@@ -1532,22 +1541,23 @@ export default function OpexReportPage() {
         );
       })()}
 
-      {/* ── Two Charts — stack vertically on mobile ──────────────────── */}
+      {/* ── Scope 1 / Scope 2 — dedicated full-width tabs ──────────────────── */}
       <div style={{
-        display: selectedScope === 'ops' ? 'grid' : 'none',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '0',
+        display: selectedScope === 'scope1' || selectedScope === 'scope2' ? 'grid' : 'none',
+        gridTemplateColumns: '1fr',
+        gap: '12px',
         padding: '4px 12px',
         flex: 1,
       }}>
         {/* ── Scope 1 ── */}
-        <div style={{ padding: '8px 16px 8px 8px', borderRight: '1.5px solid #e0e0e0' }}>
+        <div style={{ display: selectedScope === 'scope1' ? 'block' : 'none', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff', boxShadow: '0 4px 14px rgba(15,23,42,0.04)' }}>
           <WaterfallChart
             bars={s1Bars}
             callouts={s1Callouts}
             title={`<strong>Scope 1 (reduce firewood usage)</strong> – ${showIntensity ? 'CO₂ Intensity (tCO₂e/tRCN)' : 'Absolute emissions (tCO₂e)'}`}
             legendOrder={['baseline', 'actual', 'estimated', 'target']}
             downloadName={`Scope1_Emissions_${selectedFac}.png`}
+            compact
           />
 
           {/* ── Scope 1 Fuel Breakdown Chart ── */}
@@ -1555,6 +1565,7 @@ export default function OpexReportPage() {
             years={[2021, 2022, 2023, 2024, 2025, 2026].filter(y => y < 2026 || get(2026).scope1 > 0)}
             breakdown={scope1Breakdown}
             selectedFac={selectedFac}
+            compact
           />
 
           {/* ── Scope 1 mini-OGSM table ── */}
@@ -1622,6 +1633,67 @@ export default function OpexReportPage() {
             );
           })()}
 
+
+          {/* ── FC 2026 Calculation Detail ─ Scope 1 ── */}
+          {(() => {
+            const HIST = [2021, 2022, 2023, 2024, 2025];
+            const ytdRCN = get(2026).rcn;
+            const ytdEm  = get(2026).scope1;
+            const iYTD   = ytdRCN > 0 ? ytdEm / ytdRCN : 0;
+            const mtcEst = Math.round(iYTD * facMtcQty);
+            return (
+              <details open style={{ marginBottom: 8, border: '1.5px solid #C8281A', borderRadius: 8, overflow: 'hidden', fontSize: '10.5px' }}>
+                <summary style={{ background: '#C8281A', color: 'white', padding: '5px 12px', fontWeight: 800, cursor: 'pointer', listStyle: 'none' }}>
+                  📐 FC 2026 Calculation Detail — Scope 1 (Direct Combustion)
+                </summary>
+                <div style={{ background: '#fff9f9', padding: '8px 12px' }}>
+                  <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontFamily: 'monospace', fontSize: 11, color: '#7f1d1d', textAlign: 'center' }}>
+                    FC 2026 = YTD Q1 + (Intensityʸʸʵ × MTC Remaining)
+                    <span style={{ display: 'block', marginTop: 3, fontWeight: 800, fontSize: 12 }}>
+                      = {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = <span style={{ color: '#C8281A' }}>{fcS1.toLocaleString()} tCO₂e</span>
+                    </span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                        <th style={{ padding: '3px 8px', textAlign: 'left', minWidth: 180 }}>Parameter</th>
+                        {HIST.map(y => <th key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{y}</th>)}
+                        <th style={{ padding: '3px 8px', textAlign: 'right', background: '#E8960E' }}>Q1 '26</th>
+                        <th style={{ padding: '3px 8px', textAlign: 'right', background: '#9A0000' }}>FC '26</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 700 }}>RCN Volume (tRCN)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{get(y).rcn.toLocaleString()}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{ytdRCN.toLocaleString()}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', background: '#fef2f2', color: '#888' }}>{(ytdRCN + facMtcQty).toLocaleString()}*</td>
+                      </tr>
+                      <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 700 }}>Emissions (tCO₂e)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{Math.round(get(y).scope1).toLocaleString()}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{Math.round(ytdEm).toLocaleString()}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fef2f2', color: '#C8281A' }}>{fcS1.toLocaleString()}</td>
+                      </tr>
+                      <tr style={{ background: '#fdf4f4', borderBottom: '2px solid #C8281A' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 800, color: '#7f1d1d' }}>Intensity (tCO₂e / tRCN) [← coefficient]</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#555' }}>{(get(y).scope1 / get(y).rcn).toFixed(4)}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 900, color: '#C8281A', background: '#fff8e1' }}>{iYTD.toFixed(4)} ← FC</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', background: '#fef2f2', color: '#aaa' }}>—</td>
+                      </tr>
+                      <tr style={{ background: 'white' }}>
+                        <td style={{ padding: '3px 8px', paddingLeft: 18, color: '#555' }}>MTC Remaining Volume (tRCN)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#ccc' }}>—</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#fff8e1' }}>{facMtcQty.toLocaleString()}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#fef2f2' }}>{mtcEst.toLocaleString()} est.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 10, color: '#888', marginTop: 5 }}>* Full-year = YTD Q1 {ytdRCN.toLocaleString()} + MTC {facMtcQty.toLocaleString()} tRCN</div>
+                </div>
+              </details>
+            );
+          })()}
 
           {/* Commentary — 100% data-driven from DB */}
           {(() => {
@@ -1706,7 +1778,7 @@ export default function OpexReportPage() {
         </div>
 
         {/* ── Scope 2 ── */}
-        <div style={{ padding: '8px 8px 8px 16px' }}>
+        <div style={{ display: selectedScope === 'scope2' ? 'block' : 'none', padding: '10px 14px', border: '1px solid #dbeafe', borderRadius: 10, background: '#fff', boxShadow: '0 4px 14px rgba(15,23,42,0.04)' }}>
           <WaterfallChart
             bars={s2Bars}
             callouts={s2Callouts}
@@ -1772,6 +1844,74 @@ export default function OpexReportPage() {
                   </tbody>
                 </table>
               </div>
+            );
+          })()}
+
+          {/* ── FC 2026 Calculation Detail ─ Scope 2 ── */}
+          {(() => {
+            const HIST = [2021, 2022, 2023, 2024, 2025];
+            const ytdRCN = get(2026).rcn;
+            const ytdEm  = get(2026).scope2;
+            const GRID_EF = 0.8928;
+            const iYTD   = ytdRCN > 0 ? ytdEm / ytdRCN : 0;
+            const mtcEst = Math.round(iYTD * facMtcQty);
+            return (
+              <details open style={{ marginBottom: 8, border: '1.5px solid #4472C4', borderRadius: 8, overflow: 'hidden', fontSize: '10.5px' }}>
+                <summary style={{ background: '#4472C4', color: 'white', padding: '5px 12px', fontWeight: 800, cursor: 'pointer', listStyle: 'none' }}>
+                  📐 FC 2026 Calculation Detail — Scope 2 (Grid Electricity, EF = {GRID_EF} kgCO₂e/kWh)
+                </summary>
+                <div style={{ background: '#f8faff', padding: '8px 12px' }}>
+                  <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontFamily: 'monospace', fontSize: 11, color: '#1e3a8a', textAlign: 'center' }}>
+                    FC 2026 = YTD Q1 + (Intensityᴴᵀᴰ × MTC Remaining)
+                    <span style={{ display: 'block', marginTop: 3, fontWeight: 800, fontSize: 12 }}>
+                      = {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = <span style={{ color: '#4472C4' }}>{fcS2.toLocaleString()} tCO₂e</span>
+                    </span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                        <th style={{ padding: '3px 8px', textAlign: 'left', minWidth: 180 }}>Parameter</th>
+                        {HIST.map(y => <th key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{y}</th>)}
+                        <th style={{ padding: '3px 8px', textAlign: 'right', background: '#E8960E' }}>Q1 &apos;26</th>
+                        <th style={{ padding: '3px 8px', textAlign: 'right', background: '#4472C4' }}>FC &apos;26</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 700 }}>RCN Volume (tRCN)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{get(y).rcn.toLocaleString()}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{ytdRCN.toLocaleString()}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', background: '#eff6ff', color: '#888' }}>{(ytdRCN + facMtcQty).toLocaleString()}*</td>
+                      </tr>
+                      <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 700 }}>Emissions (tCO₂e)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{Math.round(get(y).scope2).toLocaleString()}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{Math.round(ytdEm).toLocaleString()}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#eff6ff', color: '#4472C4' }}>{fcS2.toLocaleString()}</td>
+                      </tr>
+                      <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 700 }}>Grid EF applied (kgCO₂e/kWh)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#555' }}>{GRID_EF}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#fff8e1' }}>{GRID_EF}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#eff6ff' }}>{GRID_EF}</td>
+                      </tr>
+                      <tr style={{ background: '#f0f7ff', borderBottom: '2px solid #4472C4' }}>
+                        <td style={{ padding: '3px 8px', fontWeight: 800, color: '#1e3a8a' }}>Intensity (tCO₂e / tRCN) [← coefficient]</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#555' }}>{(get(y).scope2 / get(y).rcn).toFixed(4)}</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 900, color: '#4472C4', background: '#fff8e1' }}>{iYTD.toFixed(4)} ← FC</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', background: '#eff6ff', color: '#aaa' }}>—</td>
+                      </tr>
+                      <tr style={{ background: 'white' }}>
+                        <td style={{ padding: '3px 8px', paddingLeft: 18, color: '#555' }}>MTC Remaining Volume (tRCN)</td>
+                        {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#ccc' }}>—</td>)}
+                        <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#fff8e1' }}>{facMtcQty.toLocaleString()}</td>
+                        <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#eff6ff' }}>{mtcEst.toLocaleString()} est.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 10, color: '#888', marginTop: 5 }}>* Full-year = YTD Q1 {ytdRCN.toLocaleString()} + MTC {facMtcQty.toLocaleString()} tRCN</div>
+                </div>
+              </details>
             );
           })()}
 
@@ -1883,8 +2023,8 @@ export default function OpexReportPage() {
         </div>
       </div>
 
-      <div style={{ display: selectedScope === 'ops' ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10, margin: '0 12px 8px' }}>
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+      <div style={{ display: selectedScope === 'scope1' || selectedScope === 'scope2' ? 'grid' : 'none', gridTemplateColumns: '1fr', gap: 10, margin: '0 12px 8px' }}>
+        <div style={{ display: selectedScope === 'scope1' ? 'block' : 'none', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
           <div style={{ padding: '6px 10px', background: '#fef2f2', color: '#991b1b', fontWeight: 900, fontSize: 12 }}>
             🔥 Scope 1 Residual Emissions by Factory — FC 2026
           </div>
@@ -1906,7 +2046,7 @@ export default function OpexReportPage() {
           </table>
         </div>
 
-        <div style={{ border: '1px solid #dbeafe', borderRadius: 8, background: '#fff', overflow: 'hidden' }}>
+        <div style={{ display: selectedScope === 'scope2' ? 'block' : 'none', border: '1px solid #dbeafe', borderRadius: 8, background: '#fff', overflow: 'hidden' }}>
           <div style={{ padding: '6px 10px', background: '#eff6ff', color: '#1d4ed8', fontWeight: 900, fontSize: 12 }}>
             ⚡ Scope 2 Driver Bridge — Solar / Production / Grid
           </div>
@@ -2075,12 +2215,12 @@ export default function OpexReportPage() {
         const s3IntLabel = showIntensity ? 'tCO₂e/RCN' : 'tCO₂e';
 
         return (
-          <div style={{ padding: '4px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ padding: '6px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-            {/* Chart + Commentary side by side */}
-            <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
-              {/* Chart */}
-              <div style={{ flex: '0 0 55%', minWidth: 0 }}>
+            {/* Executive two-column canvas: left = main trajectory, right = analysis stack */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
+              {/* Left column — trajectory + origin risk */}
+              <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <WaterfallChart
                   bars={s3Bars}
                   callouts={s3Callouts}
@@ -2098,18 +2238,50 @@ export default function OpexReportPage() {
                   </div>
                 </div>
 
-                {/* ── Overall Scope 3 Commentary ── */}
-                <div style={{ marginTop: 10, fontSize: '11px', lineHeight: '1.55', color: '#333' }}>
-                  <p style={{ margin: '0 0 4px', padding: '6px 10px', background: pctVsBase <= 0 ? '#f0fdf4' : '#fff5f5', borderLeft: `3px solid ${pctVsBase <= 0 ? '#3E7B3E' : '#C8281A'}`, borderRadius: '4px' }}>
-                    <strong style={{ color: pctVsBase <= 0 ? '#3E7B3E' : '#C8281A' }}>
-                      {lang === 'vi' ? '📊 Hiệu suất Tổng thể Scope 3:' : '📊 Scope 3 Overall Performance:'}
-                    </strong>{' '}
-                    {lang === 'vi' ? 'Tổng phát thải chuỗi cung ứng hiện tại ghi nhận ở mức ' : 'Total supply chain footprint currently sits at '}
-                    <strong>{fmt(s3Cur.total)} tCO₂e</strong> ({pctVsBase > 0 ? '+' : ''}{pctVsBase}% {lang === 'vi' ? 'so với năm cơ sở 2021' : 'vs 2021 baseline'}).{' '}
+                {/* ── Executive Scope 3 Commentary ── */}
+                <div style={{
+                  marginTop: 8,
+                  display: 'grid',
+                  gridTemplateColumns: '1.05fr 0.95fr',
+                  gap: 8,
+                  alignItems: 'stretch',
+                }}>
+                  <div style={{
+                    padding: '9px 11px',
+                    background: pctVsBase <= 0 ? 'linear-gradient(135deg,#f0fdf4,#ffffff)' : 'linear-gradient(135deg,#fff5f5,#ffffff)',
+                    border: `1px solid ${pctVsBase <= 0 ? '#86efac' : '#fecaca'}`,
+                    borderLeft: `4px solid ${pctVsBase <= 0 ? '#3E7B3E' : '#C8281A'}`,
+                    borderRadius: 8,
+                    boxShadow: '0 6px 16px rgba(15,23,42,0.05)',
+                  }}>
+                    <div style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b', fontWeight: 800, marginBottom: 3 }}>
+                      Executive insight
+                    </div>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.45, color: '#1f2937' }}>
+                      <strong style={{ color: pctVsBase <= 0 ? '#2E6B2E' : '#C8281A' }}>
+                        {lang === 'vi' ? 'Scope 3 đang là điểm nghẽn chính.' : 'Scope 3 is the primary pressure point.'}
+                      </strong>{' '}
+                      {lang === 'vi' ? 'Tổng phát thải chuỗi cung ứng hiện tại đạt ' : 'Current supply-chain footprint is '}
+                      <strong>{fmt(s3Cur.total)} tCO₂e</strong> ({pctVsBase > 0 ? '+' : ''}{pctVsBase}% vs 2021).
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: '9px 11px',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 8,
+                    boxShadow: '0 6px 16px rgba(15,23,42,0.05)',
+                    fontSize: 11.5,
+                    lineHeight: 1.45,
+                    color: '#334155',
+                  }}>
+                    <div style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b', fontWeight: 800, marginBottom: 3 }}>
+                      Required action
+                    </div>
                     {pctVsBase <= 0
-                      ? (lang === 'vi' ? 'Đang đi đúng hướng so với mục tiêu dài hạn SBTi (2032).' : 'Currently tracking positively against long-term SBTi objectives (2032).')
-                      : (lang === 'vi' ? 'Cần tăng tốc giảm phát thải từ nguồn mua sắm (Cat.1) và vận chuyển (Cat.4) để đưa quỹ đạo về sát mục tiêu FLAG.' : 'Accelerated reductions in procurement (Cat.1) and transport (Cat.4) are required to realign with the FLAG trajectory.')}
-                  </p>
+                      ? (lang === 'vi' ? 'Duy trì sourcing mix hiện tại và khóa các origin EF thấp vào kế hoạch mua hàng.' : 'Maintain the current sourcing mix and lock low-EF origins into procurement planning.')
+                      : (lang === 'vi' ? 'Cần kéo sourcing về origin EF thấp và kiểm soát Cat.4 để đưa quỹ đạo sát mục tiêu FLAG.' : 'Shift sourcing toward low-EF origins and control Cat.4 to realign with the FLAG trajectory.')}
+                  </div>
                 </div>
 
                 {/* ── Origin Risk Analysis Panel ── */}
@@ -2238,11 +2410,11 @@ export default function OpexReportPage() {
                 })()}
               </div>
 
-              {/* ── Enhanced Scope 3 Analysis Panel ── */}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Right column — balanced analysis stack */}
+              <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-                {/* ── Note banner ── */}
-                <div style={{ padding: '6px 10px', background: '#fffbeb', border: '1px solid #E8960E', borderRadius: 5, fontSize: '10.5px', color: '#7a4f00' }}>
+                {/* ── Method note banner ── */}
+                <div style={{ padding: '8px 10px', background: 'linear-gradient(135deg,#fffbeb,#ffffff)', border: '1px solid #fcd34d', borderRadius: 8, fontSize: '10.5px', color: '#7a4f00', boxShadow: '0 6px 16px rgba(15,23,42,0.04)' }}>
                   {lang === 'vi' ? (
                     <>ℹ️ <strong style={{ display: 'inline-flex', alignItems: 'center' }}>Scope 3 Overview & EF Analysis
                       <span title="Khối phân tích dùng EF (tCO₂e/tấn RCN) làm thước đo chính để bóc tách:&#10;Sự tăng/giảm phát thải năm nay là do quy mô kinh doanh thay đổi (Volume), hay do chuỗi cung ứng đang kém/tốt đi (Sourcing Mix / Mua từ vùng có EF cao)?&#10;Các biểu đồ bên dưới sẽ bóc tách yếu tố Volume, chỉ đánh giá thuần túy hiệu suất Carbon (EF) để đưa ra định hướng Action Plan." style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, background: '#E8960E', color: 'white', borderRadius: '50%', fontSize: '9px', marginLeft: 6, fontWeight: 'bold' }}>?</span>
@@ -2280,14 +2452,18 @@ export default function OpexReportPage() {
 
                 {/* ── EF Trend — all years ── */}
                 {(() => {
-                  const efYears = [2021, 2022, 2023, 2024, 2025].map(y => {
+                  const efYears = [2021, 2022, 2023, 2024, 2025, 2026].map(y => {
                     const s3y = s3Data.find(d => d.year === y);
-                    const rcn = rcnByYear[y] || 0;
-                    const ef = rcn > 0 && s3y ? s3y.total / rcn : 0;
-                    const cat1 = rcn > 0 && s3y ? s3y.cat1 / rcn : 0;
-                    const cat3 = rcn > 0 && s3y ? s3y.cat3 / rcn : 0;
-                    const cat4 = rcn > 0 && s3y ? (s3y.cat4v + s3y.cat4r) / rcn : 0;
-                    return { y, ef, cat1, cat3, cat4, total: s3y?.total || 0, rcn };
+                    const rcn = y === 2026 ? s3FcRcn : (rcnByYear[y] || 0);
+                    const total = y === 2026 ? fcS3Total : (s3y?.total || 0);
+                    const cat1Total = y === 2026 ? fcS3Cat1 : (s3y?.cat1 || 0);
+                    const cat3Total = y === 2026 ? fcS3Cat3 : (s3y?.cat3 || 0);
+                    const cat4Total = y === 2026 ? fcS3Cat4 : ((s3y?.cat4v || 0) + (s3y?.cat4r || 0));
+                    const ef = rcn > 0 ? total / rcn : 0;
+                    const cat1 = rcn > 0 ? cat1Total / rcn : 0;
+                    const cat3 = rcn > 0 ? cat3Total / rcn : 0;
+                    const cat4 = rcn > 0 ? cat4Total / rcn : 0;
+                    return { y, ef, cat1, cat3, cat4, total, rcn, isFc: y === 2026 };
                   }).filter(d => d.rcn > 0);
 
                   if (efYears.length < 2) return null;
@@ -2307,7 +2483,7 @@ export default function OpexReportPage() {
                   const groupX = (i: number) => PL + cW * i + (cW - subW * SUB_CATS.length) / 2;
 
                   return (
-                    <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '9px 10px', boxShadow: '0 6px 16px rgba(15,23,42,0.04)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>
                           {lang === 'vi' ? '📊 EF Scope 3 — tCO₂e per tonne RCN (tất cả các năm)' : '📊 Scope 3 EF — tCO₂e per tonne RCN (all years)'}
@@ -2347,7 +2523,7 @@ export default function OpexReportPage() {
                                 const by = py(val);
                                 return (
                                   <g key={cat.key}>
-                                    <rect x={bx} y={by} width={subW - 1} height={bh} fill={cat.color} rx={1} opacity={0.88} />
+                                    <rect x={bx} y={by} width={subW - 1} height={bh} fill={cat.color} rx={1} opacity={d.isFc ? 0.68 : 0.88} stroke={d.isFc ? '#E8960E' : 'none'} strokeDasharray={d.isFc ? '2 2' : undefined} />
                                     {bh > 14 && (
                                       <text x={bx + subW / 2 - 0.5} y={by + bh / 2 + 3.5} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="white">
                                         {val.toFixed(2)}
@@ -2365,8 +2541,8 @@ export default function OpexReportPage() {
                                   {isUp ? '▲' : '▼'}{Math.abs(delta).toFixed(2)}
                                 </text>
                               )}
-                              <text x={gx + subW * SUB_CATS.length / 2} y={H - 6} textAnchor="middle" fontSize={10} fontWeight={d.y === 2025 ? 800 : 600} fill="#444">
-                                {d.y}
+                              <text x={gx + subW * SUB_CATS.length / 2} y={H - 6} textAnchor="middle" fontSize={10} fontWeight={d.isFc ? 900 : d.y === 2025 ? 800 : 600} fill={d.isFc ? '#E8960E' : '#444'}>
+                                {d.isFc ? 'FC 2026' : d.y}
                               </text>
                             </g>
                           );
@@ -2390,17 +2566,21 @@ export default function OpexReportPage() {
                   const catYears = [2021, 2022, 2023, 2024, 2025]
                     .map(y => s3Data.find(d => d.year === y))
                     .filter(Boolean) as typeof s3Data;
-                  if (catYears.length === 0) return null;
+                  const catRows = [
+                    ...catYears.map(row => ({ year: row.year, total: row.total, cat1: row.cat1, cat3: row.cat3, cat4: row.cat4v + row.cat4r, isFc: false })),
+                    { year: 2026, total: fcS3Total, cat1: fcS3Cat1, cat3: fcS3Cat3, cat4: fcS3Cat4, isFc: true },
+                  ].filter(row => row.total > 0);
+                  if (catRows.length === 0) return null;
                   const W = 520, H = 130, PL = 50, PR = 10, PT = 14, PB = 28;
                   const chartW = W - PL - PR;
-                  const rowH = (H - PT - PB) / catYears.length;
+                  const rowH = (H - PT - PB) / catRows.length;
                   const cats = [
                     { key: 'cat1', label: 'Cat.1 Cashew', color: '#2F855A' },
                     { key: 'cat3', label: 'Cat.3 WTT', color: '#90BE6D' },
                     { key: 'cat4', label: 'Cat.4 Transport', color: '#4A9E8C' },
                   ];
                   return (
-                    <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '9px 10px', boxShadow: '0 6px 16px rgba(15,23,42,0.04)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: '#333' }}>
                           {lang === 'vi' ? '🥧 Tỷ trọng % Category Scope 3 — qua các năm' : '🥧 Scope 3 Category Breakdown (%) — YoY'}
@@ -2414,15 +2594,15 @@ export default function OpexReportPage() {
                         </button>
                       </div>
                       <svg id="svg-s3-cat" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-                        {catYears.map((row, i) => {
+                        {catRows.map((row, i) => {
                           const total = row.total || 1;
-                          const segs = [row.cat1, row.cat3, row.cat4v + row.cat4r];
+                          const segs = [row.cat1, row.cat3, row.cat4];
                           const y = PT + i * rowH;
                           let curX = PL;
                           return (
                             <g key={row.year}>
-                              <text x={PL - 4} y={y + rowH / 2 + 4} textAnchor="end" fontSize={9.5} fontWeight={row.year === 2025 ? 800 : 600} fill="#444">
-                                {row.year}
+                              <text x={PL - 4} y={y + rowH / 2 + 4} textAnchor="end" fontSize={9.5} fontWeight={row.isFc ? 900 : row.year === 2025 ? 800 : 600} fill={row.isFc ? '#E8960E' : '#444'}>
+                                {row.isFc ? 'FC 2026' : row.year}
                               </text>
                               {segs.map((val, si) => {
                                 const pct = val / total;
@@ -2431,7 +2611,7 @@ export default function OpexReportPage() {
                                 curX += sw;
                                 return (
                                   <g key={si}>
-                                    <rect x={bx} y={y + 1} width={sw} height={rowH - 3} fill={cats[si].color} rx={1} opacity={0.85} />
+                                    <rect x={bx} y={y + 1} width={sw} height={rowH - 3} fill={cats[si].color} rx={1} opacity={row.isFc ? 0.68 : 0.85} stroke={row.isFc ? '#E8960E' : 'none'} strokeDasharray={row.isFc ? '2 2' : undefined} />
                                     {sw > 28 && (
                                       <text x={bx + sw / 2} y={y + rowH / 2 + 4} textAnchor="middle" fontSize={8} fontWeight={700} fill="white">
                                         {Math.round(pct * 100)}%
@@ -2464,14 +2644,18 @@ export default function OpexReportPage() {
 
                 {/* ── Smart YoY Commentary ── */}
                 {(() => {
-                  const allYrs = [2021, 2022, 2023, 2024, 2025].map(y => {
+                  const allYrs = [2021, 2022, 2023, 2024, 2025, 2026].map(y => {
                     const s3y = s3Data.find(d => d.year === y);
-                    const rcn = rcnByYear[y] || 0;
+                    const rcn = y === 2026 ? s3FcRcn : (rcnByYear[y] || 0);
+                    const total = y === 2026 ? fcS3Total : (s3y?.total || 0);
+                    const cat1 = y === 2026 ? fcS3Cat1 : (s3y?.cat1 || 0);
+                    const cat4 = y === 2026 ? fcS3Cat4 : ((s3y?.cat4v || 0) + (s3y?.cat4r || 0));
                     return {
-                      y, ef: rcn > 0 && s3y ? s3y.total / rcn : 0,
-                      total: s3y?.total || 0, rcn,
-                      cat1Pct: s3y && s3y.total > 0 ? Math.round(s3y.cat1 / s3y.total * 100) : 0,
-                      cat4Pct: s3y && s3y.total > 0 ? Math.round((s3y.cat4v + s3y.cat4r) / s3y.total * 100) : 0,
+                      y, ef: rcn > 0 ? total / rcn : 0,
+                      total, rcn,
+                      isFc: y === 2026,
+                      cat1Pct: total > 0 ? Math.round(cat1 / total * 100) : 0,
+                      cat4Pct: total > 0 ? Math.round(cat4 / total * 100) : 0,
                     };
                   }).filter(d => d.rcn > 0);
                   if (allYrs.length < 2) return null;
@@ -2482,14 +2666,14 @@ export default function OpexReportPage() {
                     const absDelta = cur.total - prev.total;
                     return {
                       from: prev.y, to: cur.y, delta, pctChg, absDelta, curEf: cur.ef, prevEf: prev.ef,
-                      cat1Pct: cur.cat1Pct, cat4Pct: cur.cat4Pct
+                      cat1Pct: cur.cat1Pct, cat4Pct: cur.cat4Pct, isFc: cur.isFc
                     };
                   });
                   const latestRow = rows[rows.length - 1];
                   return (
-                    <div style={{ fontSize: '11px', lineHeight: '1.65', borderTop: '1px solid #eee', paddingTop: 8 }}>
-                      <p style={{ margin: '0 0 4px', fontWeight: 700, color: '#1a3d5c' }}>
-                        {lang === 'vi' ? `✏️ So sánh EF Scope 3 — Năm qua Năm (${allYrs[0].y}–${allYrs[allYrs.length - 1].y})` : `✏️ Scope 3 EF Comparison — Year over Year (${allYrs[0].y}–${allYrs[allYrs.length - 1].y})`}
+                    <div style={{ fontSize: '11px', lineHeight: '1.55', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '9px 10px', boxShadow: '0 6px 16px rgba(15,23,42,0.04)' }}>
+                      <p style={{ margin: '0 0 6px', fontWeight: 800, color: '#1a3d5c' }}>
+                        {lang === 'vi' ? `✏️ So sánh EF Scope 3 — Năm qua Năm (${allYrs[0].y}–FC 2026)` : `✏️ Scope 3 EF Comparison — Year over Year (${allYrs[0].y}–FC 2026)`}
                       </p>
                       <div style={{ overflowX: 'auto', marginBottom: 8 }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
@@ -2514,7 +2698,7 @@ export default function OpexReportPage() {
                                   : (lang === 'vi' ? 'EF ổn định' : 'Stable EF');
                               return (
                                 <tr key={r.to} style={{ borderBottom: '1px solid #eee', background: isUp ? '#fff5f5' : isDn ? '#f0fdf4' : '#fff' }}>
-                                  <td style={{ padding: '3px 6px', fontWeight: 700 }}>{r.from}→{r.to}</td>
+                                  <td style={{ padding: '3px 6px', fontWeight: 700 }}>{r.from}→{r.isFc ? 'FC 2026' : r.to}</td>
                                   <td style={{ padding: '3px 6px', textAlign: 'right' }}>{r.prevEf.toFixed(3)}</td>
                                   <td style={{
                                     padding: '3px 6px', textAlign: 'right', fontWeight: 700,
@@ -3148,51 +3332,150 @@ export default function OpexReportPage() {
 
               </div>
 
-              {/* Bottom Row: Balanced executive cards — duplicate country summary removed because Regional Split below already contains the same data */}
+              {/* Bottom Row: differentiated executive cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', padding: '0 12px 12px', gap: 12 }}>
 
-                {/* Panel 3: Insights */}
+                {/* Panel 3: Driver scorecard */}
                 <div style={{ border: '1px solid #d7dde5', background: 'white', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
                   <div style={{ background: '#9A0000', color: 'white', padding: '6px 10px', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center' }}>
                     <div style={{ background: 'white', color: '#9A0000', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, fontSize: 9, fontWeight: 900 }}>3</div>
-                    KEY INSIGHTS & EMISSION DRIVERS
+                    EMISSION DRIVER SCORECARD
                   </div>
-                  <div style={{ padding: '10px 14px', fontSize: 10.5, lineHeight: 1.45 }}>
-                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>Trends &amp; Drivers</div>
-                    <ul style={{ paddingLeft: 16, margin: '0 0 8px 0', color: '#374151' }}>
-                      <li>Scope 3 movement is primarily driven by RCN procurement volume and sourcing origin mix.</li>
-                      <li>Cat.1 remains the dominant hotspot (&gt;90%), therefore EF control at origin level is the highest-impact lever.</li>
-                      <li>FC 2026 should be read together with origin EF and high-EF share, not only total tonnage.</li>
-                    </ul>
-                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>Category Insight</div>
-                    <ul style={{ paddingLeft: 16, margin: 0, color: '#374151' }}>
-                      <li>Emission intensity is influenced by agricultural practice, processing method, and transport distance.</li>
-                      <li>Regional split below is retained as the single source of truth for Vietnam vs India allocation.</li>
-                    </ul>
+                  <div style={{ padding: '12px 14px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, minHeight: 118 }}>
+                    {[
+                      { label: 'Main hotspot', value: 'Cat.1', sub: '>90% of Scope 3', color: '#9A0000' },
+                      { label: '2025 burden', value: 'VN 72%', sub: 'shifted toward Vietnam', color: '#C8281A' },
+                      { label: 'Control lever', value: 'Origin EF', sub: 'procurement KPI', color: '#1a3d5c' },
+                    ].map(card => (
+                      <div key={card.label} style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 7, padding: '9px 8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#64748b', fontWeight: 800 }}>{card.label}</div>
+                        <div style={{ fontSize: 18, lineHeight: 1.1, marginTop: 6, color: card.color, fontWeight: 950 }}>{card.value}</div>
+                        <div style={{ fontSize: 9.5, marginTop: 5, color: '#475569', lineHeight: 1.25 }}>{card.sub}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Panel 4: Strategy */}
+                {/* Panel 4: Action roadmap */}
                 <div style={{ border: '1px solid #d7dde5', background: 'white', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,23,42,0.05)' }}>
-                  <div style={{ background: '#9A0000', color: 'white', padding: '6px 10px', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ background: 'white', color: '#9A0000', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, fontSize: 9, fontWeight: 900 }}>4</div>
-                    NEXT ACTIONS & LONG-TERM STRATEGY (2032)
+                  <div style={{ background: '#1a3d5c', color: 'white', padding: '6px 10px', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center' }}>
+                    <div style={{ background: 'white', color: '#1a3d5c', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, fontSize: 9, fontWeight: 900 }}>4</div>
+                    2032 ACTION ROADMAP
                   </div>
-                  <div style={{ padding: '10px 14px', fontSize: 10.5, lineHeight: 1.45 }}>
-                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>RCN Sourcing Strategy</div>
-                    <ul style={{ paddingLeft: 16, margin: '0 0 8px 0', color: '#374151' }}>
-                      <li>Prioritize low-EF RCN suppliers and gradually tighten sourcing criteria by origin.</li>
-                      <li>Reduce dependency on high-EF origins where quality and supply continuity allow.</li>
-                    </ul>
-                    <div style={{ fontWeight: 900, marginBottom: 3, color: '#1f2937' }}>Operational Focus</div>
-                    <ul style={{ paddingLeft: 16, margin: 0, color: '#374151' }}>
-                      <li>Align procurement, logistics, and fuel strategy to achieve the 2032 SBTi-aligned target.</li>
-                      <li>Use FC 2026 as an early-warning control point for supplier engagement and volume allocation.</li>
-                    </ul>
+                  <div style={{ padding: '12px 16px', minHeight: 118, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, alignItems: 'start' }}>
+                    {[
+                      { step: '01', title: 'Procurement', body: 'Add origin EF into sourcing scorecard.' },
+                      { step: '02', title: 'Logistics', body: 'Optimize transport mode and route load factor.' },
+                      { step: '03', title: 'Governance', body: 'Assign country KPIs using VN/India split.' },
+                    ].map(item => (
+                      <div key={item.step} style={{ position: 'relative', paddingLeft: 10, borderLeft: '2px solid #1a3d5c' }}>
+                        <div style={{ fontSize: 9, color: '#9A0000', fontWeight: 900 }}>STEP {item.step}</div>
+                        <div style={{ fontSize: 12, color: '#111827', fontWeight: 900, marginTop: 3 }}>{item.title}</div>
+                        <div style={{ fontSize: 10, color: '#475569', lineHeight: 1.35, marginTop: 4 }}>{item.body}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
               </div>
+
+              {/* ── FC 2026 Calculation Detail ─ Scope 3 ── */}
+              {(() => {
+                const HIST = [2021, 2022, 2023, 2024, 2025];
+                const ytdRCN    = get(2026).rcn;
+                const ytd_c1   = s3Data.find(d => d.year === 2026)?.cat1 || 0;
+                const ytd_c3   = s3Data.find(d => d.year === 2026)?.cat3 || 0;
+                const ytd_c4v  = s3Data.find(d => d.year === 2026)?.cat4v || 0;
+                const ytd_c4r  = s3Data.find(d => d.year === 2026)?.cat4r || 0;
+                const ytd_c4   = ytd_c4v + ytd_c4r;
+                const iC3 = ytdRCN > 0 ? ytd_c3 / ytdRCN : 0;
+                const mtcC3est = Math.round(iC3 * MTC_2026_TOTAL_QTY);
+
+                const getS3y = (y: number) => s3Data.find(d => d.year === y);
+
+                return (
+                  <details open style={{ margin: '0 12px 12px', border: '1.5px solid #3E7B3E', borderRadius: 8, overflow: 'hidden', fontSize: '10.5px' }}>
+                    <summary style={{ background: '#3E7B3E', color: 'white', padding: '5px 12px', fontWeight: 800, cursor: 'pointer', listStyle: 'none' }}>
+                      📐 FC 2026 Calculation Detail — Scope 3 (Cat.1 + Cat.3 + Cat.4)
+                    </summary>
+                    <div style={{ background: '#f6fdf6', padding: '8px 12px' }}>
+                      {/* Formula banner */}
+                      <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '6px 14px', marginBottom: 10, fontFamily: 'monospace', fontSize: 11, color: '#14532d', textAlign: 'center' }}>
+                        FC S3 = (YTD Cat.1 + Cat.1 MTC Origin-Mix) + (YTD Cat.3 + Intensity₃ × MTC) + (YTD Cat.4 + Logistics Route-Map MTC)
+                        <span style={{ display: 'block', marginTop: 4, fontWeight: 800, fontSize: 12 }}>
+                          = {fcS3Cat1.toLocaleString()} + {fcS3Cat3.toLocaleString()} + {fcS3Cat4.toLocaleString()} = <span style={{ color: '#3E7B3E' }}>{fcS3Total.toLocaleString()} tCO₂e</span>
+                        </span>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#1a3d5c', color: 'white' }}>
+                            <th style={{ padding: '3px 8px', textAlign: 'left', minWidth: 210 }}>Parameter</th>
+                            {HIST.map(y => <th key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{y}</th>)}
+                            <th style={{ padding: '3px 8px', textAlign: 'right', background: '#E8960E' }}>Q1 &apos;26</th>
+                            <th style={{ padding: '3px 8px', textAlign: 'right', background: '#3E7B3E' }}>FC &apos;26</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {/* RCN */}
+                          <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '3px 8px', fontWeight: 700 }}>RCN Volume (tRCN)</td>
+                            {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{get(y).rcn.toLocaleString()}</td>)}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{ytdRCN.toLocaleString()}</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', background: '#f0fdf4', color: '#888' }}>{(ytdRCN + MTC_2026_TOTAL_QTY).toLocaleString()}*</td>
+                          </tr>
+                          {/* Cat.1 */}
+                          <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '3px 8px', fontWeight: 700 }}>Cat.1 — Purchased Goods (tCO₂e)</td>
+                            {HIST.map(y => { const d = getS3y(y); return <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{d?.cat1 ? Math.round(d.cat1).toLocaleString() : '—'}</td>; })}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{Math.round(ytd_c1).toLocaleString()}</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#f0fdf4', color: '#3E7B3E' }}>{fcS3Cat1.toLocaleString()}</td>
+                          </tr>
+                          <tr style={{ background: '#f5fdf5', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '3px 8px', paddingLeft: 18, color: '#555' }}>Method: YTD + ∑(MTC_Origin × EF_Origin) — origin-mix weighted</td>
+                            {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#bbb', fontSize: 9 }}>O-mix</td>)}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#fff8e1', fontSize: 9 }}>YTD base</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', color: '#3E7B3E', background: '#f0fdf4', fontSize: 9 }}>YTD + O-mix MTC</td>
+                          </tr>
+                          {/* Cat.3 */}
+                          <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '3px 8px', fontWeight: 700 }}>Cat.3 — Fuel &amp; Energy Related (tCO₂e)</td>
+                            {HIST.map(y => { const d = getS3y(y); return <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{d?.cat3 ? Math.round(d.cat3).toLocaleString() : '—'}</td>; })}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{Math.round(ytd_c3).toLocaleString()}</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#f0fdf4', color: '#3E7B3E' }}>{fcS3Cat3.toLocaleString()}</td>
+                          </tr>
+                          <tr style={{ background: '#f5fdf5', borderBottom: '2px solid #3E7B3E' }}>
+                            <td style={{ padding: '3px 8px', paddingLeft: 18, fontWeight: 800, color: '#14532d' }}>
+                              Intensity Cat.3 (tCO₂e/tRCN) [← coefficient applied]
+                            </td>
+                            {HIST.map(y => {
+                              const d = getS3y(y); const r = get(y).rcn;
+                              return <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#555' }}>{d?.cat3 && r ? (d.cat3 / r).toFixed(4) : '—'}</td>;
+                            })}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 900, color: '#3E7B3E', background: '#fff8e1' }}>{iC3.toFixed(4)} ← FC</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', background: '#f0fdf4', color: '#888' }}>+{mtcC3est.toLocaleString()} est.</td>
+                          </tr>
+                          {/* Cat.4 */}
+                          <tr style={{ background: 'white', borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '3px 8px', fontWeight: 700 }}>Cat.4 — Transportation (tCO₂e)</td>
+                            {HIST.map(y => { const d = getS3y(y); const v = (d?.cat4v || 0) + (d?.cat4r || 0); return <td key={y} style={{ padding: '3px 8px', textAlign: 'right' }}>{v > 0 ? Math.round(v).toLocaleString() : '—'}</td>; })}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#fff8e1', color: '#7a4f00' }}>{Math.round(ytd_c4).toLocaleString()}</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, background: '#f0fdf4', color: '#3E7B3E' }}>{fcS3Cat4.toLocaleString()}</td>
+                          </tr>
+                          <tr style={{ background: 'white' }}>
+                            <td style={{ padding: '3px 8px', paddingLeft: 18, color: '#555' }}>Method: YTD + Logistics Route-Map MTC (T-km × EF per origin)</td>
+                            {HIST.map(y => <td key={y} style={{ padding: '3px 8px', textAlign: 'right', color: '#bbb', fontSize: 9 }}>T-km</td>)}
+                            <td style={{ padding: '3px 8px', textAlign: 'right', color: '#555', background: '#fff8e1', fontSize: 9 }}>YTD base</td>
+                            <td style={{ padding: '3px 8px', textAlign: 'right', color: '#3E7B3E', background: '#f0fdf4', fontSize: 9 }}>YTD + Route MTC</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div style={{ fontSize: 10, color: '#888', marginTop: 5 }}>
+                        * Full-year procurement RCN = YTD Q1 {ytdRCN.toLocaleString()} + Procurement MTC {MTC_2026_TOTAL_QTY.toLocaleString()} tRCN (used for Cat.1 &amp; Cat.3)
+                      </div>
+                    </div>
+                  </details>
+                );
+              })()}
 
               {/* ── Scope 3 Regional Breakdown: VN vs India ── */}
               {scope3Regional.length > 0 && (() => {
