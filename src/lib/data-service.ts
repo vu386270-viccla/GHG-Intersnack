@@ -718,6 +718,20 @@ const OPEX_YEARS = [2021, 2022, 2023, 2024, 2025, 2026] as const;
 const OPEX_INTENSITY_YEARS = [2021, 2022, 2023, 2024, 2025] as const;
 const OPEX_FACTORY_ORDER = ['Long An', 'Phan Thiết', 'Tây Ninh', 'Tuticorin'] as const;
 
+// Opex FC 2026 procurement plan mix (full year = YTD + MTC, 78,500 MT).
+// Use this only for Opex Origin Risk Analysis so FC 2026 reflects the user's plan,
+// while scope3-data.ts can continue to hold partial/YTD static transport inputs.
+const OPEX_FC_2026_ORIGIN_MIX: Record<string, number> = {
+  'Guinea-B': 3220 + 6449 + 4596 + 10069, // BISSAU
+  'C.Ivory': 4720 + 5852 + 2992 + 2100,   // IVC
+  'Tanzania': 2705 + 1800 + 4003 + 4260 + 4476, // Added 2705 (Tay Ninh YTD)
+  'Indonesia': 830 + 1685,                // Added 830 (Tay Ninh YTD)
+  'Cambodia': 1430,
+  'Senegal': 1610 + 1496,
+  'Ghana': 2860 + 6400,
+  'Guinea': 2992 + 1955,                  // CONAKRY
+};
+
 type OpexFactory = Pick<Factory, 'id' | 'name' | 'country'>;
 type OpexEmissionRow = Pick<RawEmission, 'factory_id' | 'year' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'>;
 type OpexProductionRow = Pick<RawProduction, 'factory_id' | 'year' | 'quantity'>;
@@ -1139,7 +1153,7 @@ export async function getOpexReportData(): Promise<OpexReportData> {
     }));
 
   const originData: OpexOriginYearData[] = OPEX_YEARS.map(year => {
-    const mix = ORIGIN_MIX[year] || {};
+    const mix = year === 2026 ? OPEX_FC_2026_ORIGIN_MIX : (ORIGIN_MIX[year] || {});
     const totalQty = Object.values(mix).reduce((sum, qty) => sum + qty, 0);
     const rows: OpexOriginRow[] = Object.entries(mix)
       .map(([origin, qty]) => {

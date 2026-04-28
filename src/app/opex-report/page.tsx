@@ -437,8 +437,8 @@ const MTC_2026_TOTAL_QTY = Object.values(MTC_2026_ORIGIN_MIX).reduce((s, v) => s
 export const PLAN_2026_ORIGIN_MIX: Record<string, number> = {
   'Guinea-B': 3220 + 6449 + 4596 + 10069,   // BISSAU
   'C.Ivory': 4720 + 5852 + 2992 + 2100,     // IVC
-  'Tanzania': 1800 + 4003 + 4260 + 4476,     // TANZANIA
-  'Indonesia': 1685,                            // INDONESIA (Tay Ninh only)
+  'Tanzania': 2705 + 1800 + 4003 + 4260 + 4476, // TANZANIA (Added 2705 Tay Ninh YTD)
+  'Indonesia': 830 + 1685,                      // INDONESIA (Tay Ninh: YTD 830 + MTC 1685)
   'Cambodia': 1430,                            // CAMBODIA (Tay Ninh only)
   'Senegal': 1610 + 1496,                    // SENEGAL
   'Ghana': 2860 + 6400,                    // GHANA
@@ -446,7 +446,7 @@ export const PLAN_2026_ORIGIN_MIX: Record<string, number> = {
 };
 
 export const PLAN_2026_FACTORIES: Record<string, { total: number; origins: Record<string, number> }> = {
-  'Tay Ninh': { total: 18000, origins: { 'Guinea-B': 3220, 'Cambodia': 1430, 'Indonesia': 1685, 'C.Ivory': 4720, 'Senegal': 1610, 'Tanzania': 1800 } },
+  'Tay Ninh': { total: 18000, origins: { 'Guinea-B': 3220, 'Cambodia': 1430, 'Indonesia': 830 + 1685, 'C.Ivory': 4720, 'Senegal': 1610, 'Tanzania': 2705 + 1800 } },
   'Long An': { total: 17800, origins: { 'Guinea-B': 6449, 'C.Ivory': 5852, 'Senegal': 1496, 'Tanzania': 4003 } },
   'Phan Thiet': { total: 17700, origins: { 'Guinea-B': 4596, 'Guinea': 2992, 'Ghana': 2860, 'C.Ivory': 2992, 'Tanzania': 4260 } },
   'Tuticorin': { total: 25000, origins: { 'Guinea-B': 10069, 'Guinea': 1955, 'Ghana': 6400, 'C.Ivory': 2100, 'Tanzania': 4476 } },
@@ -1010,8 +1010,14 @@ export default function OpexReportPage() {
   const mtc_s1 = int_s1 * facMtcQty;
   const mtc_s2 = int_s2 * facMtcQty;
 
-  const fcS1 = Math.round(hasQ1data ? ytd26s1 + mtc_s1 : s1_2025);
-  const fcS2 = Math.round(hasQ1data ? ytd26s2 + mtc_s2 : s2_2025);
+  const calculatedFcS1 = Math.round(hasQ1data ? ytd26s1 + mtc_s1 : s1_2025);
+  const calculatedFcS2 = Math.round(hasQ1data ? ytd26s2 + mtc_s2 : s2_2025);
+
+  // FC1 2026 values from the Opex spreadsheet/comment thread are the reporting source of truth.
+  // Keep the calculated values above only as a methodology reference, not as chart totals.
+  const OPEX_FC1_2026_ALL = { scope1: 325, scope2: 12176 } as const;
+  const fcS1 = selectedFac === 'ALL' ? OPEX_FC1_2026_ALL.scope1 : calculatedFcS1;
+  const fcS2 = selectedFac === 'ALL' ? OPEX_FC1_2026_ALL.scope2 : calculatedFcS2;
 
   // Scope 3 Uses Procurement MTC (~62k) + YTD Actuals
   const s3Data2026 = s3Data.find(d => d.year === 2026);
@@ -1071,7 +1077,7 @@ export default function OpexReportPage() {
   const full26rcnForOps = ytd26rcn + facMtcQty;
   const s2Intensity2025 = rcn2025 > 0 ? s2_2025 / rcn2025 : 0;
   const productionMovementS2 = Math.round((full26rcnForOps - rcn2025) * s2Intensity2025);
-  const solarReductionS2 = Math.round(cumulativeSolarSavingByYear(2026) || (isSolarFactory ? ptSolarSaving(2026) : 0));
+  const solarReductionS2 = Math.round(cumulativeSolarSavingByYear(2026));
   const residualGridS2 = Math.max(fcS2, 0);
   const withoutSolarS2 = Math.max(fcS2 + solarReductionS2, 0);
 
@@ -1107,10 +1113,10 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope1 },
     { key: '2025', label: ['2025'], actual: s1_2025 },
     ...(showForecast ? [
-      { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS1 },
+      { key: 'fc2026_gap', label: ['Est gap', '25 & 26'], actual: fcS1 },
       {
         key: 'fc2026',
-        label: ['2026', '(Est.)'],
+        label: ['2026 FC'],
         actual: fcS1,
         isTotal: true,
         isActualPlanSplit: true,
@@ -1164,10 +1170,10 @@ export default function OpexReportPage() {
     { key: '2024', label: ['2024'], actual: get(2024).scope2 },
     { key: '2025', label: ['2025'], actual: s2_2025 },
     ...(showForecast ? [
-      { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS2 },
+      { key: 'fc2026_gap', label: ['Est gap', '25 & 26'], actual: fcS2 },
       {
         key: 'fc2026',
-        label: ['2026', '(Est.)'],
+        label: ['2026 FC'],
         actual: fcS2,
         isTotal: true,
         isActualPlanSplit: true,
@@ -1638,8 +1644,8 @@ export default function OpexReportPage() {
           {(() => {
             const HIST = [2021, 2022, 2023, 2024, 2025];
             const ytdRCN = get(2026).rcn;
-            const ytdEm  = get(2026).scope1;
-            const iYTD   = ytdRCN > 0 ? ytdEm / ytdRCN : 0;
+            const ytdEm = get(2026).scope1;
+            const iYTD = ytdRCN > 0 ? ytdEm / ytdRCN : 0;
             const mtcEst = Math.round(iYTD * facMtcQty);
             return (
               <details open style={{ marginBottom: 8, border: '1.5px solid #C8281A', borderRadius: 8, overflow: 'hidden', fontSize: '10.5px' }}>
@@ -1747,15 +1753,23 @@ export default function OpexReportPage() {
                   <strong style={{ color: '#b91c1c' }}>{Math.round(fcS1).toLocaleString()} tCO₂e</strong>.
                   <br />
                   <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '11px', color: '#4a5568' }}>
-                    {lang === 'vi'
-                      ? 'Dự báo được tính toán động, kết hợp hiệu suất thực tế Quý 1 với Kế hoạch sản xuất các tháng còn lại (MTC). Công thức:'
-                      : 'The forecast employs dynamic modeling, compounding Q1 actual performance with the remaining production plan (MTC). Formula:'}
+                    {selectedFac === 'ALL'
+                      ? (lang === 'vi'
+                        ? 'Giá trị FC1 cho Scope 1 đang lấy theo bảng Opex đã duyệt. Mô hình Q1 intensity × MTC được giữ làm tham chiếu nội bộ, không dùng làm tổng chart.'
+                        : 'The Scope 1 FC1 value is sourced from the approved Opex spreadsheet. The Q1 intensity × MTC model is retained as an internal reference, not the chart total.')
+                      : (lang === 'vi'
+                        ? 'Dự báo được tính toán động, kết hợp hiệu suất thực tế Quý 1 với Kế hoạch sản xuất các tháng còn lại (MTC). Công thức:'
+                        : 'The forecast employs dynamic modeling, compounding Q1 actual performance with the remaining production plan (MTC). Formula:')}
                     <br />
-                    <span style={{ fontFamily: 'monospace', color: '#88641a', display: 'inline-block', margin: '2px 0 4px' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
+                    <span style={{ fontFamily: 'monospace', color: '#88641a', display: 'inline-block', margin: '2px 0 4px' }}>{selectedFac === 'ALL' ? 'FC1 source = approved Opex spreadsheet value; calculated model kept as reference only' : 'Est. Total = Actual YTD + (YTD Intensity × MTC Volume)'}</span>
                     <br />
-                    {lang === 'vi'
-                      ? 'Cách tiếp cận trực tiếp nắn chỉnh dự phóng theo mức độ tối ưu năng lượng hiện thời (YTD Intensity), triệt tiêu sai lệch so với ấn định tĩnh ban đầu.'
-                      : 'This aligns the year-end estimate with the current operational energy efficiency factor (YTD Intensity), neutralizing static estimation drift.'}
+                    {selectedFac === 'ALL'
+                      ? (lang === 'vi'
+                        ? 'Cách này đảm bảo số chart khớp bảng tính FC1,2026 và phần Apr–Dec = FC1 trừ actual YTD.'
+                        : 'This keeps the chart aligned to FC1,2026 and makes Apr–Dec equal FC1 minus actual YTD.')
+                      : (lang === 'vi'
+                        ? 'Cách tiếp cận trực tiếp nắn chỉnh dự phóng theo mức độ tối ưu năng lượng hiện thời (YTD Intensity), triệt tiêu sai lệch so với ấn định tĩnh ban đầu.'
+                        : 'This aligns the year-end estimate with the current operational energy efficiency factor (YTD Intensity), neutralizing static estimation drift.')}
                   </span>
                 </p>
 
@@ -1851,9 +1865,9 @@ export default function OpexReportPage() {
           {(() => {
             const HIST = [2021, 2022, 2023, 2024, 2025];
             const ytdRCN = get(2026).rcn;
-            const ytdEm  = get(2026).scope2;
+            const ytdEm = get(2026).scope2;
             const GRID_EF = 0.8928;
-            const iYTD   = ytdRCN > 0 ? ytdEm / ytdRCN : 0;
+            const iYTD = ytdRCN > 0 ? ytdEm / ytdRCN : 0;
             const mtcEst = Math.round(iYTD * facMtcQty);
             return (
               <details open style={{ marginBottom: 8, border: '1.5px solid #4472C4', borderRadius: 8, overflow: 'hidden', fontSize: '10.5px' }}>
@@ -1951,7 +1965,7 @@ export default function OpexReportPage() {
                   const delta27 = t27 - t26; // includes solar kink
                   return (
                     <div style={{ margin: '0 0 6px', padding: '7px 10px', background: '#f0fdf4', borderLeft: '3px solid #22c55e', borderRadius: '4px', fontSize: '11px', lineHeight: '1.6' }}>
-                      <strong style={{ color: '#166534' }}>{lang === 'vi' ? '🌞 PT Rooftop Solar — online cuối 2026 (đã tích hợp vào target)' : '🌞 PT Rooftop Solar — online late 2026 (integrated into target)'}</strong>
+                      <strong style={{ color: '#166534' }}>{lang === 'vi' ? '🌞 PT Rooftop Solar — online Q4/cuối 2026; savings tính từ 2027' : '🌞 PT Rooftop Solar — online Q4/late 2026; savings from 2027'}</strong>
                       <div style={{ marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                         <span>📉 {lang === 'vi' ? 'Giảm đều/năm (không solar):' : 'Linear reduction/yr (excl. solar):'} <strong>−{cut} tCO₂e</strong></span>
                         <span>⚡ {lang === 'vi' ? 'Solar từ 2027:' : 'Solar from 2027:'} <strong style={{ color: '#166534' }}>−{ptSolarSaving(2027).toLocaleString()} {lang === 'vi' ? 'tCO₂e/năm' : 'tCO₂e/yr'}</strong></span>
@@ -1959,7 +1973,7 @@ export default function OpexReportPage() {
                       <div style={{ marginTop: '2px', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
                         <span>2026: <strong>{t26.toLocaleString()} tCO₂e</strong></span>
                         <span>2027: <strong style={{ color: '#166534' }}>{t27.toLocaleString()} tCO₂e</strong>
-                          {' '}<span style={{ color: '#166534', fontSize: '10px' }}>({delta27 > 0 ? '+' : ''}{delta27.toLocaleString()} incl. solar kink)</span>
+                          {' '}<span style={{ color: '#166534', fontSize: '10px' }}>({delta27 > 0 ? '+' : ''}{delta27.toLocaleString()} incl. first solar saving year)</span>
                         </span>
                         <span>2028: <strong>{t28.toLocaleString()} tCO₂e</strong></span>
                       </div>
@@ -1980,15 +1994,23 @@ export default function OpexReportPage() {
                   <strong style={{ color: '#4472C4' }}>{Math.round(fcS2).toLocaleString()} tCO₂e</strong>.
                   <br />
                   <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '11px', color: '#4a5568' }}>
-                    {lang === 'vi'
-                      ? 'Tương tự Scope 1, dự báo Scope 2 dựa trên Cường độ tiêu thụ điện năng thực tế Quý 1 nhân với Khối lượng sản xuất MTC. Công thức:'
-                      : 'Similar to Scope 1, the Scope 2 forecast applies Q1 actual grid power intensity to the outstanding MTC production volume. Formula:'}
+                    {selectedFac === 'ALL'
+                      ? (lang === 'vi'
+                        ? 'Giá trị FC1 cho Scope 2 đang lấy theo bảng Opex đã duyệt. Mô hình Q1 intensity × MTC được giữ làm tham chiếu nội bộ, không dùng làm tổng chart.'
+                        : 'The Scope 2 FC1 value is sourced from the approved Opex spreadsheet. The Q1 intensity × MTC model is retained as an internal reference, not the chart total.')
+                      : (lang === 'vi'
+                        ? 'Tương tự Scope 1, dự báo Scope 2 dựa trên Cường độ tiêu thụ điện năng thực tế Quý 1 nhân với Khối lượng sản xuất MTC. Công thức:'
+                        : 'Similar to Scope 1, the Scope 2 forecast applies Q1 actual grid power intensity to the outstanding MTC production volume. Formula:')}
                     <br />
-                    <span style={{ fontFamily: 'monospace', color: '#4472C4', display: 'inline-block', margin: '2px 0 4px' }}>Est. Total = Actual YTD + (YTD Intensity × MTC Volume)</span>
+                    <span style={{ fontFamily: 'monospace', color: '#4472C4', display: 'inline-block', margin: '2px 0 4px' }}>{selectedFac === 'ALL' ? 'FC1 source = approved Opex spreadsheet value; calculated model kept as reference only' : 'Est. Total = Actual YTD + (YTD Intensity × MTC Volume)'}</span>
                     <br />
-                    {lang === 'vi'
-                      ? 'Giúp điều chỉnh lại các dự báo trước đây, tự động phản ánh sự cải thiện (hoặc suy giảm) hiệu suất do lưới điện hoặc thiết bị, giúp theo dõi sát sao lượng tiêu thụ điện còn lại.'
-                      : 'This recalibrates projected emissions, natively capturing improvements (or degradation) in machine efficiency or grid usage patterns relative to remaining production load.'}
+                    {selectedFac === 'ALL'
+                      ? (lang === 'vi'
+                        ? 'Cách này đảm bảo số chart khớp bảng tính FC1,2026 và phần Apr–Dec = FC1 trừ actual YTD.'
+                        : 'This keeps the chart aligned to FC1,2026 and makes Apr–Dec equal FC1 minus actual YTD.')
+                      : (lang === 'vi'
+                        ? 'Giúp điều chỉnh lại các dự báo trước đây, tự động phản ánh sự cải thiện (hoặc suy giảm) hiệu suất do lưới điện hoặc thiết bị, giúp theo dõi sát sao lượng tiêu thụ điện còn lại.'
+                        : 'This recalibrates projected emissions, natively capturing improvements (or degradation) in machine efficiency or grid usage patterns relative to remaining production load.')}
                   </span>
                 </p>
 
@@ -1998,7 +2020,7 @@ export default function OpexReportPage() {
                   {isSolarFactory && (
                     <li>
                       <strong>{lang === 'vi' ? '🌞 PT Rooftop Solar (Scope 2 — từ 2027):' : '🌞 PT Rooftop Solar (Scope 2 — from 2027):'}</strong>{' '}
-                      {lang === 'vi' ? 'Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm tại nhà máy PT dự kiến vận hành cuối năm 2026.' : '1,614 MWh/yr rooftop solar system at PT factory expected to go online by late 2026.'}{' '}
+                      {lang === 'vi' ? 'Hệ thống điện mặt trời áp mái công suất 1,614 MWh/năm tại nhà máy PT dự kiến vận hành Q4/cuối năm 2026; không ghi nhận giảm Scope 2 full-year trong FC 2026.' : '1,614 MWh/yr rooftop solar system at PT factory expected to go online in Q4/late 2026; no full-year Scope 2 reduction is recognized in FC 2026.'}{' '}
                       {lang === 'vi' ? 'Tiết kiệm ước tính' : 'Estimated savings of'} <strong style={{ color: '#3E7B3E' }}>~{ptSolarSaving(2027).toLocaleString()} {lang === 'vi' ? 'tCO₂e/năm' : 'tCO₂e/yr'}</strong>{' '}
                       {lang === 'vi' ? '(năm đầu, 2027) theo EF lưới VN' : '(first year, 2027) based on VN grid EF'} {PT_SOLAR_EF_VN} tCO₂/kWh.{' '}
                       {lang === 'vi' ? 'Lũy kế đến' : 'Cumulative by'} {targetEndYear}:{' '}
@@ -2113,10 +2135,10 @@ export default function OpexReportPage() {
           { key: '2024', label: ['2024'], actual: s3_2024?.total || 0 },
           { key: '2025', label: ['2025'], actual: s3Cur.total },
           ...(showForecast ? [
-            { key: 'fc2026_gap', label: ['Est. Gap', '25 → 26'], actual: fcS3Total },
+            { key: 'fc2026_gap', label: ['Est gap', '25 & 26'], actual: fcS3Total },
             {
               key: 'fc2026',
-              label: ['2026', '(Est.)'],
+              label: ['2026 FC'],
               actual: fcS3Total,
               isTotal: true,
               isActualPlanSplit: true,
@@ -2133,7 +2155,7 @@ export default function OpexReportPage() {
               ...(y === 2026 ? {
                 isActualPlanSplit: true,
                 isTotal: true,
-                splitActualAbsVal: Math.round(planVal(y) * 0.25),
+                splitActualAbsVal: s3_2026ytd?.total && s3_2026ytd.total > 0 ? s3_2026ytd.total : undefined,
               } : {})
             }))
           ]),
@@ -2173,20 +2195,19 @@ export default function OpexReportPage() {
               s3Base.total, s3_2022?.total || 0, s3_2023?.total || 0, s3_2024?.total || 0,
               s3Cur.total,
               s3_2026ytd ? s3_2026ytd.total : '—',
-              planYears[0] ? planVal(planYears[0]) : '—',
-              planYears[1] ? planVal(planYears[1]) : '—',
+              fcS3Total,
             ]
           },
           {
             label: '  ↳ Cat.1 Cashew (FLAG)', vals: [
               s3Base.cat1, s3_2022?.cat1 || 0, s3_2023?.cat1 || 0, s3_2024?.cat1 || 0,
-              s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—', '—', '—',
+              s3Cur.cat1, s3_2026ytd ? s3_2026ytd.cat1 : '—', fcS3Cat1,
             ]
           },
           {
             label: '  ↳ Cat.3 WTT Fuel & Energy', vals: [
               s3Base.cat3, s3_2022?.cat3 || 0, s3_2023?.cat3 || 0, s3_2024?.cat3 || 0,
-              s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—', '—', '—',
+              s3Cur.cat3, s3_2026ytd ? s3_2026ytd.cat3 : '—', fcS3Cat3,
             ]
           },
           {
@@ -2195,7 +2216,7 @@ export default function OpexReportPage() {
               (s3_2023?.cat4v || 0) + (s3_2023?.cat4r || 0), (s3_2024?.cat4v || 0) + (s3_2024?.cat4r || 0),
               s3Cur.cat4v + s3Cur.cat4r,
               s3_2026ytd ? s3_2026ytd.cat4v + s3_2026ytd.cat4r : '—',
-              fcS3Cat4, '—', '—',
+              fcS3Cat4,
             ]
           },
         ];
@@ -2854,12 +2875,12 @@ export default function OpexReportPage() {
         const HDR_COLOR = '#1a3d5c';        // navy — factory headers
         const ACCENT = C.actual;            // #C8281A
         // ── RCN line chart ─────────────────────────────────────────
-        function RcnChart({ yrs, svgId, facId }: { yrs: { year: number; rcn: number }[]; svgId: string; facId: string }) {
+        function RcnChart({ yrs, svgId, facId }: { yrs: { year: number; label?: string; rcn: number; q1Rcn?: number }[]; svgId: string; facId: string }) {
           const W = 300, H = 170;
-          const PL = 38, PR = 38, PT = 36, PB = 24;
+          const PL = 34, PR = 34, PT = 36, PB = 28;
           const n = yrs.length;
           const step = (W - PL - PR) / (n - 1);
-          const maxV = Math.max(...yrs.map(d => d.rcn)) * 1.22 || 1;
+          const maxV = Math.max(...yrs.map(d => Math.max(d.rcn, d.q1Rcn || 0))) * 1.22 || 1;
           const px = (i: number) => PL + i * step;
           const py = (v: number) => PT + (H - PT - PB) * (1 - v / maxV);
           const pts = yrs.map((d, i) => `${px(i)},${py(d.rcn)}`).join(' ');
@@ -2879,16 +2900,24 @@ export default function OpexReportPage() {
                 {yrs.map((d, i) => {
                   const cx = px(i);
                   const cy = py(d.rcn);
+                  const q1Cy = d.q1Rcn ? py(d.q1Rcn) : null;
                   // stagger label: even indices go above, odd below — prevents overlap
                   const labelY = i % 2 === 0 ? cy - 9 : cy + 17;
                   return (
                     <g key={d.year}>
+                      {q1Cy !== null && (
+                        <g>
+                          <line x1={cx} y1={q1Cy} x2={cx} y2={cy} stroke={S1_COLOR} strokeWidth={1.2} strokeDasharray="3,3" opacity={0.75} />
+                          <circle cx={cx} cy={q1Cy} r={3.3} fill="#fff" stroke={S1_COLOR} strokeWidth={1.5} />
+                          <text x={cx - 8} y={q1Cy - 6} textAnchor="end" fontSize={7.5} fontWeight={700} fill={S1_COLOR}>Q1</text>
+                        </g>
+                      )}
                       <circle cx={cx} cy={cy} r={4} fill={S1_COLOR} stroke="white" strokeWidth={1} />
                       <text x={cx} y={Math.min(Math.max(labelY, 12), H - PB - 3)}
                         textAnchor="middle" fontSize={9.5} fontWeight={700} fill="#1a1a1a">
                         {d.rcn.toLocaleString()}
                       </text>
-                      <text x={cx} y={H - 5} textAnchor="middle" fontSize={9} fill="#666">{d.year}</text>
+                      <text x={cx} y={H - 5} textAnchor="middle" fontSize={d.label ? 8 : 9} fontWeight={d.label ? 700 : 400} fill={d.label ? HDR_COLOR : '#666'}>{d.label || d.year}</text>
                     </g>
                   );
                 })}
@@ -2898,16 +2927,16 @@ export default function OpexReportPage() {
         }
 
         // ── Intensity stacked bar chart ─────────────────────────────
-        function IntChart({ yrs, svgId, facId }: { yrs: { year: number; s1Int: number; s2Int: number; totalInt: number }[]; svgId: string; facId: string }) {
+        function IntChart({ yrs, svgId, facId }: { yrs: { year: number; label?: string; s1Int: number; s2Int: number; totalInt: number; q1TotalInt?: number }[]; svgId: string; facId: string }) {
           const W = 300, H = 190;
-          const PL = 10, PR = 10, PT = 26, PB = 38;
+          const PL = 8, PR = 8, PT = 26, PB = 42;
           const n = yrs.length;
           const cw = (W - PL - PR) / n;
-          const bw = Math.min(cw * 0.68, 48);
+          const bw = Math.min(cw * 0.68, 42);
           const bx = (i: number) => PL + i * cw + (cw - bw) / 2;
           const cx = (i: number) => PL + i * cw + cw / 2;
           const chartH = H - PT - PB;
-          const maxV = Math.max(...yrs.map(d => d.totalInt)) * 1.26 || 1;
+          const maxV = Math.max(...yrs.map(d => Math.max(d.totalInt, d.q1TotalInt || 0))) * 1.26 || 1;
           const py = (v: number) => PT + chartH * (1 - v / maxV);
           const ph = (v: number) => Math.max(chartH * v / maxV, 1);
           const s1BoxH = 14, s1BoxY = H - PB + 5, yrY = H - 5;
@@ -2932,12 +2961,19 @@ export default function OpexReportPage() {
                   const s1H = ph(d.s1Int);
                   const topY = py(d.totalInt);
                   const s1StartY = topY + s2H;
+                  const q1Y = d.q1TotalInt ? py(d.q1TotalInt) : null;
                   return (
                     <g key={d.year}>
                       {/* S2 gray bar */}
                       <rect x={bx(i)} y={topY} width={bw} height={s2H} fill={S2_COLOR} rx={1} />
                       {/* S1 dark red bar */}
                       <rect x={bx(i)} y={s1StartY} width={bw} height={s1H} fill={S1_COLOR} rx={1} />
+                      {q1Y !== null && (
+                        <g>
+                          <line x1={bx(i) - 3} y1={q1Y} x2={bx(i) + bw + 3} y2={q1Y} stroke="#111" strokeWidth={1.3} strokeDasharray="3,2" />
+                          <text x={bx(i) + bw + 6} y={q1Y + 3} fontSize={7.2} fontWeight={800} fill="#111">Q1</text>
+                        </g>
+                      )}
                       {/* Total label above bar */}
                       <text x={cx(i)} y={topY - 5} textAnchor="middle" fontSize={10} fontWeight={800} fill="#111">
                         {d.totalInt.toFixed(1)}
@@ -2954,7 +2990,7 @@ export default function OpexReportPage() {
                         {d.s1Int.toFixed(1)}
                       </text>
                       {/* Year */}
-                      <text x={cx(i)} y={yrY} textAnchor="middle" fontSize={9.5} fill="#555">{d.year}</text>
+                      <text x={cx(i)} y={yrY} textAnchor="middle" fontSize={d.label ? 8 : 9.5} fontWeight={d.label ? 700 : 400} fill={d.label ? HDR_COLOR : '#555'}>{d.label || d.year}</text>
                     </g>
                   );
                 })}
@@ -2965,9 +3001,149 @@ export default function OpexReportPage() {
 
         // ── Commentary: auto-computed insights ────────────────────────
         const YEARS5 = [2021, 2022, 2023, 2024, 2025];
-        const facCols = intensityData.filter(c => c.fac.id !== 'TOTAL');
-        const totalCol = intensityData.find(c => c.fac.id === 'TOTAL');
-        const get5 = (col: typeof intensityData[0], yr: number) => col.years.find(y => y.year === yr)!;
+        const intensityWithForecast = intensityData.map(col => {
+          const annualRows = reportData.annualDataByFactory[col.fac.id === 'TOTAL' ? 'ALL' : col.fac.id] || [];
+          const q1Row = annualRows.find(row => row.year === 2026) || { year: 2026, scope1: 0, scope2: 0, rcn: 0 };
+          const isTotal = col.fac.id === 'TOTAL';
+          const mtcQty = (() => {
+            if (isTotal) return MTC_2026_TOTAL_QTY;
+            const normName = col.fac.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            if (normName.includes('tay ninh') || normName.includes('tay-ninh')) return MTC_2026_FACTORIES['Tay Ninh'].total;
+            if (normName.includes('long an')) return MTC_2026_FACTORIES['Long An'].total;
+            if (normName.includes('phan thiet') || normName.includes('phan-thiet') || normName.startsWith('pt')) return MTC_2026_FACTORIES['Phan Thiet'].total;
+            if (normName.includes('tuti') || normName.includes('india')) return MTC_2026_FACTORIES['Tuticorin'].total;
+            return 0;
+          })();
+          const q1S1Int = q1Row.rcn > 0 ? Math.round((q1Row.scope1 * 1000) / q1Row.rcn * 10) / 10 : 0;
+          const q1S2Int = q1Row.rcn > 0 ? Math.round((q1Row.scope2 * 1000) / q1Row.rcn * 10) / 10 : 0;
+          const base2025 = col.years.find(y => y.year === 2025);
+          const fcRcn = q1Row.rcn + mtcQty;
+          const fcS1Val = isTotal ? fcS1 : Math.round(q1Row.rcn > 0 ? q1Row.scope1 + (q1Row.scope1 / q1Row.rcn) * mtcQty : base2025?.s1 || 0);
+          const fcS2Val = isTotal ? fcS2 : Math.round(q1Row.rcn > 0 ? q1Row.scope2 + (q1Row.scope2 / q1Row.rcn) * mtcQty : base2025?.s2 || 0);
+          const fcS1Int = fcRcn > 0 ? Math.round((fcS1Val * 1000) / fcRcn * 10) / 10 : 0;
+          const fcS2Int = fcRcn > 0 ? Math.round((fcS2Val * 1000) / fcRcn * 10) / 10 : 0;
+          const q1TotalInt = Math.round((q1S1Int + q1S2Int) * 10) / 10;
+
+          return {
+            ...col,
+            years: [
+              ...col.years,
+              {
+                year: 2026,
+                label: '2026 FC',
+                s1: fcS1Val,
+                s2: fcS2Val,
+                rcn: Math.round(fcRcn),
+                s1Int: fcS1Int,
+                s2Int: fcS2Int,
+                totalInt: Math.round((fcS1Int + fcS2Int) * 10) / 10,
+                q1Rcn: Math.round(q1Row.rcn),
+                q1TotalInt: q1TotalInt > 0 ? q1TotalInt : undefined,
+              },
+            ],
+          };
+        });
+        const facCols = intensityWithForecast.filter(c => c.fac.id !== 'TOTAL');
+        const totalCol = intensityWithForecast.find(c => c.fac.id === 'TOTAL');
+        const get5 = (col: typeof intensityWithForecast[0], yr: number) => col.years.find(y => y.year === yr)!;
+
+        const svgToImage = (svgElement: SVGSVGElement): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
+          const clone = svgElement.cloneNode(true) as SVGSVGElement;
+          const viewBox = clone.getAttribute('viewBox') || '0 0 300 180';
+          const [, , vbW, vbH] = viewBox.split(/[\s,]+/).map(Number);
+          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          clone.setAttribute('width', String(vbW || 300));
+          clone.setAttribute('height', String(vbH || 180));
+          const svgString = new XMLSerializer().serializeToString(clone);
+          const url = URL.createObjectURL(new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' }));
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+          };
+          img.onerror = event => {
+            URL.revokeObjectURL(url);
+            reject(event);
+          };
+          img.src = url;
+        });
+
+        const downloadIntensitySlide = async () => {
+          const cols = intensityWithForecast;
+          const chartW = 300;
+          const rcnH = 170;
+          const intH = 190;
+          const colGap = 18;
+          const headerH = 92;
+          const sectionGap = 26;
+          const footerH = 58;
+          const scale = 3;
+          const canvasW = cols.length * chartW + (cols.length - 1) * colGap + 40;
+          const canvasH = headerH + rcnH + sectionGap + intH + footerH;
+          const canvas = document.createElement('canvas');
+          canvas.width = canvasW * scale;
+          canvas.height = canvasH * scale;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.scale(scale, scale);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvasW, canvasH);
+          ctx.fillStyle = HDR_COLOR;
+          ctx.fillRect(0, 0, canvasW, 28);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '900 16px Arial, sans-serif';
+          ctx.fillText('CO₂ Intensity & RCN Production Trend (2021–2026 FC)', 16, 19);
+          ctx.fillStyle = '#111827';
+          ctx.font = '700 12px Arial, sans-serif';
+          ctx.fillText('2026 FC includes Q1 actual marker + months-to-come forecast', 16, 50);
+          ctx.fillStyle = S1_COLOR;
+          ctx.fillRect(16, 62, 10, 10);
+          ctx.fillStyle = '#334155';
+          ctx.font = '600 10px Arial, sans-serif';
+          ctx.fillText('Scope 1', 31, 71);
+          ctx.fillStyle = S2_COLOR;
+          ctx.fillRect(92, 62, 10, 10);
+          ctx.fillStyle = '#334155';
+          ctx.fillText('Scope 2', 107, 71);
+          ctx.setLineDash([4, 3]);
+          ctx.strokeStyle = '#111827';
+          ctx.beginPath();
+          ctx.moveTo(178, 67);
+          ctx.lineTo(210, 67);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillText('Q1 actual marker', 218, 71);
+
+          for (let i = 0; i < cols.length; i++) {
+            const col = cols[i];
+            const x = 20 + i * (chartW + colGap);
+            ctx.fillStyle = HDR_COLOR;
+            ctx.fillRect(x, 78, chartW, 18);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 11px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(col.fac.name, x + chartW / 2, 91);
+            ctx.textAlign = 'left';
+            const rcnSvg = document.getElementById(`svg-rcn-${col.fac.id}`) as unknown as SVGSVGElement | null;
+            const intSvg = document.getElementById(`svg-int-${col.fac.id}`) as unknown as SVGSVGElement | null;
+            if (rcnSvg) ctx.drawImage(await svgToImage(rcnSvg), x, headerH, chartW, rcnH);
+            if (intSvg) ctx.drawImage(await svgToImage(intSvg), x, headerH + rcnH + sectionGap, chartW, intH);
+          }
+
+          ctx.fillStyle = '#f0f4f8';
+          ctx.fillRect(0, canvasH - footerH, canvasW, footerH);
+          ctx.fillStyle = '#334155';
+          ctx.font = '600 10px Arial, sans-serif';
+          ctx.fillText('SCOPE DEFINITION: Scope 1 = direct on-site fuel combustion; Scope 2 = purchased electricity. 2026 FC = Q1 actual + MTC forecast.', 16, canvasH - 34);
+          ctx.fillText('CO₂ Intensity = kg CO₂e per metric ton of RCN input.', 16, canvasH - 18);
+
+          const link = document.createElement('a');
+          link.download = 'CO2_Intensity_RCN_Production_Trend_2021_2026_FC.png';
+          link.href = canvas.toDataURL('image/png', 1.0);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
 
         // Best factory 2025 (lowest total intensity)
         const best25 = [...facCols].sort((a, b) => get5(a, 2025).totalInt - get5(b, 2025).totalInt)[0];
@@ -2984,7 +3160,7 @@ export default function OpexReportPage() {
           <div style={{ padding: '8px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
             {/* Slide-style wrapper — natural height, no aspect-ratio constraint */}
-            <div style={{
+            <div id="opex-intensity-composite" style={{
               width: '100%',
               background: '#fff',
               border: `1.5px solid #b8ccd9`,
@@ -2993,13 +3169,22 @@ export default function OpexReportPage() {
               overflow: 'hidden',
             }}>
               {/* ── Slide title bar ── */}
-              <div style={{ padding: '8px 16px 6px', borderBottom: `2.5px solid ${ACCENT}`, background: '#fff' }}>
-                <div style={{ fontSize: 17, fontWeight: 900, color: '#111', lineHeight: 1.2 }}>
-                  CO₂ Intensity &amp; RCN Production Trend (2021–2025)
+              <div style={{ padding: '8px 16px 6px', borderBottom: `2.5px solid ${ACCENT}`, background: '#fff', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: '#111', lineHeight: 1.2 }}>
+                    CO₂ Intensity &amp; RCN Production Trend (2021–2026 FC)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#555', fontWeight: 600, marginTop: 2 }}>
+                    Scope 1 &amp; Scope 2 — {lang === 'vi' ? 'Q1 actual marker + FC cả năm theo Nhà máy và Tổng' : 'Q1 actual marker + full-year FC by Factory and Total'}
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: '#555', fontWeight: 600, marginTop: 2 }}>
-                  Scope 1 &amp; Scope 2 — {lang === 'vi' ? 'theo Nhà máy và Tổng' : 'by Factory and Total'}
-                </div>
+                <button
+                  onClick={downloadIntensitySlide}
+                  style={{ fontSize: '10px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', background: '#fff', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', fontWeight: 800, color: HDR_COLOR }}
+                  title="Download one combined HD PNG for all 5 chart panels"
+                >
+                  <span>📸</span> All HD
+                </button>
               </div>
 
               {/* ── Main body: charts left + commentary right ── */}
@@ -3009,9 +3194,9 @@ export default function OpexReportPage() {
                 <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', borderRight: '1.5px solid #d0dde8' }}>
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: `repeat(${intensityData.length}, minmax(0,1fr))`,
+                    gridTemplateColumns: `repeat(${intensityWithForecast.length}, minmax(0,1fr))`,
                   }}>
-                    {intensityData.map((col, ci) => (
+                    {intensityWithForecast.map((col, ci) => (
                       <div key={col.fac.id} style={{
                         borderLeft: ci > 0 ? '1px solid #e0e0e0' : 'none',
                         display: 'flex', flexDirection: 'column',
@@ -3382,12 +3567,12 @@ export default function OpexReportPage() {
               {/* ── FC 2026 Calculation Detail ─ Scope 3 ── */}
               {(() => {
                 const HIST = [2021, 2022, 2023, 2024, 2025];
-                const ytdRCN    = get(2026).rcn;
-                const ytd_c1   = s3Data.find(d => d.year === 2026)?.cat1 || 0;
-                const ytd_c3   = s3Data.find(d => d.year === 2026)?.cat3 || 0;
-                const ytd_c4v  = s3Data.find(d => d.year === 2026)?.cat4v || 0;
-                const ytd_c4r  = s3Data.find(d => d.year === 2026)?.cat4r || 0;
-                const ytd_c4   = ytd_c4v + ytd_c4r;
+                const ytdRCN = get(2026).rcn;
+                const ytd_c1 = s3Data.find(d => d.year === 2026)?.cat1 || 0;
+                const ytd_c3 = s3Data.find(d => d.year === 2026)?.cat3 || 0;
+                const ytd_c4v = s3Data.find(d => d.year === 2026)?.cat4v || 0;
+                const ytd_c4r = s3Data.find(d => d.year === 2026)?.cat4r || 0;
+                const ytd_c4 = ytd_c4v + ytd_c4r;
                 const iC3 = ytdRCN > 0 ? ytd_c3 / ytdRCN : 0;
                 const mtcC3est = Math.round(iC3 * MTC_2026_TOTAL_QTY);
 
