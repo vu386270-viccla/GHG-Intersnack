@@ -1653,12 +1653,26 @@ export default function OpexReportPage() {
                   📐 FC 2026 Calculation Detail — Scope 1 (Direct Combustion)
                 </summary>
                 <div style={{ background: '#fff9f9', padding: '8px 12px' }}>
-                  <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontFamily: 'monospace', fontSize: 11, color: '#7f1d1d', textAlign: 'center' }}>
-                    FC 2026 = YTD Q1 + (Intensityʸʸʵ × MTC Remaining)
-                    <span style={{ display: 'block', marginTop: 3, fontWeight: 800, fontSize: 12 }}>
-                      = {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = <span style={{ color: '#C8281A' }}>{fcS1.toLocaleString()} tCO₂e</span>
-                    </span>
-                  </div>
+                  {selectedFac === 'ALL' ? (
+                    <div style={{ background: '#fef2f2', border: '2px solid #C8281A', borderRadius: 6, padding: '6px 14px', marginBottom: 8, fontSize: 11, color: '#7f1d1d' }}>
+                      <div style={{ fontFamily: 'monospace', textAlign: 'center', fontWeight: 800, fontSize: 12 }}>
+                        ✅ Source: <span style={{ color: '#9A0000' }}>Approved Opex FC1 2026 Spreadsheet</span> — <span style={{ color: '#C8281A' }}>{fcS1.toLocaleString()} tCO₂e</span>
+                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 10, color: '#555', marginTop: 3 }}>
+                        This value is locked to the board-approved Opex budget (FC1,2026). The dynamic model (below) is kept as an <em>internal operational reference</em> only.
+                      </div>
+                      <div style={{ background: '#fff8f8', border: '1px dashed #fca5a5', borderRadius: 4, padding: '4px 10px', marginTop: 5, fontFamily: 'monospace', fontSize: 10, color: '#999', textAlign: 'center' }}>
+                        [Reference only — not used for chart] Dynamic model: {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = {calculatedFcS1.toLocaleString()} tCO₂e
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontFamily: 'monospace', fontSize: 11, color: '#7f1d1d', textAlign: 'center' }}>
+                      FC 2026 = YTD Q1 + (Intensityʸʸʵ × MTC Remaining)
+                      <span style={{ display: 'block', marginTop: 3, fontWeight: 800, fontSize: 12 }}>
+                        = {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = <span style={{ color: '#C8281A' }}>{fcS1.toLocaleString()} tCO₂e</span>
+                      </span>
+                    </div>
+                  )}
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#1a3d5c', color: 'white' }}>
@@ -1874,13 +1888,27 @@ export default function OpexReportPage() {
                 <summary style={{ background: '#4472C4', color: 'white', padding: '5px 12px', fontWeight: 800, cursor: 'pointer', listStyle: 'none' }}>
                   📐 FC 2026 Calculation Detail — Scope 2 (Grid Electricity, EF = {GRID_EF} kgCO₂e/kWh)
                 </summary>
-                <div style={{ background: '#f8faff', padding: '8px 12px' }}>
-                  <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontFamily: 'monospace', fontSize: 11, color: '#1e3a8a', textAlign: 'center' }}>
-                    FC 2026 = YTD Q1 + (Intensityᴴᵀᴰ × MTC Remaining)
-                    <span style={{ display: 'block', marginTop: 3, fontWeight: 800, fontSize: 12 }}>
-                      = {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = <span style={{ color: '#4472C4' }}>{fcS2.toLocaleString()} tCO₂e</span>
-                    </span>
-                  </div>
+                <div style={{ background: '#f0f7ff', padding: '8px 12px' }}>
+                  {selectedFac === 'ALL' ? (
+                    <div style={{ background: '#eff6ff', border: '2px solid #4472C4', borderRadius: 6, padding: '6px 14px', marginBottom: 8, fontSize: 11, color: '#1e3a5f' }}>
+                      <div style={{ fontFamily: 'monospace', textAlign: 'center', fontWeight: 800, fontSize: 12 }}>
+                        ✅ Source: <span style={{ color: '#1d4ed8' }}>Approved Opex FC1 2026 Spreadsheet</span> — <span style={{ color: '#4472C4' }}>{fcS2.toLocaleString()} tCO₂e</span>
+                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 10, color: '#555', marginTop: 3 }}>
+                        This value is locked to the board-approved Opex budget (FC1,2026). Apr–Dec remainder = FC1 minus Q1 actual ({ytdEm.toLocaleString()}). Dynamic model is reference only.
+                      </div>
+                      <div style={{ background: '#f0f7ff', border: '1px dashed #93c5fd', borderRadius: 4, padding: '4px 10px', marginTop: 5, fontFamily: 'monospace', fontSize: 10, color: '#999', textAlign: 'center' }}>
+                        [Reference only — not used for chart] Dynamic model: {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = {calculatedFcS2.toLocaleString()} tCO₂e
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontFamily: 'monospace', fontSize: 11, color: '#1e3a5f', textAlign: 'center' }}>
+                      FC 2026 = YTD Q1 + (Intensityᴴᵀᴰ × MTC Remaining)
+                      <span style={{ display: 'block', marginTop: 3, fontWeight: 800, fontSize: 12 }}>
+                        = {ytdEm.toLocaleString()} + ({iYTD.toFixed(4)} × {facMtcQty.toLocaleString()}) = <span style={{ color: '#4472C4' }}>{fcS2.toLocaleString()} tCO₂e</span>
+                      </span>
+                    </div>
+                  )}
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#1a3d5c', color: 'white' }}>
@@ -3657,6 +3685,61 @@ export default function OpexReportPage() {
                       <div style={{ fontSize: 10, color: '#888', marginTop: 5 }}>
                         * Full-year procurement RCN = YTD Q1 {ytdRCN.toLocaleString()} + Procurement MTC {MTC_2026_TOTAL_QTY.toLocaleString()} tRCN (used for Cat.1 &amp; Cat.3)
                       </div>
+
+                      {/* Raw Procurement Plan 2026 */}
+                      <details style={{ marginTop: 10, border: '1px solid #86efac', borderRadius: 6, overflow: 'hidden' }}>
+                        <summary style={{ background: '#dcfce7', color: '#14532d', padding: '4px 10px', fontWeight: 700, cursor: 'pointer', listStyle: 'none', fontSize: 10 }}>
+                          📦 Raw Procurement Plan 2026 (MTC) — Bấm để xem chi tiết kế hoạch từng nhà máy × nguồn gốc
+                        </summary>
+                        <div style={{ background: '#f6fdf6', padding: '8px 10px', overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                            <thead>
+                              <tr style={{ background: '#166534', color: 'white' }}>
+                                <th style={{ padding: '3px 8px', textAlign: 'left' }}>Factory</th>
+                                {Object.keys(MTC_2026_FACTORIES['Tay Ninh'].origins).concat(
+                                  ...Object.keys(MTC_2026_FACTORIES).map(f => Object.keys(MTC_2026_FACTORIES[f].origins))
+                                ).filter((v, i, a) => a.indexOf(v) === i).map(o => (
+                                  <th key={o} style={{ padding: '3px 8px', textAlign: 'right' }}>{o}</th>
+                                ))}
+                                <th style={{ padding: '3px 8px', textAlign: 'right', background: '#14532d' }}>Total MTC</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Object.entries(MTC_2026_FACTORIES).map(([fac, { total, origins }], fi) => {
+                                const allOrigins = Object.keys(MTC_2026_FACTORIES['Tay Ninh'].origins).concat(
+                                  ...Object.keys(MTC_2026_FACTORIES).map(f => Object.keys(MTC_2026_FACTORIES[f].origins))
+                                ).filter((v, i, a) => a.indexOf(v) === i);
+                                return (
+                                  <tr key={fac} style={{ background: fi % 2 === 0 ? '#f0fdf4' : 'white', borderBottom: '1px solid #d1fae5' }}>
+                                    <td style={{ padding: '3px 8px', fontWeight: 700 }}>{fac}</td>
+                                    {allOrigins.map(o => (
+                                      <td key={o} style={{ padding: '3px 8px', textAlign: 'right', color: origins[o] ? '#166534' : '#ccc' }}>
+                                        {origins[o] ? origins[o].toLocaleString() : '—'}
+                                      </td>
+                                    ))}
+                                    <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 800, color: '#14532d' }}>{total.toLocaleString()}</td>
+                                  </tr>
+                                );
+                              })}
+                              <tr style={{ background: '#dcfce7', borderTop: '2px solid #166534', fontWeight: 800 }}>
+                                <td style={{ padding: '3px 8px' }}>TOTAL MTC</td>
+                                {Object.keys(MTC_2026_FACTORIES['Tay Ninh'].origins).concat(
+                                  ...Object.keys(MTC_2026_FACTORIES).map(f => Object.keys(MTC_2026_FACTORIES[f].origins))
+                                ).filter((v, i, a) => a.indexOf(v) === i).map(o => (
+                                  <td key={o} style={{ padding: '3px 8px', textAlign: 'right', color: '#14532d' }}>
+                                    {Object.values(MTC_2026_FACTORIES).reduce((s, f) => s + (f.origins[o] || 0), 0).toLocaleString() || '—'}
+                                  </td>
+                                ))}
+                                <td style={{ padding: '3px 8px', textAlign: 'right', color: '#14532d' }}>{MTC_2026_TOTAL_QTY.toLocaleString()}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          <div style={{ marginTop: 8, fontSize: '10px', color: '#555', background: '#f0fdf4', padding: '5px 8px', borderRadius: 4, border: '1px solid #86efac' }}>
+                            <strong>EF table used for Cat.1 calculation:</strong> Guinea-B 0.92, C.Ivory 1.84, Tanzania 0.47, Indonesia 3.31, Cambodia 0.38, Senegal 0.65, Ghana 0.77, Guinea 0.77 (tCO₂e/tRCN — SBTi FLAG methodology).
+                            Cat.4 transport EF: vessel 0.01604 g/t-km · road 0.07547 g/t-km.
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   </details>
                 );
@@ -3867,26 +3950,46 @@ export default function OpexReportPage() {
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 12px', fontWeight: 800, color: '#C8281A' }}>🔥 Scope 1</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{get(2025).rcn.toLocaleString()}</b><br />s1: {s1_2025.toLocaleString()}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{(s1_2025 / get(2025).rcn).toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{get(2025).rcn > 0 ? (s1_2025 / get(2025).rcn).toFixed(4) : '—'}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{ytd26rcn.toLocaleString()}</b><br />ytd: {ytd26s1.toLocaleString()}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{int_s1.toFixed(4)}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round(mtc_s1).toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: {facMtcQty.toLocaleString()} MT<br />est: {Math.round(mtc_s1).toLocaleString()}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', background: '#fef2f2' }}>
-                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Cường độ YTD × 62,027)</div>
-                    <b>{ytd26s1.toLocaleString()} + {Math.round(mtc_s1).toLocaleString()} = <span style={{ color: '#C8281A', fontSize: 12 }}>{fcS1.toLocaleString()}</span></b>
+                    {selectedFac === 'ALL' ? (
+                      <>
+                        <div style={{ fontSize: 9, color: '#9A0000', fontWeight: 700, marginBottom: 2 }}>✅ Source: Approved Opex FC1 2026 Spreadsheet</div>
+                        <b><span style={{ color: '#C8281A', fontSize: 12 }}>{fcS1.toLocaleString()} tCO₂e</span></b>
+                        <div style={{ fontSize: 9, color: '#999', marginTop: 2 }}>[Dynamic ref: {ytd26s1} + {Math.round(mtc_s1)} = {calculatedFcS1}]</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Intensity × MTC)</div>
+                        <b>{ytd26s1.toLocaleString()} + {Math.round(mtc_s1).toLocaleString()} = <span style={{ color: '#C8281A', fontSize: 12 }}>{fcS1.toLocaleString()}</span></b>
+                      </>
+                    )}
                   </td>
                 </tr>
                 {/* Scope 2 */}
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 12px', fontWeight: 800, color: '#4472C4' }}>⚡ Scope 2</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{get(2025).rcn.toLocaleString()}</b><br />s2: {s2_2025.toLocaleString()}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{(s2_2025 / get(2025).rcn).toFixed(4)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{get(2025).rcn > 0 ? (s2_2025 / get(2025).rcn).toFixed(4) : '—'}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right' }}>RCN: <b>{ytd26rcn.toLocaleString()}</b><br />ytd: {ytd26s2.toLocaleString()}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{int_s2.toFixed(4)}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: 62,027 MT<br />est: {Math.round(mtc_s2).toLocaleString()}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>V: {facMtcQty.toLocaleString()} MT<br />est: {Math.round(mtc_s2).toLocaleString()}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', background: '#eff6ff' }}>
-                    <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Cường độ YTD × 62,027)</div>
-                    <b>{ytd26s2.toLocaleString()} + {Math.round(mtc_s2).toLocaleString()} = <span style={{ color: '#4472C4', fontSize: 12 }}>{fcS2.toLocaleString()}</span></b>
+                    {selectedFac === 'ALL' ? (
+                      <>
+                        <div style={{ fontSize: 9, color: '#1d4ed8', fontWeight: 700, marginBottom: 2 }}>✅ Source: Approved Opex FC1 2026 Spreadsheet</div>
+                        <b><span style={{ color: '#4472C4', fontSize: 12 }}>{fcS2.toLocaleString()} tCO₂e</span></b>
+                        <div style={{ fontSize: 9, color: '#999', marginTop: 2 }}>[Dynamic ref: {ytd26s2} + {Math.round(mtc_s2)} = {calculatedFcS2}]</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>YTD + (Intensity × MTC)</div>
+                        <b>{ytd26s2.toLocaleString()} + {Math.round(mtc_s2).toLocaleString()} = <span style={{ color: '#4472C4', fontSize: 12 }}>{fcS2.toLocaleString()}</span></b>
+                      </>
+                    )}
                   </td>
                 </tr>
                 {/* Scope 3 Cat1 */}
