@@ -825,111 +825,9 @@ type ScopeMenuItem = {
   icon?: string;
 };
 
-function ScopeTOC({ title, items, accent = '#C8281A' }: { title: string; items: ScopeMenuItem[]; accent?: string }) {
-  const [activeId, setActiveId] = useState(items[0]?.id || '');
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    if (!items.length) return;
-    const sectionIds = new Set(items.map(item => item.id));
-    const observer = new IntersectionObserver(
-      entries => {
-        const visible = entries
-          .filter(entry => entry.isIntersecting)
-          .sort((a, b) => Math.abs(a.boundingClientRect.top - 120) - Math.abs(b.boundingClientRect.top - 120));
-        if (visible[0]?.target.id && sectionIds.has(visible[0].target.id)) {
-          setActiveId(visible[0].target.id);
-        }
-      },
-      { root: null, rootMargin: '-110px 0px -55% 0px', threshold: [0.08, 0.2, 0.4] }
-    );
-
-    items.forEach(item => {
-      const el = document.getElementById(item.id);
-      if (el) observer.observe(el);
-    });
-
-    const onScroll = () => {
-      const els = items
-        .map(item => document.getElementById(item.id))
-        .filter(Boolean) as HTMLElement[];
-      if (!els.length) return;
-      const first = els[0].offsetTop;
-      const last = els[els.length - 1].offsetTop + els[els.length - 1].offsetHeight;
-      const y = window.scrollY + 140;
-      setProgress(Math.max(0, Math.min(100, ((y - first) / Math.max(last - first, 1)) * 100)));
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('scroll', onScroll);
-    };
-  }, [items]);
-
-  const jumpTo = useCallback((id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
-
-  return (
-    <div style={{
-      position: 'sticky', top: 62, zIndex: 18, marginBottom: 12,
-      border: '1px solid #dbe3ea', borderRadius: 12, overflow: 'hidden',
-      background: 'rgba(255,255,255,0.97)', boxShadow: '0 8px 22px rgba(15,23,42,0.08)',
-      backdropFilter: 'blur(10px)',
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between',
-        padding: '8px 10px', background: `linear-gradient(135deg, ${accent}, #111827)`, color: '#fff',
-      }}>
-        <div style={{ minWidth: 145 }}>
-          <div style={{ fontSize: 9, opacity: 0.78, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 800 }}>Menu động</div>
-          <div style={{ fontSize: 12.5, fontWeight: 950, marginTop: 1 }}>{title}</div>
-        </div>
-        <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,.22)', borderRadius: 99, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: '#fff', borderRadius: 99, transition: 'width .16s ease' }} />
-        </div>
-      </div>
-      <nav
-        aria-label={`${title} section navigation`}
-        style={{
-          padding: 7,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))',
-          gap: 6,
-          overflowX: 'auto',
-        }}
-      >
-        {items.map((item, idx) => {
-          const active = activeId === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => jumpTo(item.id)}
-              style={{
-                textAlign: 'left', cursor: 'pointer', borderRadius: 9, border: active ? `1.5px solid ${accent}` : '1px solid #e5e7eb',
-                background: active ? `${accent}12` : '#fff', padding: '7px 8px',
-                display: 'grid', gridTemplateColumns: '20px 1fr', gap: 7, alignItems: 'center',
-                minWidth: 120, boxShadow: active ? `0 4px 12px ${accent}1f` : 'none', transition: 'all .18s ease',
-              }}
-            >
-              <span style={{
-                width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: active ? accent : '#eef2f7', color: active ? '#fff' : '#475569', fontSize: 10, fontWeight: 950,
-              }}>{item.icon || idx + 1}</span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 900, color: active ? accent : '#1f2937', lineHeight: 1.15 }}>{item.label}</span>
-                <span style={{ display: 'block', marginTop: 1, fontSize: 9.2, color: '#64748b', lineHeight: 1.18, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.question}</span>
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-    </div>
-  );
+function ScopeTOC(_props: { title: string; items: ScopeMenuItem[]; accent?: string }) {
+  // Intentionally disabled: the sticky dynamic menu duplicated the audit brief cards.
+  return null;
 }
 
 function QuestionCard({
@@ -1288,29 +1186,29 @@ export default function OpexReportPage() {
   ];
 
   const scope1Menu: ScopeMenuItem[] = [
-    { id: 's1-overview', label: 'Hiện trạng', icon: '1', question: 'Scope 1 hiện đang ở đâu so với baseline và target?', answerHint: 'Trend, actual, FC 2026 và target trajectory.' },
-    { id: 's1-breakdown', label: 'Tại sao', icon: '2', question: 'Vì sao Scope 1 tăng/giảm như vậy?', answerHint: 'Fuel breakdown chỉ ra driver: wood, diesel/LPG, F-gas.' },
-    { id: 's1-calc', label: 'Tính thế nào', icon: '3', question: 'FC 2026 tính bằng công thức và nguồn nào?', answerHint: 'Q1 actual, MTC, intensity hoặc approved FC1.' },
-    { id: 's1-actions', label: 'Kế hoạch', icon: '4', question: 'Kế hoạch giảm phát thải Scope 1 là gì?', answerHint: 'Boiler efficiency, fuel switching, leakage control và ownership.' },
-    { id: 's1-evidence', label: 'Dẫn chứng', icon: '5', question: 'Dẫn chứng nào chứng minh các kết luận trên?', answerHint: 'Bảng historical, Q1 2026, MTC, fuel split và assumption note.' },
+    { id: 's1-overview', label: lang === 'vi' ? 'Hiện trạng' : 'Status', icon: '1', question: lang === 'vi' ? 'Scope 1 hiện đang ở đâu so với baseline và target?' : 'Where is Scope 1 versus baseline and target?', answerHint: lang === 'vi' ? 'Trend, actual, FC 2026 và target trajectory.' : 'Trend, actuals, FC 2026 and target trajectory.' },
+    { id: 's1-breakdown', label: lang === 'vi' ? 'Tại sao' : 'Why', icon: '2', question: lang === 'vi' ? 'Vì sao Scope 1 tăng/giảm như vậy?' : 'Why did Scope 1 move this way?', answerHint: lang === 'vi' ? 'Fuel breakdown chỉ ra driver: wood, diesel/LPG, F-gas.' : 'Fuel breakdown identifies drivers: wood, diesel/LPG and F-gas.' },
+    { id: 's1-calc', label: lang === 'vi' ? 'Tính thế nào' : 'Method', icon: '3', question: lang === 'vi' ? 'FC 2026 tính bằng công thức và nguồn nào?' : 'Which formula and source define FC 2026?', answerHint: lang === 'vi' ? 'Q1 actual, MTC, intensity hoặc approved FC1.' : 'Q1 actuals, MTC, intensity or approved FC1.' },
+    { id: 's1-actions', label: lang === 'vi' ? 'Kế hoạch' : 'Plan', icon: '4', question: lang === 'vi' ? 'Kế hoạch giảm phát thải Scope 1 là gì?' : 'What is the Scope 1 reduction plan?', answerHint: lang === 'vi' ? 'Boiler efficiency, fuel switching, leakage control và ownership.' : 'Boiler efficiency, fuel switching, leakage control and ownership.' },
+    { id: 's1-evidence', label: lang === 'vi' ? 'Dẫn chứng' : 'Evidence', icon: '5', question: lang === 'vi' ? 'Dẫn chứng nào chứng minh các kết luận trên?' : 'What evidence supports these conclusions?', answerHint: lang === 'vi' ? 'Bảng historical, Q1 2026, MTC, fuel split và assumption note.' : 'Historical table, Q1 2026, MTC, fuel split and assumption note.' },
   ];
   const scope2Menu: ScopeMenuItem[] = [
-    { id: 's2-overview', label: 'Hiện trạng', icon: '1', question: 'Scope 2 hiện đang ở đâu so với baseline và target?', answerHint: 'Trend điện lưới từ baseline tới FC 2026.' },
-    { id: 's2-why', label: 'Tại sao', icon: '2', question: 'Vì sao Scope 2 thay đổi?', answerHint: 'kWh, grid EF, production load, intensity và solar timing.' },
-    { id: 's2-calc', label: 'Tính thế nào', icon: '3', question: 'FC Scope 2 được tính bằng công thức nào?', answerHint: 'Q1 actual, MTC volume, grid EF và FC1 source.' },
-    { id: 's2-actions', label: 'Kế hoạch', icon: '4', question: 'Solar/REC/efficiency có kéo được Scope 2 xuống không?', answerHint: 'PT solar, residual grid dependency và action bridge.' },
-    { id: 's2-evidence', label: 'Dẫn chứng', icon: '5', question: 'Dẫn chứng nào chứng minh số điện và emission?', answerHint: 'Historical table, implied MWh, grid EF, Q1 actual và FC1 note.' },
+    { id: 's2-overview', label: lang === 'vi' ? 'Hiện trạng' : 'Status', icon: '1', question: lang === 'vi' ? 'Scope 2 hiện đang ở đâu so với baseline và target?' : 'Where is Scope 2 versus baseline and target?', answerHint: lang === 'vi' ? 'Trend điện lưới từ baseline tới FC 2026.' : 'Grid electricity trend from baseline to FC 2026.' },
+    { id: 's2-why', label: lang === 'vi' ? 'Tại sao' : 'Why', icon: '2', question: lang === 'vi' ? 'Vì sao Scope 2 thay đổi?' : 'Why did Scope 2 change?', answerHint: lang === 'vi' ? 'kWh, grid EF, production load, intensity và solar timing.' : 'kWh, grid EF, production load, intensity and solar timing.' },
+    { id: 's2-calc', label: lang === 'vi' ? 'Tính thế nào' : 'Method', icon: '3', question: lang === 'vi' ? 'FC Scope 2 được tính bằng công thức nào?' : 'Which formula calculates FC Scope 2?', answerHint: lang === 'vi' ? 'Q1 actual, MTC volume, grid EF và FC1 source.' : 'Q1 actuals, MTC volume, grid EF and FC1 source.' },
+    { id: 's2-actions', label: lang === 'vi' ? 'Kế hoạch' : 'Plan', icon: '4', question: lang === 'vi' ? 'Solar/REC/efficiency có kéo được Scope 2 xuống không?' : 'Can solar/REC/efficiency bring Scope 2 down?', answerHint: lang === 'vi' ? 'PT solar, residual grid dependency và action bridge.' : 'PT solar, residual grid dependency and action bridge.' },
+    { id: 's2-evidence', label: lang === 'vi' ? 'Dẫn chứng' : 'Evidence', icon: '5', question: lang === 'vi' ? 'Dẫn chứng nào chứng minh số điện và emission?' : 'What evidence supports power and emission figures?', answerHint: lang === 'vi' ? 'Historical table, implied MWh, grid EF, Q1 actual và FC1 note.' : 'Historical table, implied MWh, grid EF, Q1 actuals and FC1 note.' },
   ];
   const scope3Menu: ScopeMenuItem[] = [
-    { id: 's3-overview', label: 'Hiện trạng', icon: '1', question: 'Scope 3 hiện đang ở đâu so với SBTi target?', answerHint: 'Waterfall baseline, actual, FC 2026 và target path.' },
-    { id: 's3-origin', label: 'Tại sao', icon: '2', question: 'Vì sao Scope 3 bị kéo lên/xuống?', answerHint: 'Cat.1 origin mix, volume effect và EF/mix effect.' },
-    { id: 's3-calc', label: 'Tính thế nào', icon: '3', question: 'FC Scope 3 cộng từ những mảnh nào?', answerHint: 'Cat.1 + Cat.3 + Cat.4 reconciliation.' },
-    { id: 's3-transport', label: 'Kế hoạch', icon: '4', question: 'Kế hoạch kiểm soát Scope 3 là gì?', answerHint: 'Procurement origin, supplier engagement và logistics route control.' },
-    { id: 's3-regional', label: 'Dẫn chứng', icon: '5', question: 'Dẫn chứng nào cho thấy rủi ro nằm ở đâu?', answerHint: 'Raw procurement, VN/India split, route map và regional panels.' },
+    { id: 's3-overview', label: lang === 'vi' ? 'Hiện trạng' : 'Status', icon: '1', question: lang === 'vi' ? 'Scope 3 hiện đang ở đâu so với SBTi target?' : 'Where is Scope 3 versus the SBTi target?', answerHint: lang === 'vi' ? 'Waterfall baseline, actual, FC 2026 và target path.' : 'Waterfall baseline, actuals, FC 2026 and target path.' },
+    { id: 's3-origin', label: lang === 'vi' ? 'Tại sao' : 'Why', icon: '2', question: lang === 'vi' ? 'Vì sao Scope 3 bị kéo lên/xuống?' : 'Why is Scope 3 pulled up or down?', answerHint: lang === 'vi' ? 'Cat.1 origin mix, volume effect và EF/mix effect.' : 'Cat.1 origin mix, volume effect and EF/mix effect.' },
+    { id: 's3-calc', label: lang === 'vi' ? 'Tính thế nào' : 'Method', icon: '3', question: lang === 'vi' ? 'FC Scope 3 cộng từ những mảnh nào?' : 'Which pieces make up FC Scope 3?', answerHint: lang === 'vi' ? 'Cat.1 + Cat.3 + Cat.4 reconciliation.' : 'Cat.1 + Cat.3 + Cat.4 reconciliation.' },
+    { id: 's3-transport', label: lang === 'vi' ? 'Kế hoạch' : 'Plan', icon: '4', question: lang === 'vi' ? 'Kế hoạch kiểm soát Scope 3 là gì?' : 'What is the Scope 3 control plan?', answerHint: lang === 'vi' ? 'Procurement origin, supplier engagement và logistics route control.' : 'Procurement origin, supplier engagement and logistics route control.' },
+    { id: 's3-regional', label: lang === 'vi' ? 'Dẫn chứng' : 'Evidence', icon: '5', question: lang === 'vi' ? 'Dẫn chứng nào cho thấy rủi ro nằm ở đâu?' : 'Which evidence shows where the risk sits?', answerHint: lang === 'vi' ? 'Raw procurement, VN/India split, route map và regional panels.' : 'Raw procurement, VN/India split, route map and regional panels.' },
   ];
   const intensityMenu: ScopeMenuItem[] = [
-    { id: 'intensity-overview', label: 'Intensity overview', icon: '1', question: 'Nhà máy nào đang phát thải hiệu quả nhất?', answerHint: 'So sánh kgCO₂e/tRCN và RCN trend.' },
-    { id: 'intensity-factory', label: 'Factory panels', icon: '2', question: 'Sản lượng tăng có làm intensity xấu đi không?', answerHint: 'Đọc chung trend RCN và Scope 1/2 intensity.' },
+    { id: 'intensity-overview', label: lang === 'vi' ? 'Tổng quan intensity' : 'Intensity overview', icon: '1', question: lang === 'vi' ? 'Nhà máy nào đang phát thải hiệu quả nhất?' : 'Which factory is most emission-efficient?', answerHint: lang === 'vi' ? 'So sánh kgCO₂e/tRCN và RCN trend.' : 'Compare kgCO₂e/tRCN and RCN trend.' },
+    { id: 'intensity-factory', label: lang === 'vi' ? 'Theo nhà máy' : 'Factory panels', icon: '2', question: lang === 'vi' ? 'Sản lượng tăng có làm intensity xấu đi không?' : 'Does higher production worsen intensity?', answerHint: lang === 'vi' ? 'Đọc chung trend RCN và Scope 1/2 intensity.' : 'Read RCN trend together with Scope 1/2 intensity.' },
   ];
 
   // ── Scope 1 bars ──────────────────────────────────────
@@ -1769,11 +1667,11 @@ export default function OpexReportPage() {
           <ScopeLogicBrief
             accent="#C8281A"
             points={[
-              { title: 'Hiện trạng', text: `FC 2026 Scope 1: ${Math.round(fcS1).toLocaleString()} tCO₂e; so với baseline/target xem chart bên dưới.` },
-              { title: 'Tại sao', text: 'Driver chính nằm ở fuel mix: wood boiler, diesel/LPG và F-gas tùy nhà máy.' },
-              { title: 'Tính thế nào', text: selectedFac === 'ALL' ? 'ALL dùng approved Opex FC1; model Q1×MTC chỉ là tham chiếu.' : 'Factory view dùng Q1 actual intensity × MTC remaining.' },
-              { title: 'Kế hoạch', text: 'Tập trung boiler efficiency, moisture control, fuel switching và kiểm soát diesel/F-gas.' },
-              { title: 'Dẫn chứng', text: 'Waterfall, fuel breakdown, historical table, Q1 2026 và MTC volume.' },
+              { title: lang === 'vi' ? 'Hiện trạng' : 'Status', text: lang === 'vi' ? `FC 2026 Scope 1: ${Math.round(fcS1).toLocaleString()} tCO₂e; so với baseline/target xem chart bên dưới.` : `FC 2026 Scope 1: ${Math.round(fcS1).toLocaleString()} tCO₂e; compare against baseline/target in the chart below.` },
+              { title: lang === 'vi' ? 'Tại sao' : 'Why', text: lang === 'vi' ? 'Driver chính nằm ở fuel mix: wood boiler, diesel/LPG và F-gas tùy nhà máy.' : 'Main drivers sit in fuel mix: wood boiler, diesel/LPG and factory-specific F-gas.' },
+              { title: lang === 'vi' ? 'Tính thế nào' : 'Method', text: selectedFac === 'ALL' ? (lang === 'vi' ? 'ALL dùng approved Opex FC1; model Q1×MTC chỉ là tham chiếu.' : 'ALL uses approved Opex FC1; the Q1×MTC model is reference only.') : (lang === 'vi' ? 'Factory view dùng Q1 actual intensity × MTC remaining.' : 'Factory view uses Q1 actual intensity × remaining MTC.') },
+              { title: lang === 'vi' ? 'Kế hoạch' : 'Plan', text: lang === 'vi' ? 'Tập trung boiler efficiency, moisture control, fuel switching và kiểm soát diesel/F-gas.' : 'Focus on boiler efficiency, moisture control, fuel switching and diesel/F-gas control.' },
+              { title: lang === 'vi' ? 'Dẫn chứng' : 'Evidence', text: lang === 'vi' ? 'Waterfall, fuel breakdown, historical table, Q1 2026 và MTC volume.' : 'Waterfall, fuel breakdown, historical table, Q1 2026 and MTC volume.' },
             ]}
           />
           <QuestionCard id="s1-overview" item={scope1Menu[0]} accent="#C8281A">
@@ -2039,11 +1937,11 @@ export default function OpexReportPage() {
           <ScopeLogicBrief
             accent="#4472C4"
             points={[
-              { title: 'Hiện trạng', text: `FC 2026 Scope 2: ${Math.round(fcS2).toLocaleString()} tCO₂e; rủi ro còn lại là điện lưới.` },
-              { title: 'Tại sao', text: 'Scope 2 thay đổi theo kWh/tRCN, grid EF, production load và timing solar.' },
-              { title: 'Tính thế nào', text: selectedFac === 'ALL' ? 'ALL locked theo Opex FC1; Q1×MTC là model kiểm tra.' : 'Q1 actual grid intensity × MTC remaining, áp grid EF hiện hành.' },
-              { title: 'Kế hoạch', text: 'PT solar từ cuối 2026/2027, REC/RE transition và chương trình giảm kWh/tRCN.' },
-              { title: 'Dẫn chứng', text: 'Waterfall, implied MWh, grid EF, Q1 actual, FC1 note và solar bridge.' },
+              { title: lang === 'vi' ? 'Hiện trạng' : 'Status', text: lang === 'vi' ? `FC 2026 Scope 2: ${Math.round(fcS2).toLocaleString()} tCO₂e; rủi ro còn lại là điện lưới.` : `FC 2026 Scope 2: ${Math.round(fcS2).toLocaleString()} tCO₂e; remaining risk is grid electricity.` },
+              { title: lang === 'vi' ? 'Tại sao' : 'Why', text: lang === 'vi' ? 'Scope 2 thay đổi theo kWh/tRCN, grid EF, production load và timing solar.' : 'Scope 2 changes with kWh/tRCN, grid EF, production load and solar timing.' },
+              { title: lang === 'vi' ? 'Tính thế nào' : 'Method', text: selectedFac === 'ALL' ? (lang === 'vi' ? 'ALL locked theo Opex FC1; Q1×MTC là model kiểm tra.' : 'ALL is locked to Opex FC1; Q1×MTC is a check model.') : (lang === 'vi' ? 'Q1 actual grid intensity × MTC remaining, áp grid EF hiện hành.' : 'Q1 actual grid intensity × remaining MTC, using the current grid EF.') },
+              { title: lang === 'vi' ? 'Kế hoạch' : 'Plan', text: lang === 'vi' ? 'PT solar từ cuối 2026/2027, REC/RE transition và chương trình giảm kWh/tRCN.' : 'PT solar from late 2026/2027, REC/RE transition and kWh/tRCN reduction program.' },
+              { title: lang === 'vi' ? 'Dẫn chứng' : 'Evidence', text: lang === 'vi' ? 'Waterfall, implied MWh, grid EF, Q1 actual, FC1 note và solar bridge.' : 'Waterfall, implied MWh, grid EF, Q1 actuals, FC1 note and solar bridge.' },
             ]}
           />
           <QuestionCard id="s2-overview" item={scope2Menu[0]} accent="#4472C4">
@@ -2516,11 +2414,11 @@ export default function OpexReportPage() {
             <ScopeLogicBrief
               accent="#3E7B3E"
               points={[
-                { title: 'Hiện trạng', text: `FC 2026 Scope 3: ${Math.round(fcS3Total).toLocaleString()} tCO₂e; phần lớn đến từ Cat.1 purchased RCN.` },
-                { title: 'Tại sao', text: 'Driver chính là procurement volume, origin EF/mix, cộng Cat.3 upstream fuel và Cat.4 logistics.' },
-                { title: 'Tính thế nào', text: 'FC = Cat.1 origin plan + Cat.3 fuel upstream + Cat.4 transport route emissions.' },
-                { title: 'Kế hoạch', text: 'Giảm rủi ro bằng supplier/origin strategy, traceability, logistics route optimization.' },
-                { title: 'Dẫn chứng', text: 'Raw procurement, origin mix, route map, VN/India split và calculation reconciliation.' },
+                { title: lang === 'vi' ? 'Hiện trạng' : 'Status', text: lang === 'vi' ? `FC 2026 Scope 3: ${Math.round(fcS3Total).toLocaleString()} tCO₂e; phần lớn đến từ Cat.1 purchased RCN.` : `FC 2026 Scope 3: ${Math.round(fcS3Total).toLocaleString()} tCO₂e; most comes from Cat.1 purchased RCN.` },
+                { title: lang === 'vi' ? 'Tại sao' : 'Why', text: lang === 'vi' ? 'Driver chính là procurement volume, origin EF/mix, cộng Cat.3 upstream fuel và Cat.4 logistics.' : 'Main drivers are procurement volume, origin EF/mix, plus Cat.3 upstream fuel and Cat.4 logistics.' },
+                { title: lang === 'vi' ? 'Tính thế nào' : 'Method', text: lang === 'vi' ? 'FC = Cat.1 origin plan + Cat.3 fuel upstream + Cat.4 transport route emissions.' : 'FC = Cat.1 origin plan + Cat.3 upstream fuel + Cat.4 transport route emissions.' },
+                { title: lang === 'vi' ? 'Kế hoạch' : 'Plan', text: lang === 'vi' ? 'Giảm rủi ro bằng supplier/origin strategy, traceability, logistics route optimization.' : 'Reduce risk through supplier/origin strategy, traceability and logistics route optimization.' },
+                { title: lang === 'vi' ? 'Dẫn chứng' : 'Evidence', text: lang === 'vi' ? 'Raw procurement, origin mix, route map, VN/India split và calculation reconciliation.' : 'Raw procurement, origin mix, route map, VN/India split and calculation reconciliation.' },
               ]}
             />
 
