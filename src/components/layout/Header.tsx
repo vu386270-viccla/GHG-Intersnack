@@ -11,7 +11,7 @@ function HeaderInner() {
   const searchParams = useSearchParams();
   const isOpex = pathname === '/opex-report';
   const showIntensity = searchParams.get('intensity') === '1';
-  const showOrigin    = searchParams.get('origin')    === '1';
+  const showOrigin = searchParams.get('origin') === '1';
 
   const toggle = (key: string, current: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -43,8 +43,6 @@ function HeaderInner() {
   const pageInfo = PAGE_TITLES[pathname] || PAGE_TITLES['/'];
   const translatedTitle = t(pageInfo.titleKey);
 
-  if (pathname === '/login') return null;
-
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (guideRef.current && !guideRef.current.contains(e.target as Node)) {
@@ -57,6 +55,8 @@ function HeaderInner() {
 
   const guideText = t(`guide_${pathname}`);
   const hasGuide = guideText !== `guide_${pathname}`;
+
+  if (pathname === '/login') return null;
 
   return (
     <header className="header">

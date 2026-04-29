@@ -25,10 +25,10 @@ interface Factory { id: string; name: string; country: string; }
 // ── Management KPI (tCO₂e/month) — top-down from management ──
 // Same values as used in the PPT Overview page
 const MONTHLY_KPI: Record<string, number> = {
-  'Long An':    265,
-  'Tây Ninh':   304,
+  'Long An': 265,
+  'Tây Ninh': 304,
   'Phan Thiết': 223,
-  'Tuticorin':  334,
+  'Tuticorin': 334,
 };
 
 function getKpiForFactory(name: string): number | null {
@@ -40,16 +40,16 @@ function getKpiForFactory(name: string): number | null {
 
 // ── Display config per utility ──
 const EF = {
-  firewood:    { unit: 'tons',   label: 'Firewood (Boiler)',  color: '#C8281A', iconLabel: '🪵' },
-  diesel:      { unit: 'liters', label: 'Diesel',             color: '#F59E0B', iconLabel: '⛽' },
-  electricity: { unit: 'kWh',   label: 'Electricity (Grid)',  color: '#3B82F6', iconLabel: '⚡' },
+  firewood: { unit: 'tons', label: 'Firewood (Boiler)', color: '#C8281A', iconLabel: '🪵' },
+  diesel: { unit: 'liters', label: 'Diesel', color: '#F59E0B', iconLabel: '⛽' },
+  electricity: { unit: 'kWh', label: 'Electricity (Grid)', color: '#3B82F6', iconLabel: '⚡' },
 };
 
 type Utility = keyof typeof EF;
 
 // ── SBTi config ──
 const SBTI_REDUCTION_BY_2032 = 0.50;
-const BASE_YEAR  = 2021;
+const BASE_YEAR = 2021;
 const TARGET_YEAR = 2032;
 
 // ── Helpers ──
@@ -69,8 +69,8 @@ function fmtNum(n: number, dp = 0): string {
 }
 function fmtAct(v: number, unit: string): string {
   const n = v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M`
-          : v >= 1000      ? `${(v / 1000).toFixed(1)}K`
-          : fmtNum(v, 0);
+    : v >= 1000 ? `${(v / 1000).toFixed(1)}K`
+      : fmtNum(v, 0);
   return `${n} ${unit}`;
 }
 
@@ -137,7 +137,7 @@ function UtilityGapRow({
   highlight?: boolean;
 }) {
   const save = current - needed;
-  const pct  = current > 0 ? (save / current * 100) : 0;
+  const pct = current > 0 ? (save / current * 100) : 0;
   const isOver = current > needed;
   return (
     <div style={{
@@ -176,19 +176,19 @@ function UtilityGapRow({
 
 // ── Main page ──
 export default function PredictorPage() {
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading] = useState(true);
   const [factories, setFactories] = useState<Factory[]>([]);
   const [rawPoints, setRawPoints] = useState<MonthPoint[]>([]);
   const [factoryId, setFactoryId] = useState<string>('');
-  const [rcnInput, setRcnInput]   = useState<string>('');
-  const [fromYear, setFromYear]   = useState(2025);
+  const [rcnInput, setRcnInput] = useState<string>('');
+  const [fromYear, setFromYear] = useState(2025);
   // Which right-panel to show: 'sbti' | 'kpi'
   const [targetTab, setTargetTab] = useState<'sbti' | 'kpi'>('kpi');
 
   const now = new Date();
-  const thisYear  = now.getFullYear();
+  const thisYear = now.getFullYear();
   const thisMonth = now.getMonth() + 1;
-  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // ── Fetch data ──
   useEffect(() => {
@@ -210,7 +210,7 @@ export default function PredictorPage() {
       if (facs.length > 0 && !factoryId) setFactoryId(facs[0].id);
 
       const prod = prodRes.data || [];
-      const ems  = emRes.data  || [];
+      const ems = emRes.data || [];
 
       const map = new Map<string, MonthPoint>();
       for (const p of prod) {
@@ -226,14 +226,14 @@ export default function PredictorPage() {
         const key = `${e.factory_id}|${e.year}|${e.month}`;
         if (!map.has(key)) continue;
         const pt = map.get(key)!;
-        if (e.category === 'wood_logs')   { pt.firewood    += Number(e.activity_data); pt.fwEm += Number(e.emissions_tco2e); }
-        if (e.category === 'diesel')      { pt.diesel      += Number(e.activity_data); pt.dsEm += Number(e.emissions_tco2e); }
+        if (e.category === 'wood_logs') { pt.firewood += Number(e.activity_data); pt.fwEm += Number(e.emissions_tco2e); }
+        if (e.category === 'diesel') { pt.diesel += Number(e.activity_data); pt.dsEm += Number(e.emissions_tco2e); }
         if (e.category === 'electricity') { pt.electricity += Number(e.activity_data); pt.elEm += Number(e.emissions_tco2e); }
       }
       setRawPoints([...map.values()].filter(p => p.rcn > 0 && (p.firewood > 0 || p.diesel > 0 || p.electricity > 0)));
       setLoading(false);
     }).catch(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromYear]);
 
   // ── Filter & regression ──
@@ -246,16 +246,16 @@ export default function PredictorPage() {
     const toDP = (ps: MonthPoint[], k: Utility): DataPoint[] =>
       ps.map(p => ({ x: p.rcn, y: p[k], label: p.key }));
     return {
-      firewood:    fitRegression(toDP(pts, 'firewood')),
-      diesel:      fitRegression(toDP(pts, 'diesel')),
+      firewood: fitRegression(toDP(pts, 'firewood')),
+      diesel: fitRegression(toDP(pts, 'diesel')),
       electricity: fitRegression(toDP(pts, 'electricity')),
     };
   }, [pts]);
 
   // ── Detect utilities with no data (all zeros in baseline) ──
   const hasData = useMemo((): Record<Utility, boolean> => ({
-    firewood:    pts.some(p => p.firewood > 0),
-    diesel:      pts.some(p => p.diesel > 0),
+    firewood: pts.some(p => p.firewood > 0),
+    diesel: pts.some(p => p.diesel > 0),
     electricity: pts.some(p => p.electricity > 0),
   }), [pts]);
 
@@ -275,8 +275,8 @@ export default function PredictorPage() {
       return vals.length > 0 ? Math.min(...vals) : 0;
     };
     return {
-      firewood:    minOf('firewood'),
-      diesel:      minOf('diesel'),
+      firewood: minOf('firewood'),
+      diesel: minOf('diesel'),
       electricity: minOf('electricity'),
     };
   }, [pts]);
@@ -287,28 +287,28 @@ export default function PredictorPage() {
   // Clamp regression output at historical monthly minimum so low-RCN
   // extrapolation doesn't yield unphysical near-zero utility values.
   const predicted = useMemo((): Record<Utility, number> => ({
-    firewood:    rcn > 0 ? Math.max(regs.firewood.predict(rcn),    utilityMin.firewood)    : 0,
-    diesel:      rcn > 0 ? Math.max(regs.diesel.predict(rcn),      utilityMin.diesel)      : 0,
+    firewood: rcn > 0 ? Math.max(regs.firewood.predict(rcn), utilityMin.firewood) : 0,
+    diesel: rcn > 0 ? Math.max(regs.diesel.predict(rcn), utilityMin.diesel) : 0,
     electricity: rcn > 0 ? Math.max(regs.electricity.predict(rcn), utilityMin.electricity) : 0,
   }), [rcn, regs, utilityMin]);
 
   // Empirical EF from dataset (tCO₂e per unit activity)
   const emRatio = useMemo(() => {
-    const ratio = (emKey: 'fwEm'|'dsEm'|'elEm', actKey: Utility) => {
-      const totEm  = pts.reduce((s, p) => s + p[emKey], 0);
+    const ratio = (emKey: 'fwEm' | 'dsEm' | 'elEm', actKey: Utility) => {
+      const totEm = pts.reduce((s, p) => s + p[emKey], 0);
       const totAct = pts.reduce((s, p) => s + p[actKey], 0);
       return totAct > 0 ? totEm / totAct : 0;
     };
     return {
-      firewood:    ratio('fwEm', 'firewood'),
-      diesel:      ratio('dsEm', 'diesel'),
+      firewood: ratio('fwEm', 'firewood'),
+      diesel: ratio('dsEm', 'diesel'),
       electricity: ratio('elEm', 'electricity'),
     };
   }, [pts]);
 
   const predictedEm = useMemo(() => {
-    const fw = predicted.firewood    * emRatio.firewood;
-    const ds = predicted.diesel      * emRatio.diesel;
+    const fw = predicted.firewood * emRatio.firewood;
+    const ds = predicted.diesel * emRatio.diesel;
     const el = predicted.electricity * emRatio.electricity;
     return { firewood: fw, diesel: ds, electricity: el, total: fw + ds + el };
   }, [predicted, emRatio]);
@@ -317,20 +317,20 @@ export default function PredictorPage() {
   const yearsElapsed = Math.max(0, thisYear - BASE_YEAR);
   const reductionPct = (yearsElapsed / (TARGET_YEAR - BASE_YEAR)) * SBTI_REDUCTION_BY_2032;
   const baselineEmPerRcn = useMemo(() => {
-    const totEm  = pts.reduce((s, p) => s + p.fwEm + p.dsEm + p.elEm, 0);
+    const totEm = pts.reduce((s, p) => s + p.fwEm + p.dsEm + p.elEm, 0);
     const totRcn = pts.reduce((s, p) => s + p.rcn, 0);
     return totRcn > 0 ? totEm / totRcn : 0;
   }, [pts]);
   const sbtiTargetEm = rcn > 0 ? baselineEmPerRcn * rcn * (1 - reductionPct) : 0;
-  const sbtiGapEm    = predictedEm.total - sbtiTargetEm;
-  const sbtiGapPct   = predictedEm.total > 0 ? (sbtiGapEm / predictedEm.total) * 100 : 0;
+  const sbtiGapEm = predictedEm.total - sbtiTargetEm;
+  const sbtiGapPct = predictedEm.total > 0 ? (sbtiGapEm / predictedEm.total) * 100 : 0;
   const sbtiReqReduction = Math.max(0, sbtiGapPct);
 
   // ── Monthly KPI target ──
-  const factoryName  = factories.find(f => f.id === factoryId)?.name || factoryId;
-  const kpiPerMonth  = getKpiForFactory(factoryName); // tCO₂e/month (management-set)
-  const kpiGapEm     = kpiPerMonth !== null && rcn > 0 ? predictedEm.total - kpiPerMonth : 0;
-  const kpiGapPct    = kpiPerMonth !== null && predictedEm.total > 0 ? (kpiGapEm / predictedEm.total) * 100 : 0;
+  const factoryName = factories.find(f => f.id === factoryId)?.name || factoryId;
+  const kpiPerMonth = getKpiForFactory(factoryName); // tCO₂e/month (management-set)
+  const kpiGapEm = kpiPerMonth !== null && rcn > 0 ? predictedEm.total - kpiPerMonth : 0;
+  const kpiGapPct = kpiPerMonth !== null && predictedEm.total > 0 ? (kpiGapEm / predictedEm.total) * 100 : 0;
   const kpiReqReduction = Math.max(0, kpiGapPct);
 
   // Per-utility KPI targets (proportional split using emission share)
@@ -339,8 +339,8 @@ export default function PredictorPage() {
     const ratio = kpiPerMonth / predictedEm.total;
     // Each utility is scaled by the same ratio to hit KPI total
     return {
-      firewood:    predictedEm.firewood    * ratio,
-      diesel:      predictedEm.diesel      * ratio,
+      firewood: predictedEm.firewood * ratio,
+      diesel: predictedEm.diesel * ratio,
       electricity: predictedEm.electricity * ratio,
     };
   }, [kpiPerMonth, predictedEm]);
@@ -353,16 +353,16 @@ export default function PredictorPage() {
   const kpiActTarget = useMemo(() => {
     if (!kpiUtilityTarget) return null;
     return {
-      firewood:    emToAct(kpiUtilityTarget.firewood,    emRatio.firewood),
-      diesel:      emToAct(kpiUtilityTarget.diesel,      emRatio.diesel),
+      firewood: emToAct(kpiUtilityTarget.firewood, emRatio.firewood),
+      diesel: emToAct(kpiUtilityTarget.diesel, emRatio.diesel),
       electricity: emToAct(kpiUtilityTarget.electricity, emRatio.electricity),
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kpiUtilityTarget, emRatio]);
 
   const UTILITIES: Utility[] = ['firewood', 'diesel', 'electricity'];
 
-  if (loading) return <SkeletonDashboard />;return (
+  if (loading) return <SkeletonDashboard />; return (
     <div className="page-enter" style={{ maxWidth: 1140, margin: '0 auto' }}>
 
       {/* ── Page header ── */}
@@ -535,10 +535,10 @@ export default function PredictorPage() {
           {rcn > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {UTILITIES.map(u => {
-                const reg  = regs[u];
+                const reg = regs[u];
                 const info = EF[u];
-                const val  = predicted[u];
-                const emV  = predictedEm[u];
+                const val = predicted[u];
+                const emV = predictedEm[u];
                 const conf = reg.r2 >= 0.85 ? '±10%' : reg.r2 >= 0.65 ? '±20%' : '±35%+';
                 const active = hasData[u];
                 return (
@@ -598,8 +598,8 @@ export default function PredictorPage() {
           {/* Tab switcher */}
           <div style={{ display: 'flex', gap: 0, marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: '1.5px solid var(--color-border)' }}>
             {([
-              { key: 'kpi',  label: '🎯 Monthly KPI Target',  desc: 'Management-set' },
-              { key: 'sbti', label: '📉 SBTi Pathway',        desc: '−50% by 2032' },
+              { key: 'kpi', label: '🎯 Monthly KPI Target', desc: 'Management-set' },
+              { key: 'sbti', label: '📉 SBTi Pathway', desc: '−50% by 2032' },
             ] as const).map(t => (
               <button key={t.key} onClick={() => setTargetTab(t.key)} style={{
                 flex: 1, padding: '9px 12px', border: 'none', cursor: 'pointer',
@@ -665,11 +665,11 @@ export default function PredictorPage() {
                       </div>
 
                       {UTILITIES.map(u => {
-                        const info     = EF[u];
-                        const current  = predicted[u];
-                        const needed   = kpiActTarget[u];
+                        const info = EF[u];
+                        const current = predicted[u];
+                        const needed = kpiActTarget[u];
                         const emNeeded = kpiUtilityTarget![u];
-                        const emSaved  = predictedEm[u] - emNeeded;
+                        const emSaved = predictedEm[u] - emNeeded;
                         return (
                           <UtilityGapRow
                             key={u}
@@ -683,7 +683,7 @@ export default function PredictorPage() {
                       })}
 
                       <div style={{ marginTop: 8, fontSize: 10, color: 'var(--color-text-muted)', padding: '6px 10px', background: 'var(--color-bg-secondary)', borderRadius: 8 }}>
-                        💡 Reduction split is proportional to each utility's emission share.
+                        💡 Reduction split is proportional to each utility&apos;s emission share.
                         Firewood has highest leverage per unit reduced.
                       </div>
                     </>
@@ -747,10 +747,10 @@ export default function PredictorPage() {
                         <span style={{ fontSize: 20, fontFamily: 'var(--font-display)' }}>{sbtiReqReduction.toFixed(1)}%</span>
                       </div>
                       {UTILITIES.map(u => {
-                        const info    = EF[u];
+                        const info = EF[u];
                         const current = predicted[u];
-                        const needed  = current * (1 - sbtiReqReduction / 100);
-                        const emSave  = predictedEm[u] - predictedEm[u] * (1 - sbtiReqReduction / 100);
+                        const needed = current * (1 - sbtiReqReduction / 100);
+                        const emSave = predictedEm[u] - predictedEm[u] * (1 - sbtiReqReduction / 100);
                         return (
                           <UtilityGapRow key={u} info={info} current={current} needed={needed} emSave={emSave} highlight />
                         );
