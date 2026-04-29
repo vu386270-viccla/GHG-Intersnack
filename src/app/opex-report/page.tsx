@@ -874,20 +874,34 @@ function ScopeTOC({ title, items, accent = '#C8281A' }: { title: string; items: 
   }, []);
 
   return (
-    <aside style={{
-      position: 'sticky', top: 74, alignSelf: 'start',
+    <div style={{
+      position: 'sticky', top: 62, zIndex: 18, marginBottom: 12,
       border: '1px solid #dbe3ea', borderRadius: 12, overflow: 'hidden',
-      background: 'rgba(255,255,255,0.96)', boxShadow: '0 10px 26px rgba(15,23,42,0.08)',
-      backdropFilter: 'blur(10px)', zIndex: 20,
+      background: 'rgba(255,255,255,0.97)', boxShadow: '0 8px 22px rgba(15,23,42,0.08)',
+      backdropFilter: 'blur(10px)',
     }}>
-      <div style={{ padding: '9px 11px', background: `linear-gradient(135deg, ${accent}, #111827)`, color: '#fff' }}>
-        <div style={{ fontSize: 10, opacity: 0.78, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 800 }}>Menu động</div>
-        <div style={{ fontSize: 13, fontWeight: 950, marginTop: 2 }}>{title}</div>
-        <div style={{ height: 3, background: 'rgba(255,255,255,.22)', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between',
+        padding: '8px 10px', background: `linear-gradient(135deg, ${accent}, #111827)`, color: '#fff',
+      }}>
+        <div style={{ minWidth: 145 }}>
+          <div style={{ fontSize: 9, opacity: 0.78, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 800 }}>Menu động</div>
+          <div style={{ fontSize: 12.5, fontWeight: 950, marginTop: 1 }}>{title}</div>
+        </div>
+        <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,.22)', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${progress}%`, background: '#fff', borderRadius: 99, transition: 'width .16s ease' }} />
         </div>
       </div>
-      <nav style={{ padding: 8, display: 'grid', gap: 5 }} aria-label={`${title} section navigation`}>
+      <nav
+        aria-label={`${title} section navigation`}
+        style={{
+          padding: 7,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))',
+          gap: 6,
+          overflowX: 'auto',
+        }}
+      >
         {items.map((item, idx) => {
           const active = activeId === item.id;
           return (
@@ -896,25 +910,25 @@ function ScopeTOC({ title, items, accent = '#C8281A' }: { title: string; items: 
               type="button"
               onClick={() => jumpTo(item.id)}
               style={{
-                textAlign: 'left', cursor: 'pointer', borderRadius: 9, border: active ? `1.5px solid ${accent}` : '1px solid transparent',
-                background: active ? `${accent}12` : 'transparent', padding: '8px 9px',
-                display: 'grid', gridTemplateColumns: '20px 1fr', gap: 7, alignItems: 'start',
-                boxShadow: active ? `0 5px 14px ${accent}20` : 'none', transition: 'all .18s ease',
+                textAlign: 'left', cursor: 'pointer', borderRadius: 9, border: active ? `1.5px solid ${accent}` : '1px solid #e5e7eb',
+                background: active ? `${accent}12` : '#fff', padding: '7px 8px',
+                display: 'grid', gridTemplateColumns: '20px 1fr', gap: 7, alignItems: 'center',
+                minWidth: 120, boxShadow: active ? `0 4px 12px ${accent}1f` : 'none', transition: 'all .18s ease',
               }}
             >
               <span style={{
                 width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 background: active ? accent : '#eef2f7', color: active ? '#fff' : '#475569', fontSize: 10, fontWeight: 950,
               }}>{item.icon || idx + 1}</span>
-              <span>
-                <span style={{ display: 'block', fontSize: 11.2, fontWeight: 900, color: active ? accent : '#1f2937', lineHeight: 1.15 }}>{item.label}</span>
-                <span style={{ display: 'block', marginTop: 2, fontSize: 9.5, color: '#64748b', lineHeight: 1.25 }}>{item.question}</span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 900, color: active ? accent : '#1f2937', lineHeight: 1.15 }}>{item.label}</span>
+                <span style={{ display: 'block', marginTop: 1, fontSize: 9.2, color: '#64748b', lineHeight: 1.18, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.question}</span>
               </span>
             </button>
           );
         })}
       </nav>
-    </aside>
+    </div>
   );
 }
 
@@ -950,6 +964,35 @@ function QuestionCard({
         </div>
       </details>
     </section>
+  );
+}
+
+function ScopeLogicBrief({
+  accent,
+  points,
+}: {
+  accent: string;
+  points: { title: string; text: string }[];
+}) {
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(5, minmax(130px, 1fr))', gap: 8,
+      margin: '0 0 12px', padding: 10, border: '1px solid #e2e8f0', borderRadius: 12,
+      background: `linear-gradient(135deg, ${accent}08, #fff)`, overflowX: 'auto',
+    }}>
+      {points.map((p, idx) => (
+        <div key={p.title} style={{ background: '#fff', border: '1px solid #edf2f7', borderRadius: 10, padding: '8px 9px', minWidth: 130 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{
+              width: 18, height: 18, borderRadius: '50%', background: accent, color: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 950,
+            }}>{idx + 1}</span>
+            <span style={{ fontSize: 11, fontWeight: 950, color: '#0f172a' }}>{p.title}</span>
+          </div>
+          <div style={{ fontSize: 10.2, lineHeight: 1.35, color: '#475569' }}>{p.text}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1245,22 +1288,25 @@ export default function OpexReportPage() {
   ];
 
   const scope1Menu: ScopeMenuItem[] = [
-    { id: 's1-overview', label: 'Trend & target', icon: '1', question: 'Scope 1 đã thật sự giảm bền vững chưa?', answerHint: 'So sánh baseline, actual, FC 2026 và target trajectory.' },
-    { id: 's1-breakdown', label: 'Fuel breakdown', icon: '2', question: 'Nguồn nào đang kéo Scope 1 lên?', answerHint: 'Tách wood, LPG/diesel, F-gas để thấy driver thật.' },
-    { id: 's1-calc', label: 'FC 2026 calculation', icon: '3', question: 'Con số FC 2026 này lấy từ đâu?', answerHint: 'Phân biệt approved FC1 và internal Q1×MTC reference.' },
-    { id: 's1-actions', label: 'So what?', icon: '4', question: 'Vậy nhà máy cần làm gì tiếp?', answerHint: 'Kết luận hành động và rủi ro còn lại.' },
+    { id: 's1-overview', label: 'Hiện trạng', icon: '1', question: 'Scope 1 hiện đang ở đâu so với baseline và target?', answerHint: 'Trend, actual, FC 2026 và target trajectory.' },
+    { id: 's1-breakdown', label: 'Tại sao', icon: '2', question: 'Vì sao Scope 1 tăng/giảm như vậy?', answerHint: 'Fuel breakdown chỉ ra driver: wood, diesel/LPG, F-gas.' },
+    { id: 's1-calc', label: 'Tính thế nào', icon: '3', question: 'FC 2026 tính bằng công thức và nguồn nào?', answerHint: 'Q1 actual, MTC, intensity hoặc approved FC1.' },
+    { id: 's1-actions', label: 'Kế hoạch', icon: '4', question: 'Kế hoạch giảm phát thải Scope 1 là gì?', answerHint: 'Boiler efficiency, fuel switching, leakage control và ownership.' },
+    { id: 's1-evidence', label: 'Dẫn chứng', icon: '5', question: 'Dẫn chứng nào chứng minh các kết luận trên?', answerHint: 'Bảng historical, Q1 2026, MTC, fuel split và assumption note.' },
   ];
   const scope2Menu: ScopeMenuItem[] = [
-    { id: 's2-overview', label: 'Trend & target', icon: '1', question: 'Điện lưới còn là rủi ro lớn không?', answerHint: 'Nhìn Scope 2 từ baseline tới FC 2026.' },
-    { id: 's2-calc', label: 'FC 2026 calculation', icon: '2', question: 'FC Scope 2 đang dựa trên gì?', answerHint: 'Q1 actual, MTC volume, grid EF và FC1 source.' },
-    { id: 's2-actions', label: 'Solar & grid bridge', icon: '3', question: 'Solar có cứu được quỹ đạo không?', answerHint: 'Xem residual grid dependency và timing PT solar.' },
+    { id: 's2-overview', label: 'Hiện trạng', icon: '1', question: 'Scope 2 hiện đang ở đâu so với baseline và target?', answerHint: 'Trend điện lưới từ baseline tới FC 2026.' },
+    { id: 's2-why', label: 'Tại sao', icon: '2', question: 'Vì sao Scope 2 thay đổi?', answerHint: 'kWh, grid EF, production load, intensity và solar timing.' },
+    { id: 's2-calc', label: 'Tính thế nào', icon: '3', question: 'FC Scope 2 được tính bằng công thức nào?', answerHint: 'Q1 actual, MTC volume, grid EF và FC1 source.' },
+    { id: 's2-actions', label: 'Kế hoạch', icon: '4', question: 'Solar/REC/efficiency có kéo được Scope 2 xuống không?', answerHint: 'PT solar, residual grid dependency và action bridge.' },
+    { id: 's2-evidence', label: 'Dẫn chứng', icon: '5', question: 'Dẫn chứng nào chứng minh số điện và emission?', answerHint: 'Historical table, implied MWh, grid EF, Q1 actual và FC1 note.' },
   ];
   const scope3Menu: ScopeMenuItem[] = [
-    { id: 's3-overview', label: 'Scope 3 target path', icon: '1', question: 'Scope 3 có đang đi đúng đường SBTi không?', answerHint: 'Waterfall từ baseline tới FC 2026 và target.' },
-    { id: 's3-origin', label: 'Cat.1 origin mix', icon: '2', question: 'Vì sao cùng mua RCN nhưng phát thải khác nhau?', answerHint: 'Origin EF và mix vùng mua là driver chính.' },
-    { id: 's3-transport', label: 'Cat.4 logistics', icon: '3', question: 'Vận chuyển đóng góp bao nhiêu và route nào nặng nhất?', answerHint: 'Vessel + road theo route map.' },
-    { id: 's3-regional', label: 'VN / India split', icon: '4', question: 'Gánh nặng Scope 3 đang nằm ở quốc gia nào?', answerHint: 'Slide 5-panel chia theo Vietnam và India.' },
-    { id: 's3-calc', label: 'FC 2026 calculation', icon: '5', question: 'FC Scope 3 cộng từ những mảnh nào?', answerHint: 'Cat.1 + Cat.3 + Cat.4 reconciliation.' },
+    { id: 's3-overview', label: 'Hiện trạng', icon: '1', question: 'Scope 3 hiện đang ở đâu so với SBTi target?', answerHint: 'Waterfall baseline, actual, FC 2026 và target path.' },
+    { id: 's3-origin', label: 'Tại sao', icon: '2', question: 'Vì sao Scope 3 bị kéo lên/xuống?', answerHint: 'Cat.1 origin mix, volume effect và EF/mix effect.' },
+    { id: 's3-calc', label: 'Tính thế nào', icon: '3', question: 'FC Scope 3 cộng từ những mảnh nào?', answerHint: 'Cat.1 + Cat.3 + Cat.4 reconciliation.' },
+    { id: 's3-transport', label: 'Kế hoạch', icon: '4', question: 'Kế hoạch kiểm soát Scope 3 là gì?', answerHint: 'Procurement origin, supplier engagement và logistics route control.' },
+    { id: 's3-regional', label: 'Dẫn chứng', icon: '5', question: 'Dẫn chứng nào cho thấy rủi ro nằm ở đâu?', answerHint: 'Raw procurement, VN/India split, route map và regional panels.' },
   ];
   const intensityMenu: ScopeMenuItem[] = [
     { id: 'intensity-overview', label: 'Intensity overview', icon: '1', question: 'Nhà máy nào đang phát thải hiệu quả nhất?', answerHint: 'So sánh kgCO₂e/tRCN và RCN trend.' },
@@ -1720,6 +1766,16 @@ export default function OpexReportPage() {
         {/* ── Scope 1 ── */}
         <div style={{ display: selectedScope === 'scope1' ? 'block' : 'none', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff', boxShadow: '0 4px 14px rgba(15,23,42,0.04)' }}>
           <ScopeTOC title="🔥 Scope 1 — Direct" items={scope1Menu} accent="#C8281A" />
+          <ScopeLogicBrief
+            accent="#C8281A"
+            points={[
+              { title: 'Hiện trạng', text: `FC 2026 Scope 1: ${Math.round(fcS1).toLocaleString()} tCO₂e; so với baseline/target xem chart bên dưới.` },
+              { title: 'Tại sao', text: 'Driver chính nằm ở fuel mix: wood boiler, diesel/LPG và F-gas tùy nhà máy.' },
+              { title: 'Tính thế nào', text: selectedFac === 'ALL' ? 'ALL dùng approved Opex FC1; model Q1×MTC chỉ là tham chiếu.' : 'Factory view dùng Q1 actual intensity × MTC remaining.' },
+              { title: 'Kế hoạch', text: 'Tập trung boiler efficiency, moisture control, fuel switching và kiểm soát diesel/F-gas.' },
+              { title: 'Dẫn chứng', text: 'Waterfall, fuel breakdown, historical table, Q1 2026 và MTC volume.' },
+            ]}
+          />
           <QuestionCard id="s1-overview" item={scope1Menu[0]} accent="#C8281A">
             <WaterfallChart
               bars={s1Bars}
@@ -1741,6 +1797,7 @@ export default function OpexReportPage() {
             />
           </QuestionCard>
 
+          <div id="s1-evidence" style={{ scrollMarginTop: 132 }} />
           {/* ── Scope 1 mini-OGSM table ── */}
           {(() => {
             const years = [2021, 2022, 2023, 2024, 2025];
@@ -1979,6 +2036,16 @@ export default function OpexReportPage() {
         {/* ── Scope 2 ── */}
         <div style={{ display: selectedScope === 'scope2' ? 'block' : 'none', padding: '10px 14px', border: '1px solid #dbeafe', borderRadius: 10, background: '#fff', boxShadow: '0 4px 14px rgba(15,23,42,0.04)' }}>
           <ScopeTOC title="⚡ Scope 2 — Grid" items={scope2Menu} accent="#4472C4" />
+          <ScopeLogicBrief
+            accent="#4472C4"
+            points={[
+              { title: 'Hiện trạng', text: `FC 2026 Scope 2: ${Math.round(fcS2).toLocaleString()} tCO₂e; rủi ro còn lại là điện lưới.` },
+              { title: 'Tại sao', text: 'Scope 2 thay đổi theo kWh/tRCN, grid EF, production load và timing solar.' },
+              { title: 'Tính thế nào', text: selectedFac === 'ALL' ? 'ALL locked theo Opex FC1; Q1×MTC là model kiểm tra.' : 'Q1 actual grid intensity × MTC remaining, áp grid EF hiện hành.' },
+              { title: 'Kế hoạch', text: 'PT solar từ cuối 2026/2027, REC/RE transition và chương trình giảm kWh/tRCN.' },
+              { title: 'Dẫn chứng', text: 'Waterfall, implied MWh, grid EF, Q1 actual, FC1 note và solar bridge.' },
+            ]}
+          />
           <QuestionCard id="s2-overview" item={scope2Menu[0]} accent="#4472C4">
             <WaterfallChart
               bars={s2Bars}
@@ -1989,6 +2056,8 @@ export default function OpexReportPage() {
             />
           </QuestionCard>
 
+          <div id="s2-why" style={{ scrollMarginTop: 132 }} />
+          <div id="s2-evidence" style={{ scrollMarginTop: 132 }} />
           {/* ── Scope 2 mini-OGSM table ── */}
           {(() => {
             const years = [2021, 2022, 2023, 2024, 2025];
@@ -2444,6 +2513,16 @@ export default function OpexReportPage() {
         return (
           <div style={{ padding: '6px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <ScopeTOC title="🌿 Scope 3 — Supply Chain" items={scope3Menu} accent="#3E7B3E" />
+            <ScopeLogicBrief
+              accent="#3E7B3E"
+              points={[
+                { title: 'Hiện trạng', text: `FC 2026 Scope 3: ${Math.round(fcS3Total).toLocaleString()} tCO₂e; phần lớn đến từ Cat.1 purchased RCN.` },
+                { title: 'Tại sao', text: 'Driver chính là procurement volume, origin EF/mix, cộng Cat.3 upstream fuel và Cat.4 logistics.' },
+                { title: 'Tính thế nào', text: 'FC = Cat.1 origin plan + Cat.3 fuel upstream + Cat.4 transport route emissions.' },
+                { title: 'Kế hoạch', text: 'Giảm rủi ro bằng supplier/origin strategy, traceability, logistics route optimization.' },
+                { title: 'Dẫn chứng', text: 'Raw procurement, origin mix, route map, VN/India split và calculation reconciliation.' },
+              ]}
+            />
 
             {/* Executive two-column canvas: left = main trajectory, right = analysis stack */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
