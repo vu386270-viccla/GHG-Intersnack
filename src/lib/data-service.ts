@@ -221,12 +221,12 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     return {
       factory,
       totalEmissions: Math.round(scope1 + scope2 + scope3),
-      totalCost: Math.round(scope1Cost + scope2Cost),
+      totalCost: 0, // not used in dashboard
       scope1: Math.round(scope1),
       scope2: Math.round(scope2),
       scope3: Math.round(scope3),
-      scope1Cost: Math.round(scope1Cost),
-      scope2Cost: Math.round(scope2Cost),
+      scope1Cost: 0,
+      scope2Cost: 0,
       monthlyTrend,
       totalRCN: Math.round(totalRCN),
     };

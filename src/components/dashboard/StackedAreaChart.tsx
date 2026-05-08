@@ -40,7 +40,18 @@ export default function StackedAreaChart({ data, height = 260, showS3 = false }:
 
     const totals = data.map(d => keys.reduce((a, k) => a + (d[k] ?? 0), 0));
     const rawMax = Math.max(...totals) * 1.1;
-    const niceMax = Math.max(1000, Math.ceil((rawMax || 1000) / 1000) * 1000);
+
+    // Adaptive Y-axis scaling: for small values (intensity < 10), use decimal steps; for large values, use 1000-step
+    let niceMax: number;
+    if (rawMax < 10) {
+      // Intensity mode: round to 1 decimal place (e.g., 0.3, 0.4, 0.5)
+      niceMax = Math.ceil(rawMax * 10) / 10;
+      // Ensure minimum 0.1 to avoid zero scale
+      niceMax = Math.max(0.1, niceMax);
+    } else {
+      // Absolute emissions: use 1000-step rounding
+      niceMax = Math.max(1000, Math.ceil((rawMax || 1000) / 1000) * 1000);
+    }
 
     const xStep = data.length > 1 ? iw / (data.length - 1) : iw;
     const xAt = (i: number) => pad.l + i * xStep;
