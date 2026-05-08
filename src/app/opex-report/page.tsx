@@ -46,6 +46,140 @@ function pctStr(val: number, base: number): string {
   return (p >= 0 ? '+' : '') + p + '%';
 }
 
+const EF_CHANGE_IMPACT = [
+  { year: '2021 baseline', old: 11798, updated: 10486, diff: -1312 },
+  { year: '2025 actual', old: 15005, updated: 12670, diff: -2335 },
+  { year: '2026 FC', old: 13497, updated: 11428, diff: -2069 },
+];
+
+const EF_CHANGE_2025_SCOPE = [
+  { scope: 'Scope 1', old: 470, updated: 414, diff: -56, color: '#C8281A' },
+  { scope: 'Scope 2', old: 14536, updated: 12256, diff: -2280, color: '#4472C4' },
+];
+
+const EF_CHANGE_2025_FACTORY = [
+  { factory: 'Tay Ninh', scope1: 95, scope2: 3197, total: 3292 },
+  { factory: 'Long An', scope1: 51, scope2: 2800, total: 2851 },
+  { factory: 'Phan Thiet', scope1: 50, scope2: 2513, total: 2563 },
+  { factory: 'Tuticorin', scope1: 218, scope2: 3746, total: 3964 },
+];
+
+function EFChangePanel({ lang }: { lang: string }) {
+  const bridgeMax = Math.max(...EF_CHANGE_2025_SCOPE.map(r => Math.abs(r.diff)), 1);
+  const totalFactory = EF_CHANGE_2025_FACTORY.reduce((sum, row) => sum + row.total, 0);
+
+  return (
+    <div style={{ margin: '0 12px 14px', border: '1px solid #dbe3ea', borderRadius: 14, background: 'linear-gradient(180deg,#fff 0%,#fff7f5 100%)', boxShadow: '0 8px 22px rgba(15,23,42,0.08)', overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg,#7f1d1d,#C8281A)', color: '#fff', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 900 }}>🧾 OpEx Jan vs OpEx April — Why numbers changed</div>
+          <div style={{ marginTop: 4, fontSize: 12, opacity: 0.92 }}>Baseline restatement view for MIS / Group reporting alignment</div>
+        </div>
+        <div style={{ textAlign: 'right', fontSize: 12, lineHeight: 1.45 }}>
+          <strong>Main driver:</strong> Scope 2 electricity EF<br />
+          Old 0.8928 → VN 0.6592 / India 0.7100 kgCO₂e/kWh
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.9fr', gap: 12, padding: 14 }}>
+        <div style={{ border: '1px solid #fee2e2', borderRadius: 12, background: '#fff', padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#991b1b', marginBottom: 8 }}>1) Total ICC Scope 1&2 impact</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr style={{ color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ textAlign: 'left', padding: '5px 4px' }}>Year</th>
+                <th style={{ textAlign: 'right', padding: '5px 4px' }}>OpEx Jan</th>
+                <th style={{ textAlign: 'right', padding: '5px 4px' }}>Updated</th>
+                <th style={{ textAlign: 'right', padding: '5px 4px' }}>Diff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {EF_CHANGE_IMPACT.map(row => (
+                <tr key={row.year} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '6px 4px', fontWeight: 700 }}>{row.year}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right' }}>{fmt(row.old)}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right', fontWeight: 800 }}>{fmt(row.updated)}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right', color: '#2E6B2E', fontWeight: 900 }}>{fmt(row.diff)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 8, fontSize: 11, color: '#475569', lineHeight: 1.45 }}>
+            {lang === 'vi'
+              ? 'Nếu đổi hệ số phát thải, baseline 2021 cũng cần restate cùng basis để YoY và KPI không bị so sai phương pháp.'
+              : 'If EF is corrected, 2021 baseline should be restated on the same basis so YoY and KPI are not comparing different methods.'}
+          </div>
+        </div>
+
+        <div style={{ border: '1px solid #dbeafe', borderRadius: 12, background: '#fff', padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#1d4ed8', marginBottom: 10 }}>2) 2025 movement bridge</div>
+          {EF_CHANGE_2025_SCOPE.map(row => (
+            <div key={row.scope} style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                <strong>{row.scope}</strong>
+                <span><b>{fmt(row.old)}</b> → <b>{fmt(row.updated)}</b> ({fmt(row.diff)})</span>
+              </div>
+              <div style={{ height: 18, borderRadius: 999, background: '#eef2f7', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.max(8, Math.abs(row.diff) / bridgeMax * 100)}%`, background: row.color, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8, color: '#fff', fontSize: 10, fontWeight: 900 }}>
+                  {fmt(row.diff)}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ padding: 9, borderRadius: 10, background: '#eff6ff', fontSize: 11, color: '#334155', lineHeight: 1.45 }}>
+            <strong>Conclusion:</strong> 2025 chênh <b>-2.335 tCO₂e</b>; trong đó Scope 2 chiếm <b>-2.280 tCO₂e</b>. Đây là EF update, không phải lỗi cộng số.
+          </div>
+        </div>
+
+        <div style={{ border: '1px solid #fed7aa', borderRadius: 12, background: '#fff', padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#9a3412', marginBottom: 8 }}>3) EF changes that explain it</div>
+          <div style={{ display: 'grid', gap: 7, fontSize: 11 }}>
+            {[
+              ['Electricity old', '0.8928', '#991b1b'],
+              ['Vietnam electricity', '0.6592', '#1d4ed8'],
+              ['India electricity', '0.7100', '#1d4ed8'],
+              ['Wood logs VN', '43.893 → 28', '#2E6B2E'],
+              ['Wood logs India', '43.893 → 35', '#2E6B2E'],
+              ['R410A', '3,943 → 2,088', '#2E6B2E'],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #e2e8f0', paddingBottom: 5 }}>
+                <span style={{ color: '#475569' }}>{label}</span>
+                <strong style={{ color }}>{val}</strong>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 10.5, color: '#64748b', lineHeight: 1.4 }}>
+            Unit: kgCO₂e per kWh / ton / kg depending on source. Country-specific EF follows the updated reporting basis.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 14px 14px' }}>
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff', padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#334155', marginBottom: 8 }}>2025 Updated factory breakdown</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead><tr style={{ color: '#64748b', borderBottom: '1px solid #e2e8f0' }}><th style={{ textAlign: 'left', padding: 5 }}>Factory</th><th style={{ textAlign: 'right', padding: 5 }}>Scope 1</th><th style={{ textAlign: 'right', padding: 5 }}>Scope 2</th><th style={{ textAlign: 'right', padding: 5 }}>Total</th></tr></thead>
+            <tbody>
+              {EF_CHANGE_2025_FACTORY.map(row => (
+                <tr key={row.factory} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: 5, fontWeight: 700 }}>{row.factory}</td><td style={{ padding: 5, textAlign: 'right' }}>{fmt(row.scope1)}</td><td style={{ padding: 5, textAlign: 'right' }}>{fmt(row.scope2)}</td><td style={{ padding: 5, textAlign: 'right', fontWeight: 800 }}>{fmt(row.total)}</td>
+                </tr>
+              ))}
+              <tr style={{ background: '#f8fafc', fontWeight: 900 }}><td style={{ padding: 5 }}>ICC</td><td style={{ padding: 5, textAlign: 'right' }}>414</td><td style={{ padding: 5, textAlign: 'right' }}>12.256</td><td style={{ padding: 5, textAlign: 'right' }}>{fmt(totalFactory)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, background: '#f8fafc', padding: 12, fontSize: 11.5, color: '#334155', lineHeight: 1.55 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#0f172a', marginBottom: 8 }}>Message for bosses / MIS</div>
+          <p style={{ margin: '0 0 8px' }}><strong>Short answer:</strong> two OpEx versions are different because the EF basis changed. Old file used common/older EF; updated file uses country/source-specific EF.</p>
+          <p style={{ margin: '0 0 8px' }}><strong>Why restate baseline:</strong> if 2025/2026 uses new EF but 2021 baseline keeps old EF, KPI and YoY comparison become mixed-method comparison.</p>
+          <p style={{ margin: 0 }}><strong>Decimal mismatch:</strong> small last-decimal differences can happen when the file sums rounded factory values vs unrounded kgCO₂e values. Aligning EF decimals and summing basis will make totals consistent.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Waterfall Chart SVG ────────────────────────────────────
 interface BarPoint {
   key: string;
@@ -662,9 +796,9 @@ const S1_CATS: { key: string; label: string; color: string }[] = [
   { key: 'wastewater', label: 'Wastewater', color: '#8B1A10' },
   { key: 'lpg', label: 'LPG', color: '#E8960E' },
   { key: 'diesel', label: 'Diesel', color: '#4472C4' },
-  { key: 'f_gas_fugitives_r134a', label: 'F Gas R134A', color: '#70AD47' },
-  { key: 'f_gas_fugitives_r410a', label: 'F Gas R410A', color: '#7F7F7F' },
-  { key: 'f_gas_fugitives_r404a', label: 'F Gas R404A', color: '#595959' },
+  { key: 'fgas_r134a', label: 'F Gas R134A', color: '#70AD47' },
+  { key: 'fgas_r410a', label: 'F Gas R410A', color: '#7F7F7F' },
+  { key: 'fgas_r404a', label: 'F Gas R404A', color: '#595959' },
   { key: 'co2_cylinder', label: 'CO₂ cylinder / tanks', color: '#333333' },
 ];
 
@@ -904,7 +1038,7 @@ export default function OpexReportPage() {
   const [loading, setLoading] = useState(true);
   const [targetEndYear, setTargetEndYear] = useState<number>(2028);
   const [selectedFac, setSelectedFac] = useState<string>('ALL');
-  const [selectedScope, setSelectedScope] = useState<'scope1' | 'scope2' | 'supply' | 'intensity'>('scope1');
+  const [selectedScope, setSelectedScope] = useState<'scope1' | 'scope2' | 'supply' | 'intensity' | 'efChange'>('scope1');
   const [showForecast, setShowForecast] = useState(false);
   const [selectedOriginYear, setSelectedOriginYear] = useState<number>(2026);
   const [reportData, setReportData] = useState<OpexReportData | null>(null);
@@ -1458,6 +1592,10 @@ export default function OpexReportPage() {
                 onClick={() => setSelectedScope('intensity')}>
                 📊 {lang === 'vi' ? 'Cường độ CO₂' : 'CO₂ Intensity'}
               </button>
+              <button className={`opex-pill-btn${selectedScope === 'efChange' ? ' active-red' : ''}`}
+                onClick={() => setSelectedScope('efChange')}>
+                🧾 {lang === 'vi' ? 'Vì sao khác?' : 'EF Change'}
+              </button>
             </div>
 
             {/* FC 2026 Toggle */}
@@ -1517,7 +1655,9 @@ export default function OpexReportPage() {
               ? (lang === 'vi' ? '⚡ Scope 2: Điện lưới, solar/RE và driver bridge cho phụ thuộc điện còn lại' : '⚡ Scope 2: Grid electricity, solar/RE and driver bridge for residual grid dependency')
               : selectedScope === 'supply'
                 ? (lang === 'vi' ? '🌿 Mục tiêu: −36.4% FLAG (Cat.1 Điều) | −7% Phi-FLAG đến 2032 (SBTi FLAG)' : '🌿 Target: −36.4% FLAG (Cat.1 Cashew) | −7% Non-FLAG by 2032 (SBTi FLAG)')
-                : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
+                : selectedScope === 'efChange'
+                  ? (lang === 'vi' ? '🧾 Giải thích vì sao OpEx Jan và OpEx April khác nhau — EF update, baseline restatement và impact theo năm/nhà máy' : '🧾 Explains why OpEx Jan and OpEx April differ — EF update, baseline restatement and year/factory impact')
+                  : (lang === 'vi' ? '📊 Xu hướng Cường độ CO₂ & Sản lượng RCN (2021–2025) theo Nhà máy — Scope 1 & Scope 2' : '📊 CO₂ Intensity & RCN Production Trend (2021–2025) by Factory — Scope 1 & Scope 2')}
         </div>
 
         <hr style={{ border: 'none', borderTop: '2px solid #C8281A', margin: '8px 0 0', opacity: 0.8 }} />
@@ -1652,6 +1792,8 @@ export default function OpexReportPage() {
           </div>
         );
       })()}
+
+      {selectedScope === 'efChange' && <EFChangePanel lang={lang} />}
 
       {/* ── Scope 1 / Scope 2 — dedicated full-width tabs ──────────────────── */}
       <div style={{

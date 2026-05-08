@@ -839,9 +839,9 @@ function normalizeScope1Category(category: string): string {
   if (catKey.includes('wastewater')) return 'wastewater';
   if (catKey === 'lpg') return 'lpg';
   if (catKey === 'diesel') return 'diesel';
-  if (catKey.includes('r134')) return 'f_gas_fugitives_r134a';
-  if (catKey.includes('r410')) return 'f_gas_fugitives_r410a';
-  if (catKey.includes('r404')) return 'f_gas_fugitives_r404a';
+  if (catKey.includes('r134')) return 'fgas_r134a';
+  if (catKey.includes('r410')) return 'fgas_r410a';
+  if (catKey.includes('r404')) return 'fgas_r404a';
   if (catKey.includes('co2') || catKey.includes('cylinder')) return 'co2_cylinder';
   return catKey;
 }
