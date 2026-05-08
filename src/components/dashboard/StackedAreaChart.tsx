@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 
 function fmt(n: number): string {
     if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    if (n < 10) return n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
     return Math.round(n).toString();
 }
 
@@ -72,7 +73,9 @@ export default function StackedAreaChart({ data, height = 260, showS3 = false }:
         top.forEach((v, j) => { stackBase[j] = v; });
     });
 
-    const yTicks = Array.from({ length: 5 }, (_, i) => Math.round(niceMax * i / 4));
+    const yTicks: number[] = rawMax < 10
+      ? Array.from({ length: 5 }, (_, i) => Number((niceMax * i / 4).toFixed(2)))
+      : Array.from({ length: 5 }, (_, i) => Math.round(niceMax * i / 4));
 
     const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!ref.current) return;
