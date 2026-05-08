@@ -94,6 +94,7 @@ export interface MonthlyData {
   costScope1?: number;
   costScope2?: number;
   total: number;
+  rcn?: number; // production quantity (MT RCN) for intensity calculations
 }
 
 export interface TargetProgress {

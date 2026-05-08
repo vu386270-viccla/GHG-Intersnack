@@ -184,9 +184,18 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     prevByScope[e.scope] = (prevByScope[e.scope] || 0) + Number(e.emissions_tco2e);
   }
 
+  // ── Group production data by factory and month (RCN input) ──
+  const prodByFactoryMonth: Record<string, Record<number, number>> = {};
+  for (const p of prodRows) {
+    if (p.category !== 'rcn_input') continue; // Only RCN input for intensity denominator
+    if (!prodByFactoryMonth[p.factory_id]) prodByFactoryMonth[p.factory_id] = {};
+    prodByFactoryMonth[p.factory_id][p.month] = (prodByFactoryMonth[p.factory_id][p.month] || 0) + Number(p.quantity);
+  }
+
   // ── Factory Summaries ──
   const factorySummaries: FactorySummary[] = factories.map(factory => {
     const fEmissions = emissions.filter(e => e.factory_id === factory.id);
+    const fProdByMonth = prodByFactoryMonth[factory.id] || {};
 
     const monthlyTrend: MonthlyData[] = Array.from({ length: 12 }, (_, i) => {
       const monthData = fEmissions.filter(e => e.month === i + 1);
@@ -195,18 +204,19 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
       const s3 = monthData.filter(e => e.scope === 'scope_3').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
       const c1 = monthData.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
       const c2 = monthData.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
+      const rcn = fProdByMonth[i + 1] || 0; // RCN for this month
       return {
         month: i + 1, label: MONTHS_VI[i],
         scope1: Math.round(s1), scope2: Math.round(s2), scope3: Math.round(s3), total: Math.round(s1 + s2 + s3),
-        costScope1: Math.round(c1), costScope2: Math.round(c2)
+        costScope1: Math.round(c1), costScope2: Math.round(c2),
+        rcn // add monthly RCN
       };
     });
 
-    const scope1 = fEmissions.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
-    const scope2 = fEmissions.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
-    const scope3 = fEmissions.filter(e => e.scope === 'scope_3').reduce((s, e) => s + Number(e.emissions_tco2e), 0);
-    const scope1Cost = fEmissions.filter(e => e.scope === 'scope_1').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
-    const scope2Cost = fEmissions.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.cost_usd || 0), 0);
+    const scope1 = fEmissions.reduce((s, e) => e.scope === 'scope_1' ? s + Number(e.emissions_tco2e) : s, 0);
+    const scope2 = fEmissions.reduce((s, e) => e.scope === 'scope_2' ? s + Number(e.emissions_tco2e) : s, 0);
+    const scope3 = fEmissions.reduce((s, e) => e.scope === 'scope_3' ? s + Number(e.emissions_tco2e) : s, 0);
+    const totalRCN = Object.values(fProdByMonth).reduce((sum, qty) => sum + qty, 0);
 
     return {
       factory,
@@ -218,6 +228,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
       scope1Cost: Math.round(scope1Cost),
       scope2Cost: Math.round(scope2Cost),
       monthlyTrend,
+      totalRCN: Math.round(totalRCN),
     };
   }).sort((a, b) => b.totalEmissions - a.totalEmissions);
 
@@ -297,7 +308,12 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     const s1 = factorySummaries.reduce((sum, f) => sum + f.monthlyTrend[i].scope1, 0);
     const s2 = factorySummaries.reduce((sum, f) => sum + f.monthlyTrend[i].scope2, 0);
     const s3 = factorySummaries.reduce((sum, f) => sum + f.monthlyTrend[i].scope3, 0);
-    return { month: i + 1, label: MONTHS_VI[i], scope1: s1, scope2: s2, scope3: s3, total: s1 + s2 + s3 };
+    const rcn = factorySummaries.reduce((sum, f) => sum + (f.monthlyTrend[i].rcn || 0), 0);
+    return {
+      month: i + 1, label: MONTHS_VI[i],
+      scope1: Math.round(s1), scope2: Math.round(s2), scope3: Math.round(s3), total: Math.round(s1 + s2 + s3),
+      rcn // add rcn to monthly totals
+    };
   });
 
   // ── Scope 1 Monthly by Category ──

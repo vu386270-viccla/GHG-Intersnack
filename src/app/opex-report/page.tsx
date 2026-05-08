@@ -1825,6 +1825,40 @@ export default function OpexReportPage() {
               downloadName={`Scope1_Emissions_${selectedFac}.png`}
               compact
             />
+            {/* Data period indicator */}
+            <div style={{
+              marginTop: '8px',
+              padding: '6px 10px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              fontSize: '11px',
+              color: '#64748b',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span>
+                <strong>Data period:</strong> {(() => {
+                  const ytd26 = get(2026).scope1;
+                  return ytd26 > 0
+                    ? 'Q1 2026 YTD (Jan–Mar) — Monthly data available for Apr–Dec'
+                    : 'Annual data only (2021–2025)';
+                })()}
+              </span>
+              {get(2026).scope1 > 0 && (
+                <span style={{
+                  background: '#C8281A',
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  fontSize: '10px',
+                  fontWeight: 700
+                }}>
+                  YTD VIEW
+                </span>
+              )}
+            </div>
           </QuestionCard>
 
           {/* ── Scope 1 Fuel Breakdown Chart ── */}
@@ -2090,10 +2124,45 @@ export default function OpexReportPage() {
             <WaterfallChart
               bars={s2Bars}
               callouts={s2Callouts}
-              title={`<strong>Scope 2 (grid electricity)</strong> – CO₂ eq ${showIntensity ? 'intensity tCO₂e/RCN' : 'absol. emission in ton'}`}
+              title={`<strong>Scope 2 (grid electricity)</strong> – ${showIntensity ? 'CO₂ Intensity (tCO₂e/tRCN)' : 'Absolute emissions (tCO₂e)'}`}
               legendOrder={['baseline', 'actual', 'estimated', 'target']}
               downloadName={`Scope2_Emissions_${selectedFac}.png`}
+              compact
             />
+            {/* Data period indicator */}
+            <div style={{
+              marginTop: '8px',
+              padding: '6px 10px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              fontSize: '11px',
+              color: '#64748b',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span>
+                <strong>Data period:</strong> {(() => {
+                  const ytd26 = get(2026).scope2;
+                  return ytd26 > 0
+                    ? 'Q1 2026 YTD (Jan–Mar) — Monthly data available for Apr–Dec'
+                    : 'Annual data only (2021–2025)';
+                })()}
+              </span>
+              {get(2026).scope2 > 0 && (
+                <span style={{
+                  background: '#E8960E',
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  fontSize: '10px',
+                  fontWeight: 700
+                }}>
+                  YTD VIEW
+                </span>
+              )}
+            </div>
           </QuestionCard>
 
           <div id="s2-why" style={{ scrollMarginTop: 132 }} />

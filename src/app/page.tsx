@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { getDashboardData, formatTCO2e, formatNumber, getScope3SummaryData } from '@/lib/data-service';
 import { MONTHS_VI } from '@/lib/types';
 import type { ScopeSummary, FactorySummary, MonthlyData, TargetProgress } from '@/lib/types';
@@ -31,6 +32,8 @@ function factoryAbbr(name: string, country: string): string {
 
 export default function DashboardPage() {
   const { t, lang } = useI18n();
+  const searchParams = useSearchParams();
+  const showIntensity = searchParams.get('intensity') === '1';  // intensity mode toggle
   const [loading, setLoading] = useState(true);
   const [grandTotal, setGrandTotal] = useState(0);
   const [scopeSummaries, setScopeSummaries] = useState<ScopeSummary[]>([]);
@@ -110,17 +113,36 @@ export default function DashboardPage() {
   const sbtiS3 = targets.find(t => t.scope.includes('3'));
 
   // chart data: transform monthly to ds chart format
-  const chartData = filteredMonthly.map(m => ({
-    label: MONTHS_VI[m.month - 1]?.replace('Th0', 'T').replace('Th', 'T') ?? `M${m.month}`,
-    s1: m.scope1,
-    s2: m.scope2,
-    s3: m.scope3,
-  }));
+  // In intensity mode, show tCO2e/MT RCN; otherwise absolute emissions
+  const chartData = filteredMonthly.map(m => {
+    const rcn = m.rcn || 0;
+    const s1Int = rcn > 0 ? m.scope1 / rcn : 0;
+    const s2Int = rcn > 0 ? m.scope2 / rcn : 0;
+    const s3Int = rcn > 0 ? m.scope3 / rcn : 0;
+    return {
+      label: MONTHS_VI[m.month - 1]?.replace('Th0', 'T').replace('Th', 'T') ?? `M${m.month}`,
+      s1: showIntensity ? Math.round(s1Int * 1000) / 1000 : m.scope1,
+      s2: showIntensity ? Math.round(s2Int * 1000) / 1000 : m.scope2,
+      s3: showIntensity ? Math.round(s3Int * 1000) / 1000 : m.scope3,
+    };
+  });
 
-  const sparkAll = filteredMonthly.map(m => m.scope1 + m.scope2);
-  const sparkS1 = filteredMonthly.map(m => m.scope1);
-  const sparkS2 = filteredMonthly.map(m => m.scope2);
-  const sparkS3 = filteredMonthly.map(m => m.scope3);
+  const sparkAll = filteredMonthly.map(m => {
+    const rcn = m.rcn || 0;
+    return showIntensity && rcn > 0 ? (m.scope1 + m.scope2) / rcn : m.scope1 + m.scope2;
+  });
+  const sparkS1 = filteredMonthly.map(m => {
+    const rcn = m.rcn || 0;
+    return showIntensity && rcn > 0 ? m.scope1 / rcn : m.scope1;
+  });
+  const sparkS2 = filteredMonthly.map(m => {
+    const rcn = m.rcn || 0;
+    return showIntensity && rcn > 0 ? m.scope2 / rcn : m.scope2;
+  });
+  const sparkS3 = filteredMonthly.map(m => {
+    const rcn = m.rcn || 0;
+    return showIntensity && rcn > 0 ? m.scope3 / rcn : m.scope3;
+  });
 
   // Donut
   const donutSegments = [
@@ -252,18 +274,78 @@ export default function DashboardPage() {
           <div className="ds-card__hd">
             <div>
               <div className="ds-card__title">{t('monthly_emissions')} {selectedYear}</div>
-              <div className="ds-card__sub">{t('factory_comparison')} · tCO₂e</div>
+              <div className="ds-card__sub">
+                {t('factory_comparison')} · {showIntensity ? 'tCO₂e/MT RCN' : 'tCO₂e'}
+                {rcnData && rcnData.totalRCN > 0 && (
+                  <span style={{ marginLeft: 8, fontSize: 11, color: '#6366f1', fontWeight: 600 }}>
+                    {showIntensity ? `Intensity: ${rcnData.intensity.toFixed(3)}` : `Total RCN: ${formatNumber(rcnData.totalRCN)} MT`}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="ds-legend">
-              {[['Scope 1', '#E32314'], ['Scope 2', '#F5A623']].map(([lbl, col]) => (
-                <div key={lbl} className="ds-legend__item">
-                  <span className="ds-legend__swatch" style={{ background: col }} />
-                  {lbl}
-                </div>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="ds-legend">
+                {[['Scope 1', '#E32314'], ['Scope 2', '#F5A623']].map(([lbl, col]) => (
+                  <div key={lbl} className="ds-legend__item">
+                    <span className="ds-legend__swatch" style={{ background: col }} />
+                    {lbl}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  if (showIntensity) {
+                    url.searchParams.delete('intensity');
+                  } else {
+                    url.searchParams.set('intensity', '1');
+                  }
+                  window.history.pushState({}, '', url);
+                  window.location.reload();
+                }}
+                style={{
+                  padding: '4px 10px',
+                  border: '1px solid var(--ds-border)',
+                  borderRadius: 6,
+                  background: 'var(--ds-bg-inset)',
+                  color: 'var(--ds-ink-muted)',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+                title={showIntensity ? 'Switch to absolute emissions' : 'Switch to intensity (tCO₂e/MT RCN)'}
+              >
+                {showIntensity ? '📊 Abs' : '📈 Intensity'}
+              </button>
             </div>
           </div>
-          <StackedAreaChart data={chartData} height={260} />
+          <StackedAreaChart data={chartData} height={showIntensity ? 320 : 260} />
+          {/* Data period indicator */}
+          <div style={{
+            padding: '6px 12px',
+            background: '#f8fafc',
+            borderTop: '1px solid var(--ds-border)',
+            fontSize: 11,
+            color: '#64748b',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>
+              <strong>Data:</strong> {(() => {
+                const lastMonthWithData = [...monthlyTotals].reverse().find(m => (m.scope1 > 0 || m.scope2 > 0 || m.scope3 > 0));
+                if (lastMonthWithData) {
+                  return `Jan–${MONTHS_VI[lastMonthWithData.month - 1]} ${selectedYear}`;
+                }
+                return `Full year ${selectedYear}`;
+              })()}
+            </span>
+            {rcnData && rcnData.totalRCN > 0 && (
+              <span style={{ color: '#6366f1', fontWeight: 600 }}>
+                {showIntensity ? 'Intensity mode (tCO₂e/MT RCN)' : `Total RCN: ${formatNumber(rcnData.totalRCN)} MT`}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="ds-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
