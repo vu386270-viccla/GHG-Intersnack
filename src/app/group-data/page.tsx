@@ -115,6 +115,7 @@ export default function GroupDataPage() {
             <div key={`${row.site}-${row.category}`} className="gd-office-card">
               <div className="gd-office-title">{row.category}</div>
               <div className="gd-office-value">{fmt(row.groupActivity)} <span>{row.groupUnit}</span></div>
+              {row.inferredRaw && <div className="gd-muted">Inferred raw: {fmt(row.inferredRaw)} {row.inferredRawUnit}</div>}
               <div className="gd-muted">{row.note}</div>
             </div>
           ))}
@@ -125,7 +126,7 @@ export default function GroupDataPage() {
         <div className="gd-section-head">
           <div>
             <h2>Bang so sanh chi tiet</h2>
-            <p>EF hieu dung trong app = tCO2e x 1000 / activity neu co; group EF la factor nam trong workbook, hoac factor quy doi kWh.</p>
+            <p>Inferred raw = group kWh / kWh factor. EF hieu dung trong app = tCO2e x 1000 / activity neu co.</p>
           </div>
         </div>
         <div className="gd-table-wrap">
@@ -138,6 +139,7 @@ export default function GroupDataPage() {
                 <th>App tCO2e</th>
                 <th>App EF</th>
                 <th>Group raw</th>
+                <th>Inferred raw</th>
                 <th>kWh factor</th>
                 <th>Group tCO2e</th>
                 <th>Group EF</th>
@@ -154,6 +156,7 @@ export default function GroupDataPage() {
                   <td>{fmt(row.appTco2e)}</td>
                   <td>{row.appEf ? `${fmt(row.appEf, 4)} ${row.appEfUnit || ''}` : '-'}</td>
                   <td>{fmt(row.groupActivity)} {row.groupUnit || ''}</td>
+                  <td>{row.inferredRaw ? `${fmt(row.inferredRaw)} ${row.inferredRawUnit || ''}` : '-'}</td>
                   <td>{row.groupKwhFactor ? `${fmt(row.groupKwhFactor, 4)} ${row.groupKwhFactorUnit || ''}` : '-'}</td>
                   <td>{fmt(row.groupTco2e)}</td>
                   <td>{row.groupEf !== undefined ? `${fmt(row.groupEf, 4)} ${row.groupEfUnit || ''}` : '-'}</td>
