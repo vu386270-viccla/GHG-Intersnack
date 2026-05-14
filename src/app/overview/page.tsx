@@ -73,6 +73,7 @@ export default function OverviewPage() {
   const [factoryB, setFactoryB] = useState('');
   const [slideScale, setSlideScale] = useState(1);
   const [showAnnualized, setShowAnnualized] = useState(false);
+  const [selectedKpiMonth, setSelectedKpiMonth] = useState(0);
 
   // Measure window size to scale 1536x864 native slide layout
   useEffect(() => {
@@ -213,9 +214,20 @@ export default function OverviewPage() {
     const curRows = allEmissions.filter(e => e.year === selectedYear && e.factory_id === factoryA);
     // Previous year: use ALL 12 months to get full-year benchmark
     const prevRows = allEmissions.filter(e => e.year === prevYear && e.factory_id === factoryA);
+    const efCur = GRID_EMISSION_FACTORS.find(ef => ef.country === fac.country && ef.year === selectedYear)?.factor || COMMON_EF;
+    const efPrev = GRID_EMISSION_FACTORS.find(ef => ef.country === fac.country && ef.year === prevYear)?.factor || COMMON_EF;
 
-    // Months with current-year data (for avg/month calc)
-    const activeMonths = Array.from(new Set(curRows.map(e => e.month)));
+    const getS12TotalForMonth = (month: number) => {
+      const rows = curRows.filter(e => e.month === month);
+      const s1 = rows.filter(e => e.scope === 'scope_1').reduce((sum, e) => sum + Number(e.emissions_tco2e), 0);
+      const kWh = rows.filter(e => e.scope === 'scope_2').reduce((sum, e) => sum + Number(e.activity_data), 0);
+      const s2 = useCommonEF ? kWh * COMMON_EF / 1000 : kWh * efCur / 1000;
+      return s1 + s2;
+    };
+
+    // Months with non-zero current-year S1+S2 data (for avg/month calc)
+    const activeMonths = Array.from(new Set(curRows.map(e => e.month)))
+      .filter(month => getS12TotalForMonth(month) > 0);
     const nMonthsCur = activeMonths.length || 1;
     // Previous year distinct months (for avg/month)
     const prevMonths = Array.from(new Set(prevRows.map(e => e.month)));
@@ -239,8 +251,6 @@ export default function OverviewPage() {
     // Scope 2
     const kWhCur = curRows.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
     const kWhPrev = prevRows.filter(e => e.scope === 'scope_2').reduce((s, e) => s + Number(e.activity_data), 0);
-    const efCur = GRID_EMISSION_FACTORS.find(ef => ef.country === fac.country && ef.year === selectedYear)?.factor || COMMON_EF;
-    const efPrev = GRID_EMISSION_FACTORS.find(ef => ef.country === fac.country && ef.year === prevYear)?.factor || COMMON_EF;
     const s2EmCur = useCommonEF ? kWhCur * COMMON_EF / 1000 : kWhCur * efCur / 1000;
     const s2EmPrev = useCommonEF ? kWhPrev * COMMON_EF / 1000 : kWhPrev * efPrev / 1000;
 
@@ -269,7 +279,7 @@ export default function OverviewPage() {
     const avgS2Prev = s2EmPrev / nMonthsPrev;
 
     // ── Latest month values (for vs-KPI comparison) ──
-    const latestMonth = Math.max(...activeMonths, 0);
+    const latestMonth = selectedKpiMonth > 0 ? selectedKpiMonth : Math.max(...activeMonths, 0);
     const latestMonthRows = curRows.filter(e => e.month === latestMonth);
     const latestS1Em: Record<string, number> = {};
     const latestS1Act: Record<string, number> = {};
@@ -345,7 +355,7 @@ export default function OverviewPage() {
       avgTotalPrevMnthsCur,
       pct,
     };
-  }, [viewMode, factoryA, allEmissions, prodData, selectedYear, useCommonEF, factories]);
+  }, [viewMode, factoryA, allEmissions, prodData, selectedYear, useCommonEF, factories, selectedKpiMonth]);
 
   const data = useMemo(() => {
     const allS1 = calcS1(emissions);
@@ -441,6 +451,16 @@ export default function OverviewPage() {
             {[2021, 2022, 2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
+
+        {viewMode === 'SINGLE' && (
+          <div className="ov-select-group">
+            <span className="ov-select-label">Month KPI</span>
+            <select value={selectedKpiMonth} onChange={e => setSelectedKpiMonth(Number(e.target.value))} className="overview-select">
+              <option value={0}>Auto latest</option>
+              {MONTHS_VI.map((month, idx) => <option key={month} value={idx + 1}>M{idx + 1} - {month}</option>)}
+            </select>
+          </div>
+        )}
 
         <button className={`overview-ef-toggle ${useCommonEF ? 'common' : 'individual'}`} onClick={() => setUseCommonEF(!useCommonEF)}>
           {useCommonEF ? `EF ${COMMON_EF}` : 'Country EF'}
@@ -1008,7 +1028,7 @@ export default function OverviewPage() {
                 return { mn, s1, s2, total, rcn, int: rcn > 0 ? (total / rcn) : 0, hasData: total > 0 };
               });
 
-              const latestMn = Math.max(...monthRows.filter(m => m.hasData).map(m => m.mn), 0);
+              const latestMn = si.latestMonth;
 
               // Gauge Metrics
               const actGauge = si.latestTotal;
