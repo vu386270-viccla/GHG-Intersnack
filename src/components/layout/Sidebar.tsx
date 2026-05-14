@@ -38,6 +38,7 @@ export default function Sidebar() {
         { href: '/initiatives', label: t('nav_initiatives'), icon: '🌱' },
         { href: '/predictor', label: t('nav_predictor'), icon: '🔮' },
         { href: '/opex-report', label: t('nav_opex_report'), icon: '📋' },
+        { href: '/group-data', label: 'Group Data', icon: '🧾' },
         { href: '/financials', label: t('nav_financials'), icon: '💰' },
         { href: '/reference', label: t('nav_reference'), icon: '📚' },
       ],
