@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 function getSupabaseServer() {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    return createClient(url, key);
+    return supabase;
 }
 
 const STATIC_CONTEXT = `You are an expert GHG (Greenhouse Gas) emissions analyst assistant for Intersnack Group's factory dashboard. You have access to the full live dataset below.
@@ -17,10 +15,10 @@ Factories:
 
 Definitions:
 - All emission values in tCO2e (tonnes CO2 equivalent)
-- Scope 1: Direct combustion — wood logs (firewood boiler), diesel, LPG
-- Scope 2: Grid electricity (HCMC grid EF = 0.8928 kgCO2e/kWh for 2022-2023)
+- Scope 1: Direct combustion â€” wood logs (firewood boiler), diesel, LPG
+- Scope 2: Grid electricity using MIS activity data and current 4-decimal country/year grid EF (Vietnam 2023-2026 = 0.6592; India 2025-2026 = 0.7100 kgCO2e/kWh)
 - Scope 3: Cat.1 purchased cashew goods (FLAG), Cat.3 fuel upstream (WTT), Cat.4 upstream transport
-- SBTi commitment ID: 40003759 — target: -50% Scope 1+2 by 2032 vs 2021 baseline, -30% Scope 3 by 2032
+- SBTi commitment ID: 40003759 â€” target: -50% Scope 1+2 by 2032 vs 2021 baseline, -30% Scope 3 by 2032
 - CO2 Intensity = tCO2e / tonne RCN (raw cashew nut processed)
 - RCN = Raw Cashew Nut (input), CK = Cashew Kernel (output)
 - FLAG emissions = Supply chain (Scope 3 Cat.1 cashew farming)
@@ -28,7 +26,7 @@ Definitions:
 
 LANGUAGE RULE: Respond in ONLY the same language as the user. Vietnamese question = Vietnamese answer only. English question = English answer only. Never mix languages.`;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function pct(a: number, b: number) {
     if (b === 0) return 'N/A';
@@ -66,7 +64,7 @@ async function paginatedFetch(
     return all;
 }
 
-// ── Main snapshot builder ─────────────────────────────────────────────────────
+// â”€â”€ Main snapshot builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function fetchEmissionSnapshot(): Promise<string> {
     try {
@@ -75,42 +73,42 @@ async function fetchEmissionSnapshot(): Promise<string> {
         const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const HIST_YEARS = [2021, 2022, 2023, 2024, 2025, currentYear];
 
-        // ── 1. Factories ──
+        // â”€â”€ 1. Factories â”€â”€
         const { data: factories } = await supabase.from('factories').select('id,name,country');
         const factoryMap: Record<string, string> = {};
         for (const f of factories || []) factoryMap[f.id] = f.name;
 
-        // ── 2. All emissions (current year) with pagination ──
+        // â”€â”€ 2. All emissions (current year) with pagination â”€â”€
         const currEmissions = await paginatedFetch(supabase, 'emissions_data',
             'factory_id,scope,category,month,emissions_tco2e,cost_usd,activity_data',
             { year: currentYear });
 
-        // ── 3. Historical emissions (2021 - prev year) ──
+        // â”€â”€ 3. Historical emissions (2021 - prev year) â”€â”€
         const histEmissions = await paginatedFetch(supabase, 'emissions_data',
             'factory_id,year,scope,emissions_tco2e,cost_usd',
             { year: HIST_YEARS.filter(y => y !== currentYear) });
 
-        // ── 4. Production data (current year) ──
+        // â”€â”€ 4. Production data (current year) â”€â”€
         const prodData = await paginatedFetch(supabase, 'production_data',
             'factory_id,month,category,quantity',
             { year: currentYear });
 
-        // ── 5. Historical production ──
+        // â”€â”€ 5. Historical production â”€â”€
         const histProd = await paginatedFetch(supabase, 'production_data',
             'factory_id,year,category,quantity',
             { year: HIST_YEARS.filter(y => y !== currentYear) });
 
-        // ════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // BUILD CONTEXT STRING
-        // ════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         const maxMonths = new Date().getMonth(); // 0-11 (months elapsed)
         const monthLabel = maxMonths > 0
             ? `Jan-${MONTH_NAMES[maxMonths - 1]} ${currentYear} (YTD ${maxMonths}M)`
             : `${currentYear} (YTD)`;
 
-        let ctx = `\n\n${'='.repeat(60)}\nLIVE DASHBOARD DATA — ${monthLabel}\n${'='.repeat(60)}\n`;
+        let ctx = `\n\n${'='.repeat(60)}\nLIVE DASHBOARD DATA â€” ${monthLabel}\n${'='.repeat(60)}\n`;
 
-        // ── Section A: Current year per-factory summary ──
+        // â”€â”€ Section A: Current year per-factory summary â”€â”€
         const byFac: Record<string, { s1: number; s2: number; s3: number; cost: number }> = {};
         for (const e of currEmissions) {
             const id = e.factory_id as string;
@@ -143,7 +141,7 @@ async function fetchEmissionSnapshot(): Promise<string> {
             ctx += ` | Cost: $${r.cost.toLocaleString()} USD\n`;
         });
 
-        // ── Section B: Scope 1 breakdown by fuel type (current year, all factories) ──
+        // â”€â”€ Section B: Scope 1 breakdown by fuel type (current year, all factories) â”€â”€
         const s1ByCat: Record<string, number> = {};
         const s1ByCatByFac: Record<string, Record<string, number>> = {};
         for (const e of currEmissions) {
@@ -169,7 +167,7 @@ async function fetchEmissionSnapshot(): Promise<string> {
             if (parts) ctx += `    ${r.name}: ${parts}\n`;
         });
 
-        // ── Section C: Monthly trend (current year) ──
+        // â”€â”€ Section C: Monthly trend (current year) â”€â”€
         const monthlyTotal: number[] = Array(12).fill(0);
         const monthlyS1: number[] = Array(12).fill(0);
         const monthlyS2: number[] = Array(12).fill(0);
@@ -188,7 +186,7 @@ async function fetchEmissionSnapshot(): Promise<string> {
             ctx += ` (S1: ${Math.round(monthlyS1[m]).toLocaleString()}, S2: ${Math.round(monthlyS2[m]).toLocaleString()})\n`;
         }
 
-        // ── Section D: Production & Intensity (current year) ──
+        // â”€â”€ Section D: Production & Intensity (current year) â”€â”€
         const rcnByFac: Record<string, number> = {};
         const ckByFac: Record<string, number> = {};
         for (const p of prodData) {
@@ -212,7 +210,7 @@ async function fetchEmissionSnapshot(): Promise<string> {
             ctx += `  ${r.name}: ${int} tCO2e/t-RCN | RCN: ${Math.round(rcn).toLocaleString()}t | CK: ${Math.round(ck).toLocaleString()}t\n`;
         });
 
-        // ── Section E: Historical annual summary (2021-prev year) ──
+        // â”€â”€ Section E: Historical annual summary (2021-prev year) â”€â”€
         const histByYear: Record<number, { s1: number; s2: number; s3: number; cost: number }> = {};
         for (const e of histEmissions) {
             const y = Number(e.year);
@@ -247,7 +245,7 @@ async function fetchEmissionSnapshot(): Promise<string> {
         // Add current YTD row
         ctx += `${currentYear} (YTD) | ${grandTotal.toLocaleString().padEnd(14)} | $${grandCost.toLocaleString().padEnd(10)} | ${overallIntensity.toFixed(4).padEnd(21)} | ${yoyStr(grandTotal, prevTotal)} (vs prev full year)\n`;
 
-        // ── Section F: SBTi Progress ──
+        // â”€â”€ Section F: SBTi Progress â”€â”€
         const base2021 = histByYear[2021];
         if (base2021) {
             const base12 = base2021.s1 + base2021.s2;
@@ -270,7 +268,7 @@ async function fetchEmissionSnapshot(): Promise<string> {
     }
 }
 
-// ── API Route ─────────────────────────────────────────────────────────────────
+// â”€â”€ API Route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function POST(req: NextRequest) {
     try {
@@ -317,7 +315,7 @@ export async function POST(req: NextRequest) {
 
         const data = await response.json();
 
-        // Gemma 4 thinking model — filter out thought parts
+        // Gemma 4 thinking model â€” filter out thought parts
         const parts: { text?: string; thought?: boolean }[] =
             data.candidates?.[0]?.content?.parts ?? [];
 
@@ -334,3 +332,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+

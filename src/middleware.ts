@@ -1,30 +1,23 @@
-import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes — không cần auth
-  if (pathname.startsWith('/login')) return NextResponse.next();
+  if (pathname.startsWith('/login')) {
+    return NextResponse.next();
+  }
 
-  const response = NextResponse.next();
+  const tokenCookie = request.cookies.get('local-auth-token');
+  let user: any = null;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
+  if (tokenCookie?.value) {
+    try {
+      user = JSON.parse(decodeURIComponent(tokenCookie.value));
+    } catch (e) {
+      // ignore
     }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
+  }
 
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url));
@@ -36,7 +29,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

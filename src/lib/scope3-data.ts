@@ -74,10 +74,12 @@ export const ROUTE_KM: Record<string, { vessel: number; road: number }> = {
 export function nearestStaticYear(year: number): number | null {
   const available = Object.keys(ORIGIN_MIX).map(Number).sort((a, b) => a - b);
   if (available.includes(year)) return year;
+  const earliest = available[0];
+  const latest = available[available.length - 1];
+  if (year < earliest || year > latest) return null;
   // Find the closest available year ≤ requested year
   const past = available.filter(y => y <= year);
   if (past.length > 0) return past[past.length - 1];
-  // Year is before the earliest data — no fabrication allowed
   return null;
 }
 

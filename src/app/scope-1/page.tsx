@@ -243,15 +243,41 @@ export default function Scope1Page() {
       {/* ── View: Overview ── */}
       {viewMode === 'overview' && (
         <div>
-          {/* Trend */}
+          {/* Year overview */}
+          <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                Scope 1 yearly overview — chọn năm rồi xem chi tiết theo tháng
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                Active: <strong style={{ color: scopeColor }}>{selectedYear}</strong>
+              </div>
+            </div>
+            {annualRows.length > 0 ? (
+              <BarChart
+                data={annualRows.map(r => ({
+                  label: String(r.year),
+                  values: [{ key: 's1', value: r.s1, color: r.year === selectedYear ? scopeColor : '#FCA5A5' }],
+                }))}
+                legendLabels={{ s1: 'Scope 1 (tCO₂e)' }}
+                height={210}
+                showValueLabels
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-muted)', fontSize: 13 }}>{t('loading_multi_year')}</div>
+            )}
+          </div>
+
+          {/* Month by factory */}
           <div className="card" style={{ padding: '12px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
-              {useUSD ? t('s1_cost_trend_by_factory') : t('s1_trend_by_factory')} — {selectedYear}
+              Monthly breakdown by factory — {selectedYear}
             </div>
             <TrendLine
               data={overviewTrendData}
               height={200}
               showArea={false}
+              showValueLabels
               legendLabels={Object.fromEntries(factories.map((fs, fi) => [
                 fs.factory.code,
                 `${fs.factory.country === 'India' ? '🇮🇳' : '🇻🇳'} ${fs.factory.name}`,

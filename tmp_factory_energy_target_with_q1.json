@@ -1,0 +1,218 @@
+[
+  {
+    "factory": "Long An",
+    "period": "Q1 2026",
+    "year": 2026,
+    "basis": "Q1 Actual (Jan-Mar)",
+    "gas_kwh": 0,
+    "other_energy_kwh": 1416590,
+    "total_kwh": 1416590
+  },
+  {
+    "factory": "Long An",
+    "period": "2025",
+    "year": 2025,
+    "basis": "Actual",
+    "gas_kwh": 0,
+    "other_energy_kwh": 7684158,
+    "total_kwh": 7684158
+  },
+  {
+    "factory": "Long An",
+    "period": "2026",
+    "year": 2026,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 7363985,
+    "total_kwh": 7363985
+  },
+  {
+    "factory": "Long An",
+    "period": "2027",
+    "year": 2027,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 7043812,
+    "total_kwh": 7043812
+  },
+  {
+    "factory": "Long An",
+    "period": "2028",
+    "year": 2028,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 6723638,
+    "total_kwh": 6723638
+  },
+  {
+    "factory": "Long An",
+    "period": "2029",
+    "year": 2029,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 6403465,
+    "total_kwh": 6403465
+  },
+  {
+    "factory": "Phan Thiet",
+    "period": "Q1 2026",
+    "year": 2026,
+    "basis": "Q1 Actual (Jan-Mar)",
+    "gas_kwh": 0,
+    "other_energy_kwh": 1188986,
+    "total_kwh": 1188986
+  },
+  {
+    "factory": "Phan Thiet",
+    "period": "2025",
+    "year": 2025,
+    "basis": "Actual",
+    "gas_kwh": 0,
+    "other_energy_kwh": 6426562,
+    "total_kwh": 6426562
+  },
+  {
+    "factory": "Phan Thiet",
+    "period": "2026",
+    "year": 2026,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 6158788,
+    "total_kwh": 6158788
+  },
+  {
+    "factory": "Phan Thiet",
+    "period": "2027",
+    "year": 2027,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 5891015,
+    "total_kwh": 5891015
+  },
+  {
+    "factory": "Phan Thiet",
+    "period": "2028",
+    "year": 2028,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 5623241,
+    "total_kwh": 5623241
+  },
+  {
+    "factory": "Phan Thiet",
+    "period": "2029",
+    "year": 2029,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 5355468,
+    "total_kwh": 5355468
+  },
+  {
+    "factory": "Tay Ninh",
+    "period": "Q1 2026",
+    "year": 2026,
+    "basis": "Q1 Actual (Jan-Mar)",
+    "gas_kwh": 0,
+    "other_energy_kwh": 1666961,
+    "total_kwh": 1666961
+  },
+  {
+    "factory": "Tay Ninh",
+    "period": "2025",
+    "year": 2025,
+    "basis": "Actual",
+    "gas_kwh": 0,
+    "other_energy_kwh": 9388521,
+    "total_kwh": 9388521
+  },
+  {
+    "factory": "Tay Ninh",
+    "period": "2026",
+    "year": 2026,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 8851263,
+    "total_kwh": 8851263
+  },
+  {
+    "factory": "Tay Ninh",
+    "period": "2027",
+    "year": 2027,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 8314006,
+    "total_kwh": 8314006
+  },
+  {
+    "factory": "Tay Ninh",
+    "period": "2028",
+    "year": 2028,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 7776748,
+    "total_kwh": 7776748
+  },
+  {
+    "factory": "Tay Ninh",
+    "period": "2029",
+    "year": 2029,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 0,
+    "other_energy_kwh": 7239490,
+    "total_kwh": 7239490
+  },
+  {
+    "factory": "Tuticorin",
+    "period": "Q1 2026",
+    "year": 2026,
+    "basis": "Q1 Actual (Jan-Mar)",
+    "gas_kwh": 5674,
+    "other_energy_kwh": 1533852,
+    "total_kwh": 1539527
+  },
+  {
+    "factory": "Tuticorin",
+    "period": "2025",
+    "year": 2025,
+    "basis": "Actual",
+    "gas_kwh": 32295,
+    "other_energy_kwh": 5947559,
+    "total_kwh": 5979854
+  },
+  {
+    "factory": "Tuticorin",
+    "period": "2026",
+    "year": 2026,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 29287,
+    "other_energy_kwh": 5393607,
+    "total_kwh": 5422894
+  },
+  {
+    "factory": "Tuticorin",
+    "period": "2027",
+    "year": 2027,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 26279,
+    "other_energy_kwh": 4839656,
+    "total_kwh": 4865935
+  },
+  {
+    "factory": "Tuticorin",
+    "period": "2028",
+    "year": 2028,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 23271,
+    "other_energy_kwh": 4285705,
+    "total_kwh": 4308976
+  },
+  {
+    "factory": "Tuticorin",
+    "period": "2029",
+    "year": 2029,
+    "basis": "Opex Target Pathway",
+    "gas_kwh": 20263,
+    "other_energy_kwh": 3731753,
+    "total_kwh": 3752016
+  }
+]

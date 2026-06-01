@@ -38,7 +38,7 @@ export default function Sidebar() {
         { href: '/initiatives', label: t('nav_initiatives'), icon: '🌱' },
         { href: '/predictor', label: t('nav_predictor'), icon: '🔮' },
         { href: '/opex-report', label: t('nav_opex_report'), icon: '📋' },
-        { href: '/group-data', label: 'Group Data', icon: '🧾' },
+        { href: '/group-definitions', label: 'Group Definitions', icon: '??' },
         { href: '/financials', label: t('nav_financials'), icon: '💰' },
         { href: '/reference', label: t('nav_reference'), icon: '📚' },
       ],
@@ -49,7 +49,27 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border-light)' }}>
+      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border-light)', position: 'relative' }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 10,
+            padding: '4px 7px',
+            borderRadius: 999,
+            background: '#C8281A',
+            color: '#fff',
+            fontSize: 9.5,
+            fontWeight: 1000,
+            letterSpacing: 0.6,
+            lineHeight: 1,
+            textTransform: 'uppercase',
+            boxShadow: '0 4px 10px rgba(200,40,26,0.35)',
+            zIndex: 2,
+          }}
+        >
+          Internal Use Only
+        </div>
         {/* Intersnack logo */}
         <img
           src="/intersnack-logo.jpg"

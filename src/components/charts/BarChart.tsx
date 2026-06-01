@@ -9,6 +9,7 @@ interface BarChartProps {
   showLegend?: boolean;
   legendLabels?: Record<string, string>;
   animated?: boolean;
+  showValueLabels?: boolean;
 }
 
 export default function BarChart({
@@ -17,6 +18,7 @@ export default function BarChart({
   showLegend = true,
   legendLabels = {},
   animated = true,
+  showValueLabels = false,
 }: BarChartProps) {
   if (!data.length) return null;
 
@@ -149,18 +151,34 @@ export default function BarChart({
         {/* X-labels rendered outside clipPath so they're always visible */}
         {data.map((group, gi) => {
           const gx = padding.left + gi * barGroupWidth + barPadding / 2;
+          const total = group.values.reduce((sum, v) => sum + v.value, 0);
+          const y = padding.top + chartH - (total / niceMax) * chartH - 6;
           return (
-            <text
-              key={`lbl-${gi}`}
-              x={gx + (barGroupWidth - barPadding) / 2}
-              y={height - 8}
-              textAnchor="middle"
-              fill="#666"
-              fontSize="11"
-              fontFamily="Inter, sans-serif"
-            >
-              {group.label}
-            </text>
+            <g key={`lbl-${gi}`}>
+              {showValueLabels && total > 0 && (
+                <text
+                  x={gx + (barGroupWidth - barPadding) / 2}
+                  y={Math.max(padding.top + 12, y)}
+                  textAnchor="middle"
+                  fill="#333"
+                  fontSize="10"
+                  fontWeight="700"
+                  fontFamily="Inter, sans-serif"
+                >
+                  {formatNumber(total)}
+                </text>
+              )}
+              <text
+                x={gx + (barGroupWidth - barPadding) / 2}
+                y={height - 8}
+                textAnchor="middle"
+                fill="#666"
+                fontSize="11"
+                fontFamily="Inter, sans-serif"
+              >
+                {group.label}
+              </text>
+            </g>
           );
         })}
       </svg>

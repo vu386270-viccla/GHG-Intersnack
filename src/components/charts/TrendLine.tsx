@@ -10,6 +10,7 @@ interface TrendLineProps {
   legendLabels?: Record<string, string>;
   showArea?: boolean;
   currency?: boolean;
+  showValueLabels?: boolean;
 }
 
 export default function TrendLine({
@@ -19,6 +20,7 @@ export default function TrendLine({
   legendLabels = {},
   showArea = true,
   currency = false,
+  showValueLabels = false,
 }: TrendLineProps) {
   if (!data.length) return null;
 
@@ -231,6 +233,24 @@ export default function TrendLine({
                           animationDelay: `${lineDelay + 1100}ms`,
                         }}
                       />
+                    )}
+                    {showValueLabels && d.values[ki].value > 0 && (isLast || data.length <= 6 || i % 2 === 0) && (
+                      <text
+                        x={getX(i)}
+                        y={Math.max(12, getY(d.values[ki].value) - 9 - (ki % 2) * 10)}
+                        textAnchor="middle"
+                        fill={color}
+                        fontSize="10"
+                        fontWeight="700"
+                        fontFamily="Inter, sans-serif"
+                        style={{
+                          opacity: 0,
+                          animation: `tlFadeIn 0.3s ease forwards`,
+                          animationDelay: `${lineDelay + 780 + i * 40}ms`,
+                        }}
+                      >
+                        {currency ? '$' + formatNumber(d.values[ki].value) : formatNumber(d.values[ki].value)}
+                      </text>
                     )}
                   </g>
                 );

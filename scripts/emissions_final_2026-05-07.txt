@@ -1,0 +1,14 @@
+=== CO2 EMISSIONS RECONCILIATION (Final, grams) ===
+
+--- By Plant and Year (gCO2e) ---
+
+--- Annual Totals (All Plants) ---
+2021: No data
+2022: No data
+2023: No data
+2024: No data
+2025: No data
+
+--- Year-over-Year Change (absolute g and %) ---
+
+--- Component Breakdown (Annual, gCO2e) ---

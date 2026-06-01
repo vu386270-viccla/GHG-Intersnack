@@ -716,7 +716,34 @@ export default function OverviewPage() {
 
                           return (
                             <g key={d.year}>
-                              {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
+                              {isFuture && (
+                                <>
+                                  <rect
+                                    x={bx}
+                                    y={targetY}
+                                    width={BAR_W}
+                                    height={Math.max(BAR_T + BAR_H - targetY, 1)}
+                                    rx={2}
+                                    fill="#8CB92D"
+                                    fillOpacity={0.08}
+                                    stroke="#8CB92D"
+                                    strokeOpacity={0.4}
+                                    strokeWidth={0.8}
+                                    strokeDasharray="3,2"
+                                  />
+                                  <text
+                                    x={x}
+                                    y={targetY - 3}
+                                    textAnchor="middle"
+                                    fontSize="7"
+                                    fontWeight="600"
+                                    fill="#8CB92D"
+                                    opacity={0.65}
+                                  >
+                                    {fmt(d.target)}
+                                  </text>
+                                </>
+                              )}
                               {!isFuture && d.actual > 0 && (() => {
                                 const layers = [
                                   { val: d.s1, col: viewMode !== 'SINGLE' ? '#E32314' : (onTrack ? '#27AE60' : '#E32314') },
@@ -868,7 +895,34 @@ export default function OverviewPage() {
 
                           return (
                             <g key={d.year}>
-                              {isFuture && <rect x={bx} y={targetY} width={BAR_W} height={Math.max(BAR_T + BAR_H - targetY, 1)} rx={2} fill="none" stroke="#8CB92D" strokeWidth={0.7} strokeDasharray="3,2" opacity={0.3} />}
+                              {isFuture && (
+                                <>
+                                  <rect
+                                    x={bx}
+                                    y={targetY}
+                                    width={BAR_W}
+                                    height={Math.max(BAR_T + BAR_H - targetY, 1)}
+                                    rx={2}
+                                    fill="#8CB92D"
+                                    fillOpacity={0.08}
+                                    stroke="#8CB92D"
+                                    strokeOpacity={0.4}
+                                    strokeWidth={0.8}
+                                    strokeDasharray="3,2"
+                                  />
+                                  <text
+                                    x={x}
+                                    y={targetY - 3}
+                                    textAnchor="middle"
+                                    fontSize="7"
+                                    fontWeight="600"
+                                    fill="#8CB92D"
+                                    opacity={0.65}
+                                  >
+                                    {fmt(d.target)}
+                                  </text>
+                                </>
+                              )}
                               {!isFuture && d.actual > 0 && (
                                 <rect x={bx} y={BAR_T + BAR_H - (maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0)} width={BAR_W} height={Math.max((maxVal > 0 ? (d.actual / maxVal) * BAR_H : 0), 0.5)} rx={2}
                                   fill="#8CB92D" opacity={isCurrent ? 0.88 : 0.45}

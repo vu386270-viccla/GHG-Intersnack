@@ -154,7 +154,7 @@ export async function getDashboardData(year: number = new Date().getFullYear()) 
     diesel_VN: 0.00055, diesel_IN: 0.0006058,
     lpg: 0.2, // Both VN & IN
     elec_VN: 0.00008, elec_IN: 0.00012,
-    wood_VN: 0.05214, wood_IN: 0.24,
+    wood_VN: 0.00005214, wood_IN: 0.00024,
   };
   const facCtry: Record<string, string> = Object.fromEntries(
     factories.map(f => [f.id, (f as any).country || ''])
@@ -657,11 +657,11 @@ const WTT = {
   lpg: 0.2,       // tCO2e/ton 
   elec_VN: 0.00008,   // tCO2e/kWh
   elec_IN: 0.00012,   // tCO2e/kWh
-  wood_VN: 0.05214,   // tCO2e/ton
-  wood_IN: 0.24,      // tCO2e/ton
+  wood_VN: 0.00005214,   // tCO2e/kg wood logs
+  wood_IN: 0.00024,      // tCO2e/kg wood logs
 };
 
-export async function getScope3SummaryData(): Promise<{
+export async function getScope3SummaryData(options?: { maxMonthByYear?: Partial<Record<number, number>> }): Promise<{
   rows: Scope3YearRow[];
   baseline2021: Scope3YearRow | undefined;
 }> {
@@ -681,7 +681,7 @@ export async function getScope3SummaryData(): Promise<{
   while (true) {
     const { data, error } = await supabase
       .from('emissions_data')
-      .select('factory_id,year,category,activity_data')
+      .select('factory_id,year,month,category,activity_data')
       .in('year', YEARS)
       .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
       .range(offset, offset + PAGE - 1);
@@ -697,6 +697,8 @@ export async function getScope3SummaryData(): Promise<{
   for (const yr of YEARS) wttByYear[yr] = 0;
   for (const r of fuelRows || []) {
     const yr = r.year;
+    const maxMonth = options?.maxMonthByYear?.[yr];
+    if (maxMonth !== undefined && Number(r.month) > maxMonth) continue;
     const isIndia = factoryCountry[r.factory_id] === 'India';
     const act = Number(r.activity_data) || 0;
     let wtt = 0;
@@ -732,6 +734,7 @@ export async function getScope3SummaryData(): Promise<{
 
 const OPEX_YEARS = [2021, 2022, 2023, 2024, 2025, 2026] as const;
 const OPEX_INTENSITY_YEARS = [2021, 2022, 2023, 2024, 2025] as const;
+const OPEX_2026_ACTUAL_MONTH_CUTOFF = 3;
 const OPEX_FACTORY_ORDER = ['Long An', 'Phan Thiết', 'Tây Ninh', 'Tuticorin'] as const;
 
 // Opex FC 2026 procurement plan mix (full year = YTD + MTC, 78,500 MT).
@@ -749,8 +752,12 @@ const OPEX_FC_2026_ORIGIN_MIX: Record<string, number> = {
 };
 
 type OpexFactory = Pick<Factory, 'id' | 'name' | 'country'>;
-type OpexEmissionRow = Pick<RawEmission, 'factory_id' | 'year' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'>;
-type OpexProductionRow = Pick<RawProduction, 'factory_id' | 'year' | 'quantity'>;
+type OpexEmissionRow = Pick<RawEmission, 'factory_id' | 'year' | 'month' | 'scope' | 'category' | 'activity_data' | 'emissions_tco2e'>;
+type OpexProductionRow = Pick<RawProduction, 'factory_id' | 'year' | 'month' | 'quantity'>;
+
+function isWithinOpexReportingPeriod(row: { year: number; month?: number | null }): boolean {
+  return row.year !== 2026 || Number(row.month || 0) <= OPEX_2026_ACTUAL_MONTH_CUTOFF;
+}
 
 export interface OpexAnnualData {
   year: number;
@@ -890,7 +897,7 @@ async function fetchOpexEmissions(): Promise<OpexEmissionRow[]> {
   while (true) {
     const { data, error } = await supabase
       .from('emissions_data')
-      .select('factory_id,year,scope,category,activity_data,emissions_tco2e')
+      .select('factory_id,year,month,scope,category,activity_data,emissions_tco2e')
       .in('year', [...OPEX_YEARS])
       .in('scope', ['scope_1', 'scope_2'])
       .range(offset, offset + PAGE - 1);
@@ -900,7 +907,7 @@ async function fetchOpexEmissions(): Promise<OpexEmissionRow[]> {
     }
     if (!data || data.length === 0) break;
 
-    rows = rows.concat(data as OpexEmissionRow[]);
+    rows = rows.concat((data as OpexEmissionRow[]).filter(isWithinOpexReportingPeriod));
     if (data.length < PAGE) break;
     offset += PAGE;
   }
@@ -916,7 +923,7 @@ async function fetchOpexProduction(): Promise<OpexProductionRow[]> {
   while (true) {
     const { data, error } = await supabase
       .from('production_data')
-      .select('factory_id,year,quantity')
+      .select('factory_id,year,month,quantity')
       .eq('category', 'rcn_input')
       .in('year', [...OPEX_YEARS])
       .range(offset, offset + PAGE - 1);
@@ -926,7 +933,7 @@ async function fetchOpexProduction(): Promise<OpexProductionRow[]> {
     }
     if (!data || data.length === 0) break;
 
-    rows = rows.concat(data as OpexProductionRow[]);
+    rows = rows.concat((data as OpexProductionRow[]).filter(isWithinOpexReportingPeriod));
     if (data.length < PAGE) break;
     offset += PAGE;
   }
@@ -950,7 +957,7 @@ async function fetchScope3Regional(): Promise<OpexScope3RegionalRow[]> {
   const WTT_C = {
     diesel_VN: 0.00055, diesel_IN: 0.0006058,
     lpg: 0.2, elec_VN: 0.00008, elec_IN: 0.00012,
-    wood_VN: 0.05214, wood_IN: 0.24,
+    wood_VN: 0.00005214, wood_IN: 0.00024,
   };
 
   let wttRows: any[] = [];
@@ -959,12 +966,12 @@ async function fetchScope3Regional(): Promise<OpexScope3RegionalRow[]> {
   while (true) {
     const { data, error } = await supabase
       .from('emissions_data')
-      .select('factory_id,year,category,activity_data')
+      .select('factory_id,year,month,category,activity_data')
       .in('year', [...OPEX_YEARS])
       .in('category', ['diesel', 'lpg', 'electricity', 'wood_logs'])
       .range(off, off + PAGE - 1);
     if (error || !data || data.length === 0) break;
-    wttRows = wttRows.concat(data);
+    wttRows = wttRows.concat((data as Array<{ year: number; month?: number | null }>).filter(isWithinOpexReportingPeriod));
     if (data.length < PAGE) break;
     off += PAGE;
   }
@@ -1036,7 +1043,7 @@ export async function getOpexReportData(): Promise<OpexReportData> {
     fetchOpexFactories(),
     fetchOpexEmissions(),
     fetchOpexProduction(),
-    getScope3SummaryData(),
+    getScope3SummaryData({ maxMonthByYear: { 2026: OPEX_2026_ACTUAL_MONTH_CUTOFF } }),
     fetchScope3Regional(),
   ]);
 
